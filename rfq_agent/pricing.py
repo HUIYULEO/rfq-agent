@@ -304,6 +304,28 @@ class PriceTableQuoteProvider:
         return results
 
 
+class SQLiteQuoteProvider(PriceTableQuoteProvider):
+    """Same engine, but the reference rows come from SQLite instead of the workbooks.
+
+    Rows are fetched per RFQ (one indexed query on the part numbers in play), so a
+    request never scans 505 rows and never re-parses an .xlsx.
+    """
+
+    def __init__(self, connection, snapshot_id: str, policy: dict | None = None):
+        super().__init__([], [], policy=policy, snapshot_id=snapshot_id)
+        self.connection = connection
+        self.last_query = {"price_rows": 0, "cost_rows": 0, "parts": 0}
+
+    def evaluate(self, rfq, resolutions: dict | None = None) -> list[dict]:
+        from .db import rows_for
+
+        parts = {line.part_number for line in rfq.lines if line.part_number}
+        self.price_rows, self.cost_rows = rows_for(self.connection, self.snapshot_id, parts)
+        self.last_query = {"price_rows": len(self.price_rows), "cost_rows": len(self.cost_rows),
+                           "parts": len(parts)}
+        return super().evaluate(rfq, resolutions)
+
+
 # ---------- review items ----------
 
 def build_review_items(rfq, results: list[dict], resolutions: dict | None = None) -> list[dict]:

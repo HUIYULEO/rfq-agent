@@ -17,7 +17,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 from uuid import uuid4
 
-from .cases import discover, load_case, provider_for, save_upload, template_for
+from .cases import data_status, discover, load_case, provider_for, save_upload, template_for
 from .genesis import GenesisError, Session, load_config, missing_keys
 from .pricing import summarize
 from .service import RFQService
@@ -90,7 +90,40 @@ def _view(task: dict) -> dict:
         "review_items": task["review_items"],
         "decision_log": task["decision_log"],
         "artifacts": task["artifacts"],
+        "fields": _field_health(task["results"], rfq),
+        "data": _data_trace(),
     }
+
+
+def _field_health(results: list[dict], rfq: dict) -> dict:
+    """What the parse actually captured — completeness is a product fact, not a guess."""
+    total = len(results)
+    filled = lambda key: sum(1 for row in results if row.get(key) not in (None, "", []))
+    return {
+        "lines": total,
+        "part_number": filled("part_number"),
+        "quantity": filled("quantity"),
+        "unit": filled("unit"),
+        "condition": sum(1 for row in results if row.get("condition_accept")),
+        "with_evidence": sum(1 for row in results if (row.get("evidence") or {}).get("row")),
+        "eml": (rfq.get("source_files") or [""])[0],
+    }
+
+
+def _data_trace() -> dict:
+    """Which snapshot answered this request, and how much of it was touched."""
+    provider = getattr(_service(), "provider", None)
+    snapshot = getattr(provider, "snapshot_id", "") or ""
+    query = getattr(provider, "last_query", {}) or {}
+    try:
+        status = data_status(ROOT)
+    except (ValueError, OSError):
+        status = {}
+    return {"snapshot_id": snapshot or status.get("snapshot_id", ""),
+            "price_rows": status.get("price_rows"), "cost_rows": status.get("cost_rows"),
+            "hit_price": query.get("price_rows"), "hit_cost": query.get("cost_rows"),
+            "parts": query.get("parts"), "sources": status.get("sources", []),
+            "db": status.get("db", ""), "ingested_at": status.get("created_at", "")}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -137,8 +170,10 @@ class Handler(BaseHTTPRequestHandler):
             return
         if parsed.path == "/api/cases":
             self._json([{"key": case.key, "label": case.label,
-                         "container": case.container,
-                         "file": case.path.name} for case in discover(ROOT)])
+                         "container": case.container, "file": case.path.name,
+                         "customer": case.customer, "subject": case.subject,
+                         "received": case.received, "lines": case.lines}
+                        for case in discover(ROOT)])
             return
         if parsed.path == "/api/agent":
             config = load_config(ROOT)
@@ -148,6 +183,9 @@ class Handler(BaseHTTPRequestHandler):
                         "base_url": config.get("GENESIS_BASE_URL") or "",
                         "hint": "" if not missing else
                                 "在 rfq-agent/.env 里填 GENESIS_MODEL 和 GENESIS_ACCESS_TOKEN 后重启"})
+            return
+        if parsed.path == "/api/data":
+            self._json(data_status(ROOT))
             return
         if parsed.path == "/api/task":
             task_id = (parse_qs(parsed.query).get("id") or [""])[0]
@@ -225,7 +263,7 @@ class Handler(BaseHTTPRequestHandler):
                             "trace": [], "state": None}, 200)
                 return
             try:
-                result = session.send(body.get("message") or "")
+                result = session.send(body.get("message") or "", task_id=body.get("task_id"))
             except GenesisError as exc:
                 self._json({"session_id": session_id, "enabled": True,
                             "error": str(exc), "trace": []}, 502)
@@ -259,6 +297,17 @@ class Handler(BaseHTTPRequestHandler):
         self._error("not found", 404)
 
 
+def _warm() -> None:
+    """Pay one-off costs (openpyxl import, first ETL, inbox scan) at boot, not on a click."""
+    try:
+        import openpyxl  # noqa: F401
+        import docx  # noqa: F401
+        _service()
+        discover(ROOT, refresh=True)
+    except Exception:  # a cold cache must never stop the server from starting
+        pass
+
+
 def main():
     parser = argparse.ArgumentParser(description="RFQ agent demo server")
     parser.add_argument("--port", type=int, default=8765)
@@ -266,6 +315,7 @@ def main():
     args = parser.parse_args()
     server = ThreadingHTTPServer((args.host, args.port), Handler)
     print(f"RFQ agent on http://{args.host}:{args.port}/  (Ctrl+C to stop)", flush=True)
+    threading.Thread(target=_warm, daemon=True).start()
     try:
         server.serve_forever()
     except KeyboardInterrupt:

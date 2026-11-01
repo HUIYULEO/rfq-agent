@@ -220,14 +220,22 @@ class Session:
         self.client = Genesis(config) if not missing_keys(config) else None
         self.messages: list[dict] = [{"role": "system", "content": SYSTEM_PROMPT}]
         self.task_id: str | None = None
+        self.context_task: str | None = None
 
     @property
     def enabled(self) -> bool:
         return self.client is not None
 
-    def send(self, text: str) -> dict:
+    def send(self, text: str, task_id: str | None = None) -> dict:
         if self.client is None:
             raise GenesisError("模型未配置：缺少 " + "、".join(missing_keys(self.config)))
+        if task_id and task_id != self.context_task:
+            # the UI already opened this task; tell the model instead of making it guess
+            self.context_task = task_id
+            self.task_id = self.task_id or task_id
+            self.messages.append({"role": "system", "content":
+                                  f"界面上当前打开的任务是 {task_id}。涉及它的问题直接用这个 task_id，"
+                                  f"不要重新 start_case；需要最新状态就调 get_task。"})
         self.messages.append({"role": "user", "content": text})
         trace = []
         for _ in range(MAX_ROUNDS):
