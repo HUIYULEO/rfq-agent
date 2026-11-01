@@ -21,12 +21,24 @@ class Line:
     part_number: str
     quantity: str
     unit: str
-    evidence: dict[str, Any]
+    evidence: dict[str, Any] = field(default_factory=dict)
+    description: str = ""
+    # A customer may accept several conditions ("NE, NS, OH"); matching is set
+    # membership, never equality against a single code.
+    condition_accept: list[str] = field(default_factory=list)
+    priority: str | None = None
+    due_at: str | None = None
+    inquiry_no: str | None = None
+    allow_alternates: bool = False
+    trace_required: str | None = None
+    ships_from: str | None = None
 
     def __post_init__(self):
         if not self.line_id or not self.part_number or not self.unit:
             raise ValueError("line_id, part_number and unit are required")
         positive_decimal(self.quantity)
+        if isinstance(self.condition_accept, str):
+            self.condition_accept = [self.condition_accept]
 
 
 @dataclass
@@ -35,6 +47,10 @@ class RFQ:
     evaluation_date: str
     lines: list[Line]
     source_files: list[str]
+    customer: str = ""
+    subject: str = ""
+    currency: str = "CNY"
+    urgency: str = "NORMAL"
 
     @classmethod
     def from_dict(cls, data: dict):
@@ -42,7 +58,12 @@ class RFQ:
         lines = [Line(**line) for line in data["lines"]]
         if not lines or len({x.line_id for x in lines}) != len(lines):
             raise ValueError("RFQ must have nonempty, unique line IDs")
-        return cls(data["rfq_number"], data["evaluation_date"], lines, data["source_files"])
+        known = {f for f in cls.__dataclass_fields__ if f != "lines"}
+        extra = {k: v for k, v in data.items() if k in known}
+        return cls(lines=lines, **extra)
+
+    def to_dict(self):
+        return asdict(self)
 
 
 @dataclass
@@ -55,6 +76,13 @@ class Task:
     results: list[dict] = field(default_factory=list)
     artifacts: list[str] = field(default_factory=list)
     events: list[dict] = field(default_factory=list)
+    # Gate bookkeeping: what was asked, what the human (or the preset) answered.
+    autonomy: str = "interactive"
+    policy_version: str = ""
+    data_snapshot_id: str = ""
+    review_items: list[dict] = field(default_factory=list)
+    resolutions: dict[str, str] = field(default_factory=dict)
+    decision_log: list[dict] = field(default_factory=list)
 
     def to_dict(self):
         return asdict(self)
@@ -62,3 +90,7 @@ class Task:
     @classmethod
     def from_dict(cls, data):
         return cls(**{**data, "rfq": RFQ.from_dict(data["rfq"])})
+
+    def open_reviews(self) -> list[dict]:
+        return [item for item in self.review_items
+                if item.get("severity") == "blocking" and item.get("status") == "open"]

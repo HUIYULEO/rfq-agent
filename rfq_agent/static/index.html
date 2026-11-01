@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RFQ 报价智能体 · 本地演示</title>
+<style>
+  :root{
+    --bg:#f5f6f8; --panel:#fff; --line:#e2e5ea; --ink:#171b21; --muted:#6b7280;
+    --green:#0f7b4f; --green-bg:#e6f5ee; --amber:#8a5a00; --amber-bg:#fdf3e0;
+    --grey:#4b5563; --grey-bg:#eceef1; --accent:#1f4fd8; --accent-bg:#e9eefc;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font:14px/1.55 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
+  .wrap{max-width:1320px;margin:0 auto;padding:22px 20px 56px}
+  h1{font-size:18px;margin:0 0 3px}
+  .sub{color:var(--muted);font-size:12.5px}
+  .cases{display:grid;grid-template-columns:repeat(auto-fit,minmax(178px,1fr));gap:9px;margin:16px 0 10px}
+  .case{text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:9px;
+        padding:10px 12px;cursor:pointer}
+  .case:hover{border-color:#c3cad4}
+  .case.on{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-bg)}
+  .case .k{font-weight:650;font-size:13px}
+  .case .m{color:var(--muted);font-size:11.5px;margin-top:2px;line-height:1.4}
+  .drop{border:1px dashed #c8ced7;border-radius:9px;padding:10px 12px;color:var(--muted);
+        font-size:12.5px;background:#fbfcfd;cursor:pointer}
+  .drop.hot{border-color:var(--accent);background:var(--accent-bg)}
+  .bar{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin:12px 0 16px}
+  button{font:inherit;border:1px solid var(--line);background:var(--panel);color:var(--ink);
+         padding:6px 12px;border-radius:7px;cursor:pointer}
+  button:hover:not(:disabled){border-color:#c3cad4}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .pill{display:inline-block;padding:2px 9px;border-radius:99px;font-size:11.5px;font-weight:600}
+  .pill.awaiting_review{background:var(--amber-bg);color:var(--amber)}
+  .pill.draft_ready,.pill.exported{background:var(--green-bg);color:var(--green)}
+  .pill.received,.pill.analyzed{background:var(--grey-bg);color:var(--grey)}
+  .grid{display:grid;grid-template-columns:minmax(320px,420px) 1fr;gap:16px;align-items:start}
+  @media (max-width:920px){.grid{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 15px}
+  .panel h2{font-size:13px;margin:0 0 10px;color:var(--muted);font-weight:600;letter-spacing:.02em}
+  .msgs{display:flex;flex-direction:column;gap:9px;max-height:620px;overflow:auto}
+  .msg{border-radius:9px;padding:9px 11px;font-size:13px;background:var(--grey-bg)}
+  .msg.me{background:var(--accent-bg)}
+  .msg.ask{background:#fffdf7;border:1px solid #f0dcb4}
+  .msg .who{font-size:11px;color:var(--muted);margin-bottom:3px}
+  .msg .opts{display:flex;gap:7px;flex-wrap:wrap;margin-top:8px}
+  .msg details{margin-top:7px;font-size:12px;color:var(--muted)}
+  .msg details ul{margin:5px 0 0;padding-left:16px}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:9px;margin-bottom:13px}
+  .card{border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+  .card .k{color:var(--muted);font-size:11.5px}
+  .card .v{font-size:19px;font-weight:650;font-family:var(--mono);margin-top:1px}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th,td{text-align:left;padding:6px 7px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:11.5px;background:#fafbfc;position:sticky;top:0}
+  td.num{font-family:var(--mono);text-align:right;white-space:nowrap}
+  tr.priced td:first-child{border-left:3px solid var(--green)}
+  tr.blocked td:first-child{border-left:3px solid #d08a1a}
+  .tag{font-size:10.5px;padding:1px 6px;border-radius:99px;white-space:nowrap}
+  .tag.ok{background:var(--green-bg);color:var(--green)}
+  .tag.no{background:var(--amber-bg);color:var(--amber)}
+  .why{color:var(--muted);font-size:11px}
+  .scroll{max-height:560px;overflow:auto;border:1px solid var(--line);border-radius:8px}
+  .empty{color:var(--muted);text-align:center;padding:22px}
+  code{font-family:var(--mono);font-size:11.5px;background:#f1f3f5;padding:1px 5px;border-radius:4px}
+  .log{font-family:var(--mono);font-size:11px;color:var(--muted);max-height:96px;overflow:auto}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>RFQ 报价智能体 <span class="pill" id="status">待接收</span></h1>
+  <div class="sub" id="meta">材料即输入：六封官方询价邮件，正文表格或附件（xlsx / pdf）都走同一条链路。</div>
+
+  <div class="cases" id="cases"></div>
+  <div class="drop" id="drop">或把一封 <code>.eml</code> 拖到这里（模拟客户来件，走同一解析与定价流程）</div>
+  <input type="file" id="file" accept=".eml" style="display:none" />
+
+  <div class="bar">
+    <button id="btnAuto" disabled>按默认策略一键出草案</button>
+    <button class="primary" id="btnExport" disabled>导出 DOCX</button>
+    <span class="sub" id="hint"></span>
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2>过程</h2>
+      <div class="msgs" id="msgs"><div class="empty">选一个案例，我会说明收到了什么、解析出什么、卡在哪。</div></div>
+    </div>
+    <div class="panel">
+      <h2>结构化结果</h2>
+      <div class="cards" id="cards"></div>
+      <div class="scroll">
+        <table>
+          <thead><tr>
+            <th>#</th><th>料号</th><th>描述</th><th class="num">数量</th><th>单位</th>
+            <th>状态</th><th class="num">单价</th><th class="num">金额</th>
+            <th>依据</th><th>说明 / 来源行</th>
+          </tr></thead>
+          <tbody id="rows"><tr><td colspan="10" class="empty">还没有数据。</td></tr></tbody>
+        </table>
+      </div>
+      <div id="logWrap" style="display:none;margin-top:11px">
+        <h2>决策日志</h2>
+        <div class="log" id="log"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let S = null;
+let CASEKEY = null;
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const money = (v) => v === null || v === undefined || v === "" ? "—"
+  : Number(v).toLocaleString("zh-CN", {minimumFractionDigits:2, maximumFractionDigits:2});
+
+async function api(path, body) {
+  const res = await fetch(path, body ? {
+    method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)
+  } : {});
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || res.statusText);
+  return data;
+}
+
+async function loadCases() {
+  const cases = await api("/api/cases");
+  $("cases").innerHTML = cases.map(c => `
+    <button class="case" data-case="${esc(c.key)}">
+      <div class="k">案例 ${esc(c.key)} · ${esc(c.label)}</div>
+      <div class="m">${esc(c.container)}<br>${esc(c.file)}</div>
+    </button>`).join("");
+}
+
+document.addEventListener("click", async (ev) => {
+  const tile = ev.target.closest("button[data-case]");
+  if (tile) { await runCase(tile.dataset.case); return; }
+  const opt = ev.target.closest("button[data-item]");
+  if (opt && S) {
+    busy(true, "正在应用你的决定并重算…");
+    try {
+      S = await api("/api/resolve", {task_id: S.task_id, revision: S.revision,
+                                     item_id: opt.dataset.item, option_id: opt.dataset.opt});
+      render();
+    } catch (e) { say("系统", "出错了：" + e.message); }
+    finally { busy(false); }
+  }
+});
+
+async function runCase(key) {
+  CASEKEY = key;
+  for (const el of document.querySelectorAll(".case")) el.classList.toggle("on", el.dataset.case === key);
+  busy(true, "正在解析并定价…");
+  $("msgs").innerHTML = "";
+  say("我", `收到案例 ${key} 的邮件，开始解析。`);
+  try { S = await api("/api/run", {case: key, autonomy: "interactive"}); render(); }
+  catch (e) { say("系统", "出错了：" + e.message); }
+  finally { busy(false); }
+}
+
+$("drop").onclick = () => $("file").click();
+$("file").onchange = () => $("file").files[0] && upload($("file").files[0]);
+["dragover","dragenter"].forEach(t => $("drop").addEventListener(t, e => {e.preventDefault(); $("drop").classList.add("hot");}));
+["dragleave","drop"].forEach(t => $("drop").addEventListener(t, e => {e.preventDefault(); $("drop").classList.remove("hot");}));
+$("drop").addEventListener("drop", e => { const f = e.dataTransfer.files[0]; if (f) upload(f); });
+
+async function upload(file) {
+  busy(true, "正在接收你上传的邮件…");
+  $("msgs").innerHTML = "";
+  say("我", `收到你上传的《${file.name}》，按同一流程解析。`);
+  try {
+    const res = await fetch(`/api/upload?name=${encodeURIComponent(file.name)}`,
+                            {method: "POST", body: await file.arrayBuffer()});
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || res.statusText);
+    S = data; await loadCases(); render();
+  } catch (e) { say("系统", "出错了：" + e.message); }
+  finally { busy(false); }
+}
+
+function say(who, text) {
+  const div = document.createElement("div");
+  div.className = "msg" + (who === "我" ? " me" : "");
+  div.innerHTML = `<div class="who">${esc(who)}</div>${esc(text)}`;
+  $("msgs").appendChild(div);
+  $("msgs").scrollTop = $("msgs").scrollHeight;
+  return div;
+}
+
+function render() {
+  const s = S, m = s.summary;
+  $("status").textContent = s.status;
+  $("status").className = "pill " + s.status;
+  $("meta").textContent = `${s.customer} · ${s.rfq_number} · 评估日 ${s.evaluation_date} · 载体 ${s.container} · 策略 ${s.policy_version} · 快照 ${s.data_snapshot_id}`;
+
+  $("cards").innerHTML = [
+    ["行数", m.lines], ["已报价", m.priced_lines], ["转人工", m.review_lines],
+    ["内部库存", m.internal_lines], ["供应商", m.supplier_lines],
+    ["已报价小计（元）", money(m.priced_subtotal_cny)]
+  ].map(([k, v]) => `<div class="card"><div class="k">${k}</div><div class="v">${esc(v)}</div></div>`).join("");
+
+  // 过程：只陈述真实发生的事
+  say("我", `解析完成：${s.source_files.join("、")}，载体是 ${s.container}，共 ${m.lines} 行，客户 ${s.customer}，询价号 ${s.rfq_number}。`);
+  if (m.priced_lines) {
+    say("我", `有 ${m.priced_lines} 行在参考表里找到可用依据，合计 ¥${money(m.priced_subtotal_cny)}。其中内部库存 ${m.internal_lines} 行、供应商报价 ${m.supplier_lines} 行。`);
+  }
+  if (m.review_lines) {
+    say("我", m.priced_lines
+      ? `还有 ${m.review_lines} 行没有满足全部硬约束的候选。这些行我不给价格，需要你决定怎么处理。`
+      : `${m.lines} 行在价格资源表和内部成本表里都没有可用依据，这批我没有报价依据。`);
+  }
+
+  const open = s.review_items.filter(i => i.status === "open");
+  const done = s.review_items.filter(i => i.status !== "open");
+  done.forEach(i => say("你", `${i.id} → ${i.answer}`));
+
+  open.forEach(item => {
+    const div = document.createElement("div");
+    div.className = "msg ask";
+    div.innerHTML = `<div class="who">待你决定 · ${esc(item.id)}${item.target.part_number ? " · " + esc(item.target.part_number) : ""}</div>
+      ${esc(item.question)}
+      <div class="opts">${item.options.map(o =>
+        `<button data-item="${esc(item.id)}" data-opt="${esc(o.id)}">${esc(o.label)}</button>`).join("")}</div>
+      ${item.evidence.length ? `<details><summary>看依据（${item.evidence.length} 条）</summary><ul>${
+        item.evidence.map(e => `<li><code>${esc(e.rule)}</code> ${esc(e.detail)}</li>`).join("")}</ul></details>` : ""}`;
+    $("msgs").appendChild(div);
+  });
+  $("msgs").scrollTop = $("msgs").scrollHeight;
+
+  $("rows").innerHTML = s.results.map(r => {
+    const ok = r.eligibility === "priced";
+    const basis = [r.condition ? `件状 ${r.condition}` : "", r.certificate ? `证书 ${r.certificate}` : "",
+                   r.lead_time_days ? `交期 ${r.lead_time_days} 天` : "", r.supplier_name || "",
+                   r.ships_from ? `发货 ${r.ships_from}` : "", r.valid_until ? `有效至 ${r.valid_until}` : ""]
+                  .filter(Boolean).join(" · ");
+    const note = ok
+      ? [r.quantity_basis === "moq" ? `按 MOQ ${r.quantity} 计价` : "", ...(r.warnings || [])].filter(Boolean).join("；")
+      : (r.reasons || []).join("；");
+    return `<tr class="${ok ? "priced" : "blocked"}">
+      <td class="num">${r.line_number}</td>
+      <td><code>${esc(r.part_number)}</code></td>
+      <td>${esc(r.description)}</td>
+      <td class="num">${esc(r.quantity)}</td>
+      <td>${esc(r.unit)}</td>
+      <td><span class="tag ${ok ? "ok" : "no"}">${ok ? "已报价" : "待确认"}</span></td>
+      <td class="num">${money(r.unit_price)}</td>
+      <td class="num">${money(r.line_total)}</td>
+      <td class="why">${esc(ok ? basis : "")}</td>
+      <td class="why">${esc(note)}<br><span style="opacity:.7">${esc(r.provenance)}</span></td>
+    </tr>`;
+  }).join("");
+
+  $("logWrap").style.display = s.decision_log.length ? "" : "none";
+  $("log").innerHTML = s.decision_log.map(e =>
+    `${esc(e.at || "")}  ${esc(e.actor)}  ${esc(e.item_id)} → ${esc(e.option)}`).join("<br>");
+
+  $("btnAuto").disabled = false;
+  $("btnExport").disabled = false;
+  $("hint").textContent = s.status === "awaiting_review"
+    ? `还有 ${open.length} 项待你决定；也可以先导出草案看排版。`
+    : "已按默认策略解算完毕，可导出草案。";
+}
+
+function busy(on, text) {
+  $("btnAuto").disabled = on || !S;
+  $("btnExport").disabled = on || !S;
+  $("hint").textContent = text || "";
+}
+
+$("btnAuto").onclick = async () => {
+  if (!S) return;
+  busy(true, "正在按默认策略解算…");
+  say("我", "按默认策略新开一次任务（阻塞项一律转人工、不超额采购、不放宽件状），这不影响你已经做的决定。");
+  try {
+    S = await api("/api/run", {case: currentCase(), autonomy: "auto_draft"});
+    render();
+  } catch (e) { say("系统", "出错了：" + e.message); }
+  finally { busy(false); }
+};
+
+$("btnExport").onclick = async () => {
+  if (!S) return;
+  busy(true, "正在生成 DOCX…");
+  try {
+    S = await api("/api/export", {task_id: S.task_id, revision: S.revision});
+    render();
+    say("我", "已生成草案：第一页按官方模板填好，第二页是报价依据与条件摘要。");
+    const docx = S.artifacts.find(a => a.endsWith(".docx"));
+    if (docx) {
+      const name = docx.split(/[\\/]/).pop();
+      window.location = `/api/download?id=${S.task_id}&file=${encodeURIComponent(name)}`;
+    }
+  } catch (e) { say("系统", "出错了：" + e.message); }
+  finally { busy(false); }
+};
+
+function currentCase() { return CASEKEY || "B"; }
+
+loadCases();
+</script>
+</body>
+</html>

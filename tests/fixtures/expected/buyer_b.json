@@ -1,0 +1,2774 @@
+{
+  "_meta": {
+    "case": "客户B",
+    "description": "邮件 + 询价报价清单.xlsx（Excel 附件型，第一组开发集）",
+    "rfq_number": "RFQ-20260902",
+    "evaluation_date": "2026-09-07",
+    "policy": {
+      "policy_version": "demo-2026-11-01",
+      "cost_basis_priority": [
+        "standard_cost",
+        "supplier_price"
+      ],
+      "internal_inventory_priority": true,
+      "default_markup_rate": "0.20",
+      "rounding_mode": "HALF_UP",
+      "price_decimals": 2,
+      "cost_rounding": {
+        "round_cost_to_decimals": 2,
+        "apply_markup_after_rounding": true
+      },
+      "quote_validity_days": 30,
+      "allow_split_fulfillment": false,
+      "allow_moq_overbuy": false,
+      "allow_expired_price_reference": false,
+      "fx_to_cny": {
+        "CNY": "1",
+        "EUR": "7.75",
+        "USD": "7.1"
+      }
+    },
+    "data_snapshot": {
+      "price_table": "价格资源表_演示数据.xlsx",
+      "cost_table": "内部物料成本表_演示数据.xlsx",
+      "price_rows": 342,
+      "cost_rows": 163
+    },
+    "provenance": {
+      "generated_by": "tools/build_expected_buyer_b.py",
+      "generated_at": "2026-11-01",
+      "status": "machine_drafted_pending_human_verification",
+      "note": "黄金数据必须人工逐字段复核后才能作为验收基准；生成脚本不得自证正确。"
+    },
+    "open_policy_questions": [
+      "供应商“是否现货”只有是/否、没有可售数量：现按 warning 处理（不阻断报价建议）。若改为 blocking，则 14 行供应商报价全部转人工。"
+    ]
+  },
+  "rfq": {
+    "rfq_number": "RFQ-20260902",
+    "source_email": "1/航空询价（RFQ-20260902）.eml",
+    "sender": "客户B <rfq-b@customer.test>",
+    "subject": "航空询价（RFQ-20260902）",
+    "inquiry_date": "2026-09-07",
+    "evaluation_date": "2026-09-07",
+    "currency": "CNY",
+    "attachments": [
+      "询价报价清单.xlsx"
+    ],
+    "global_requirements": [],
+    "items": [
+      {
+        "line_number": 1,
+        "inquiry_no": "9000000001",
+        "part_number": "PN-0001",
+        "description": "WASHER 垫片",
+        "quantity": "8",
+        "unit_of_measure": "EA",
+        "priority": null,
+        "product_requirement": null,
+        "requested_mpn": "PN-0001",
+        "condition_required": "FN",
+        "manual_part_number": "PN-0001",
+        "product_scope": "一般备件",
+        "response_due_at": null,
+        "source": {
+          "file": "1/附件/询价报价清单.xlsx",
+          "sheet": "Sheet1",
+          "row": 2
+        },
+        "internal_candidates": [
+          {
+            "source_type": "internal",
+            "source_id": "STOCK-032",
+            "warehouse": "上海浦东库",
+            "condition": null,
+            "stock_on_hand": "0",
+            "available_quantity": "0",
+            "standard_cost": "13.29",
+            "average_cost": "13.4",
+            "last_purchase_price": "12.93",
+            "currency": "CNY",
+            "product_scope": "一般备件",
+            "preferred_supplier": "S007",
+            "cost_updated_at": "2026-09-17T00:00:00",
+            "eligibility": "rejected",
+            "rejection_reasons": [
+              {
+                "rule": "stock_insufficient",
+                "detail": "剩余可分配库存 0 < 需求 8"
+              },
+              {
+                "rule": "condition_mismatch",
+                "detail": "库存件状 (空) ≠ 需求 FN"
+              }
+            ],
+            "source_row": 32
+          }
+        ],
+        "supplier_candidates": [
+          {
+            "source_type": "supplier",
+            "source_id": "PR000067",
+            "supplier_code": "S007",
+            "supplier_name": "广州白鹭航空技术服务有限公司",
+            "supplier_type": "MRO",
+            "country": "中国",
+            "condition": "FN",
+            "certificate": "EASA Form 1",
+            "unit_cost_original": "13.86",
+            "currency": "CNY",
+            "exchange_rate": "1",
+            "unit_cost_cny": "13.86",
+            "moq": "1",
+            "lead_time_days": "23",
+            "in_stock": false,
+            "available_quantity": null,
+            "quote_date": "2026-07-29T00:00:00",
+            "valid_until": "2027-01-25T00:00:00",
+            "price_status": "有效",
+            "remark": "含包装费",
+            "eligibility": "eligible",
+            "rejection_reasons": [],
+            "source_row": 68
+          },
+          {
+            "source_type": "supplier",
+            "source_id": "PR000068",
+            "supplier_code": "S005",
+            "supplier_name": "上海远航器材有限公司",
+            "supplier_type": "分销商",
+            "country": "中国",
+            "condition": "SV",
+            "certificate": "EASA Form 1",
+            "unit_cost_original": "7.73",
+            "currency": "CNY",
+            "exchange_rate": "1",
+            "unit_cost_cny": "7.73",
+            "moq": "1",
+            "lead_time_days": "4",
+            "in_stock": true,
+            "available_quantity": null,
+            "quote_date": "2026-08-31T00:00:00",
+            "valid_until": "2027-02-27T00:00:00",
+            "price_status": "有效",
+            "remark": "需预付",
+            "eligibility": "rejected",
+            "rejection_reasons": [
+              {
+                "rule": "condition_mismatch",
+                "detail": "候选件状 SV ≠ 需求 FN"
+              }
+            ],
+            "source_row": 69
+          }
+        ],
+        "decision": {
+          "recommended_source": "supplier",
+          "selected_source_id": "PR000067",
+          "cost_basis_type": "supplier_price",
+          "unit_cost_original": "13.86",
+          "currency": "CNY",
+          "exchange_rate": "1",
+          "unit_cost_cny": "13.86",
+          "markup_rate": "0.20",
+          "recommended_unit_price": "16.63",
+          "line_total": "133.04",
+          "confidence": "medium",
+          "requires_human_review": false,
+          "decision_reasons": [
+            "合格供应商候选 1 个，取统一成本最低者 PR000067",
+            "CNY 13.86 × 汇率 1 = CNY 13.86",
+            "MOQ 1 ≤ 需求 8，件状 FN 相符，有效期至 2027-01-25T00:00:00"
+          ],
+          "warnings": [
+            "供应商未提供可售数量（仅现货标志），数量待确认；不据此拒绝报价建议"
+          ]
+        }
+      },
+      {
+        "line_number": 2,
+        "inquiry_no": "9000000002",
+        "part_number": "PN-0001",
+        "description": "WASHER 垫片",
+        "quantity": "8",
+        "unit_of_measure": "EA",
+        "priority": null,
+        "product_requirement": null,
+        "requested_mpn": "PN-0001",
+        "condition_required": "FN",
+        "manual_part_number": "PN-0001",
+        "product_scope": "一般备件",
+        "response_due_at": null,
+        "source": {
+          "file": "1/附件/询价报价清单.xlsx",
+          "sheet": "Sheet1",
+          "row": 3
+        },
+        "internal_candidates": [
+          {
+            "source_type": "internal",
+            "source_id": "STOCK-032",
+            "warehouse": "上海浦东库",
+            "condition": null,
+            "stock_on_hand": "0",
+            "available_quantity": "0",
+            "standard_cost": "13.29",
+            "average_cost": "13.4",
+            "last_purchase_price": "12.93",
+            "currency": "CNY",
+            "product_scope": "一般备件",
+            "preferred_supplier": "S007",
+            "cost_updated_at": "2026-09-17T00:00:00",
+            "eligibility": "rejected",
+            "rejection_reasons": [
+              {
+                "rule": "stock_insufficient",
+                "detail": "剩余可分配库存 0 < 需求 8"
+              },
+              {
+                "rule": "condition_mismatch",
+                "detail": "库存件状 (空) ≠ 需求 FN"
+              }
+            ],
+            "source_row": 32
+          }
+        ],
+        "supplier_candidates": [
+          {
+            "source_type": "supplier",
+            "source_id": "PR000067",
+            "supplier_code": "S007",
+            "supplier_name": "广州白鹭航空技术服务有限公司",
+            "supplier_type": "MRO",
+            "country": "中国",
+            "condition": "FN",
+            "certificate": "EASA Form 1",
+            "unit_cost_original": "13.86",
+            "currency": "CNY",
+            "exchange_rate": "1",
+            "unit_cost_cny": "13.86",
+            "moq": "1",
+            "lead_time_days": "23",
+            "in_stock": false,
+            "available_quantity": null,
+            "quote_date": "2026-07-29T00:00:00",
+            "valid_until": "2027-01-25T00:00:00",
+            "price_status": "有效",
+            "remark": "含包装费",
+            "eligibility": "eligible",
+            "rejection_reasons": [],
+            "source_row": 68
+          },
+          {
+            "source_type": "supplier",
+            "source_id": "PR000068",
+            "supplier_code": "S005",
+            "supplier_name": "上海远航器材有限公司",
+            "supplier_type": "分销商",
+            "country": "中国",
+            "condition": "SV",
+            "certificate": "EASA Form 1",
+            "unit_cost_original": "7.73",
+            "currency": "CNY",
+            "exchange_rate": "1",
+            "unit_cost_cny": "7.73",
+            "moq": "1",
+            "lead_time_days": "4",
+            "in_stock": true,
+            "available_quantity": null,
+            "quote_date": "2026-08-31T00:00:00",
+            "valid_until": "2027-02-27T00:00:00",
+            "price_status": "有效",
+            "remark": "需预付",
+            "eligibility": "rejected",
+            "rejection_reasons": [
+              {
+                "rule": "condition_mismatch",
+                "detail": "候选件状 SV ≠ 需求 FN"
+              }
+            ],
+            "source_row": 69
+          }
+        ],
+        "decision": {
+          "recommended_source": "supplier",
+          "selected_source_id": "PR000067",
+          "cost_basis_type": "supplier_price",
+          "unit_cost_original": "13.86",
+          "currency": "CNY",
+          "exchange_rate": "1",
+          "unit_cost_cny": "13.86",
+          "markup_rate": "0.20",
+          "recommended_unit_price": "16.63",
+          "line_total": "133.04",
+          "confidence": "medium",
+          "requires_human_review": false,
+          "decision_reasons": [
+            "合格供应商候选 1 个，取统一成本最低者 PR000067",
+            "CNY 13.86 × 汇率 1 = CNY 13.86",
+            "MOQ 1 ≤ 需求 8，件状 FN 相符，有效期至 2027-01-25T00:00:00"
+          ],
+          "warnings": [
+            "供应商未提供可售数量（仅现货标志），数量待确认；不据此拒绝报价建议"
+          ]
+        }
+      },
+      {
+        "line_number": 3,
+        "inquiry_no": "9000000003",
+        "part_number": "PN-0002",
+        "description": "BOLT 螺栓",
+        "quantity": "15",
+        "unit_of_measure": "EA",
+        "priority": "USR",
+        "product_requirement": null,
+        "requested_mpn": "PN-0002",
+        "condition_required": "FN",
+        "manual_part_number": "PN-0002",
+        "product_scope": "一般备件",
+        "response_due_at": null,
+        "source": {
+          "file": "1/附件/询价报价清单.xlsx",
+          "sheet": "Sheet1",
+          "row": 4
+        },
+        "internal_candidates": [
+          {
+            "source_type": "internal",
+            "source_id": "STOCK-033",
+            "warehouse": "广州白云库",
+            "condition": "FN",
+            "stock_on_hand": "5",
+            "available_quantity": "5",
+            "standard_cost": "70.22",
+            "average_cost": "68.54",
+            "last_purchase_price": "71.82",
+            "currency": "CNY",
+            "product_scope": "一般备件",
+            "preferred_supplier": "S009",
+            "cost_updated_at": "2026-07-28T00:00:00",
+            "eligibility": "rejected",
+            "rejection_reasons": [
+              {
+                "rule": "stock_insufficient",
+                "detail": "剩余可分配库存 5 < 需求 15"
+              }
+            ],
+            "source_row": 33
+          }
+        ],
+        "supplier_candidates": [
+          {
+            "source_type": "supplier",
+            "source_id": "PR000069",
+            "supplier_code": "S009",
+            "supplier_name": "Baltic Aero Spares UAB",
+            "supplier_type": "分销商",
+            "country": "立陶宛",
+            "condition": "FN",
+            "certificate": "EASA Form 1",
+            "unit_cost_original": "9.18",
+            "currency": "EUR",
+            "exchange_rate": "7.75",
+            "unit_cost_cny": "71.15",
+            "moq": "1",
+            "lead_time_days": "6",
+            "in_stock": true,
+            "available_quantity": null,
+            "quote_date": "2026-09-20T00:00:00",
+            "valid_until": "2026-12-19T00:00:00",
+            "price_status": "有效",
+            "remark": null,
+            "eligibility": "eligible",
+            "rejection_reasons": [],
+            "source_row": 70
+          },
+          {
+            "source_type": "supplier",
+            "source_id": "PR000070",
+            "supplier_code": "S012",
+            "supplier_name": "Fjord Aviation Parts AS",
+            "supplier_type": "授权分销商",
+            "country": "挪威",
+            "condition": "FN",
+            "certificate": "EASA Form 1",
+            "unit_cost_original": "10.93",
+            "currency": "EUR",
+            "exchange_rate": "7.75",
+            "unit_cost_cny": "84.71",
+            "moq": "1",
+            "lead_time_days": "23",
+            "in_stock": false,
+            "available_quantity": null,
+            "quote_date": "2026-09-20T00:00:00",
+            "valid_until": "2027-03-19T00:00:00",
+            "price_status": "有效",
+            "remark": "价格随汇率浮动",
+            "eligibility": "eligible",
+            "rejection_reasons": [],
+            "source_row": 71
+          }
+        ],
+        "decision": {
+          "recommended_source": "supplier",
+          "selected_source_id": "PR000069",
+          "cost_basis_type": "supplier_price",
+          "unit_cost_original": "9.18",
+          "currency": "EUR",
+          "exchange_rate": "7.75",
+          "unit_cost_cny": "71.15",
+          "markup_rate": "0.20",
+          "recommended_unit_price": "85.38",
+          "line_total": "1280.70",
+          "confidence": "medium",
+          "requires_human_review": false,
+          "decision_reasons": [
+            "合格供应商候选 2 个，取统一成本最低者 PR000069",
+            "EUR 9.18 × 汇率 7.75 = CNY 71.15",
+            "MOQ 1 ≤ 需求 15，件状 FN 相符，有效期至 2026-12-19T00:00:00"
+          ],
+          "warnings": [
+            "供应商未提供可售数量（仅现货标志），数量待确认；不据此拒绝报价建议"
+          ]
+        }
+      },
+      {
+        "line_number": 4,
+        "inquiry_no": "9000000004",
+        "part_number": "PN-0003",
+        "description": "SEAL 封严件",
+        "quantity": "22",
+        "unit_of_measure": "EA",
+        "priority": "WSP",
+        "product_requirement": null,
+        "requested_mpn": "PN-0003",
+        "condition_required": "FN",
+        "manual_part_number": "PN-0003",
+        "product_scope": "标准件",
+        "response_due_at": null,
+        "source": {
+          "file": "1/附件/询价报价清单.xlsx",
+          "sheet": "Sheet1",
+          "row": 5
+        },
+        "internal_candidates": [
+          {
+            "source_type": "internal",
+            "source_id": "STOCK-034",
+            "warehouse": "成都双流库",
+            "condition": "FN",
+            "stock_on_hand": "2358",
+            "available_quantity": "2358",
+            "standard_cost": "163.56",
+            "average_cost": "175.76",
+            "last_purchase_price": "163.4",
+            "currency": "CNY",
+            "product_scope": "标准件",
+            "preferred_supplier": "S008",
+            "cost_updated_at": "2026-06-10T00:00:00",
+            "eligibility": "eligible",
+            "rejection_reasons": [],
+            "source_row": 34
+          }
+        ],
+        "supplier_candidates": [
+          {
+            "source_type": "supplier",
+            "source_id": "PR000071",
+            "supplier_code": "S008",
+            "supplier_name": "Ironwood Aerospace Inc.",
+            "supplier_type": "原厂",
+            "country": "美国",
+            "condition": "FN",
+            "certificate": "CoC",
+            "unit_cost_original": "22.83",
+            "currency": "USD",
+            "exchange_rate": "7.1",
+            "unit_cost_cny": "162.09",
+            "moq": "100",
+            "lead_time_days": "38",
+            "in_stock": false,
+            "available_quantity": null,
+            "quote_date": "2026-10-03T00:00:00",
+            "valid_until": "2027-01-01T00:00:00",
+            "price_status": "有效",
+            "remark": "含包装费",
+            "eligibility": "rejected",
+            "rejection_reasons": [
+              {
+                "rule": "moq_exceeds",
+                "detail": "MOQ 100 > 需求 22"
+              }
+            ],
+            "source_row": 72
+          }
+        ],
+        "decision": {
+          "recommended_source": "internal",
+          "selected_source_id": "STOCK-034",
+          "cost_basis_type": "standard_cost",
+          "unit_cost_original": "163.56",
+          "currency": "CNY",
+          "exchange_rate": "1",
+          "unit_cost_cny": "163.56",
+          "markup_rate": "0.20",
+          "recommended_unit_price": "196.27",
+          "line_total": "4317.94",
+          "confidence": "high",
+          "requires_human_review": false,
+          "decision_reasons": [
+            "内部库存 2358 ≥ 需求 22，件状 FN 相符",
+            "成本基线=标准成本 163.56，加价 20%"
+          ],
+          "warnings": []
+        }
+      },
+      {
+        "line_number": 5,
+        "inquiry_no": "9000000005",
+        "part_number": "PN-0004",
+        "description": "PIN 销子",
+        "quantity": "29",
+        "unit_of_measure": "EA",
+        "priority": "NOR",
+        "product_requirement": null,
+        "requested_mpn": "PN-0004",
+        "condition_required": "FN",
+        "manual_part_number": "PN-0004",
+        "product_scope": "一般备件",
+        "response_due_at": null,
+        "source": {
+          "file": "1/附件/询价报价清单.xlsx",
+          "sheet": "Sheet1",
+          "row": 6
+        },
+        "internal_candidates": [
+          {
+            "source_type": "internal",
+            "source_id": "STOCK-035",
+            "warehouse": "广州白云库",
+            "condition": "FN",
+            "stock_on_hand": "4",
+            "available_quantity": "4",
+            "standard_cost": "35.33",
+            "average_cost": "36.49",
+            "last_purchase_price": "35.68",
+            "currency": "CNY",
+            "product_scope": "一般备件",
+            "preferred_supplier": "S006",
+            "cost_updated_at": "2026-08-11T00:00:00",
+            "eligibility": "rejected",
+            "rejection_reasons": [
+              {
+                "rule": "stock_insufficient",
+                "detail": "剩余可分配库存 4 < 需求 29"
+              }
+            ],
+            "source_row": 35
+          }
+        ],
+        "supplier_candidates": [
+          {
+            "source_type": "supplier",
+            "source_id": "PR000072",
+            "supplier_code": "S006",
+            "supplier_name": "北京云端航材贸易有限公司",
+            "supplier_type": "贸易商",
+            "country": "中国",
+            "condition": "FN",
+            "certificate": "FAA 8130-3",
+            "unit_cost_original": "29.54",
+            "currency": "CNY",
+            "exchange_rate": "1",
+            "unit_cost_cny": "29.54",
+            "moq": "1",
+            "lead_time_days": "6",
+            "in_stock": true,
+            "available_quantity": null,
+            "quote_date": "2026-08-22T00:00:00",
+            "valid_until": "2027-02-18T00:00:00",
+            "price_status": "有效",
+            "remark": "批量价另议",
+            "eligibility": "eligible",
+            "rejection_reasons": [],
+            "source_row": 73
+          },
+          {
+            "source_type": "supplier",
+            "source_id": "PR000073",
+            "supplier_code": "S001",
+            "supplier_name": "Skyline Aero Parts Ltd.",
+            "supplier_type": "授权分销商",
+            "country": "美国",
+            "condition": "NE",
+            "certificate": "EASA Form 1",
+            "unit_cost_original": "5.44",
+            "currency": "USD",
+            "exchange_rate": "7.1",
+            "unit_cost_cny": "38.62",
+            "moq": "1",
+            "lead_time_days": "21",
+            "in_stock": false,
+            "available_quantity": null,
+            "quote_date": "2026-09-05T00:00:00",
+            "valid_until": "2026-12-04T00:00:00",
+            "price_status": "有效",
+            "remark": null,
+            "eligibility": "rejected",
+            "rejection_reasons": [
+              {
+                "rule": "condition_mismatch",
+                "detail": "候选件状 NE ≠ 需求 FN"
+              }
+            ],
+            "source_row": 74
+          }
+        ],
+        "decision": {
+          "recommended_source": "supplier",
+          "selected_source_id": "PR000072",
+          "cost_basis_type": "supplier_price",
+          "unit_cost_original": "29.54",
+          "currency": "CNY",
+          "exchange_rate": "1",
+          "unit_cost_cny": "29.54",
+          "markup_rate": "0.20",
+          "recommended_unit_price": "35.45",
+          "line_total": "1028.05",
+          "confidence": "medium",
+          "requires_human_review": false,
+          "decision_reasons": [
+            "合格供应商候选 1 个，取统一成本最低者 PR000072",
+            "CNY 29.54 × 汇率 1 = CNY 29.54",
+            "MOQ 1 ≤ 需求 29，件状 FN 相符，有效期至 2027-02-18T00:00:00"
+          ],
+          "warnings": [
+            "供应商未提供可售数量（仅现货标志），数量待确认；不据此拒绝报价建议"
+          ]
+        }
+      },
+      {
+        "line_number": 6,
+        "inquiry_no": "9000000006",
+        "part_number": "PN-0005",
+        "description": "BRACKET 支架",
+        "quantity": "36",
+        "unit_of_measure": "EA",
+        "priority": null,
+        "product_requirement": null,
+        "requested_mpn": "PN-0005",
+        "condition_required": "FN",
+        "manual_part_number": "PN-0005",
+        "product_scope": "一般备件",
+        "response_due_at": null,
+        "source": {
+          "file": "1/附件/询价报价清单.xlsx",
+          "sheet": "Sheet1",
+          "row": 7
+        },
+        "internal_candidates": [
+          {
+            "source_type": "internal",
+            "source_id": "STOCK-036",
+            "warehouse": "上海浦东库",
+            "condition": "OH",
+            "stock_on_hand": "28",
+            "available_quantity": "28",
+            "standard_cost": "1106.79",
+            "average_cost": "1146.85",
+            "last_purchase_price": "1013.48",
+            "currency": "CNY",
+            "product_scope": "一般备件",
+            "preferred_supplier": "S003",
+            "cost_updated_at": "2026-08-04T00:00:00",
+            "eligibility": "rejected",
+            "rejection_reasons": [
+              {
+                "rule": "stock_insufficient",
+                "detail": "剩余可分配库存 28 < 需求 36"
+              },
+              {
+                "rule": "condition_mismatch",
+                "detail": "库存件状 OH ≠ 需求 FN"
+              }
+            ],
+            "source_row": 36
+          }
+        ],
+        "supplier_candidates": [
+          {
+            "source_type": "supplier",
+            "source_id": "PR000074",
+            "supplier_code": "S011",
+            "supplier_name": "西安长风航材有限公司",
+            "supplier_type": "分销商",
+            "country": "中国",
+            "condition": "FN",
+            "certificate": "EASA Form 1",
+            "unit_cost_original": "1325.77",
+            "currency": "CNY",
+            "exchange_rate": "1",
+            "unit_cost_cny": "1325.77",
+            "moq": "1",
+            "lead_time_days": "6",
+            "in_stock": true,
+            "available_quantity": null,
+            "quote_date": "2026-06-26T00:00:00",
+            "valid_until": "2026-09-24T00:00:00",
+            "price_status": "已过期",
+            "remark": "不含税",
+            "eligibility": "rejected",
+            "rejection_reasons": [
+              {
+                "rule": "status_invalid",
+                "detail": "价格状态=已过期"
+              }
+            ],
+            "source_row": 75
+          },
+          {
+            "source_type": "supplier",
+            "source_id": "PR000075",
+            "supplier_code": "S005",
+            "supplier_name": "上海远航器材有限公司",
+            "supplier_type": "分销商",
+            "country": "中国",
+            "condition": "FN",
+            "certificate": "FAA 8130-3",
+            "unit_cost_original": "1211.48",
+            "currency": "CNY",
+            "exchange_rate": "1",
+            "unit_cost_cny": "1211.48",
+            "moq": "1",
+            "lead_time_days": "13",
+            "in_stock": false,
+            "available_quantity": null,
+            "quote_date": "2026-09-14T00:00:00",
+            "valid_until": "2027-03-13T00:00:00",
+            "price_status": "有效",
+            "remark": "含包装费",
+            "eligibility": "eligible",
+            "rejection_reasons": [],
+            "source_row": 76
+          },
+          {
+            "source_type": "supplier",
+            "source_id": "PR000076",
+            "supplier_code": "S003",
+            "supplier_name": "Lionfish Aero Trading Pte",
+            "supplier_type": "贸易商",
+            "country": "新加坡",
+            "condition": "FN",
+            "certificate": "FAA 8130-3",
+            "unit_cost_original": "165.16",
+            "currency": "USD",
+            "exchange_rate": "7.1",
+            "unit_cost_cny": "1172.64",
+            "moq": "1",
+            "lead_time_days": "14",
+            "in_stock": false,
+            "available_quantity": null,
+            "quote_date": "2026-07-29T00:00:00",
+            "valid_until": "2027-01-25T00:00:00",
+            "price_status": "有效",
+            "remark": null,
+            "eligibility": "eligible",
+            "rejection_reasons": [],
+            "source_row": 77
+          }
+        ],
+        "decision": {
+          "recommended_source": "supplier",
+          "selected_source_id": "PR000076",
+          "cost_basis_type": "supplier_price",
+          "unit_cost_original": "165.16",
+          "currency": "USD",
+          "exchange_rate": "7.1",
+          "unit_cost_cny": "1172.64",
+          "markup_rate": "0.20",
+          "recommended_unit_price": "1407.17",
+          "line_total": "50658.12",
+          "confidence": "medium",
+          "requires_human_review": false,
+          "decision_reasons": [
+            "合格供应商候选 2 个，取统一成本最低者 PR000076",
+            "USD 165.16 × 汇率 7.1 = CNY 1172.64",
+            "MOQ 1 ≤ 需求 36，件状 FN 相符，有效期至 2027-01-25T00:00:00"
+          ],
+          "warnings": [
+            "供应商未提供可售数量（仅现货标志），数量待确认；不据此拒绝报价建议"
+          ]
+        }
+      },
+      {
+        "line_number": 7,
+        "inquiry_no": "9000000007",
+        "part_number": "PN-0006",
+        "description": "SWITCH 开关",
+        "quantity": "43",
+        "unit_of_measure": "EA",
+        "priority": "USR",
+        "product_requirement": null,
+        "requested_mpn": "PN-0006",
+        "condition_required": "FN",
+        "manual_part_number": "PN-0006",
+        "product_scope": "标准件",
+        "response_due_at": null,
+        "source": {
+          "file": "1/附件/询价报价清单.xlsx",
+          "sheet": "Sheet1",
+          "row": 8
+        },
+        "internal_candidates": [
+          {
+            "source_type": "internal",
+            "source_id": "STOCK-037",
+            "warehouse": "北京大兴库",
+            "condition": "FN",
+            "stock_on_hand": "1202",
+            "available_quantity": "1202",
+            "standard_cost": "889.68",
+            "average_cost": "857.6",
+            "last_purchase_price": "862.91",
+            "currency": "CNY",
+            "product_scope": "标准件",
+            "preferred_supplier": "S002",
+            "cost_updated_at": "2026-08-21T00:00:00",
+            "eligibility": "eligible",
+            "rejection_reasons": [],
+            "source_row": 37
+          }
+        ],
+        "supplier_candidates": [
+          {
+            "source_type": "supplier",
+            "source_id": "PR000077",
+            "supplier_code": "S002",
+            "supplier_name": "Crestwood Aviation Supply",
+            "supplier_type": "分销商",
+            "country": "美国",
+            "condition": "FN",
+            "certificate": "CoC",
+            "unit_cost_original": "119.53",
+            "currency": "USD",
+            "exchange_rate": "7.1",
+            "unit_cost_cny": "848.66",
+            "moq": "10",
+            "lead_time_days": "6",
+            "in_stock": true,
+            "available_quantity": null,
+            "quote_date": "2026-08-09T00:00:00",
+            "valid_until": "2027-02-05T00:00:00",
+            "price_status": "有效",
+            "remark": null,
+            "eligibility": "eligible",
+            "rejection_reasons": [],
+            "source_row": 78
+          },
+          {
+            "source_type": "supplier",
+            "source_id": "PR000078",
+            "supplier_code": "S012",
+            "supplier_name": "Fjord Aviation Parts AS",
+            "supplier_type": "授权分销商",
+            "country": "挪威",
+            "condition": "FN",
+            "certificate": "CoC",
+            "unit_cost_original": "120.12",
+            "currency": "EUR",
+            "exchange_rate": "7.75",
+            "unit_cost_cny": "930.93",
+            "moq": "10",
+            "lead_time_days": "22",
+            "in_stock": false,
+            "available_quantity": null,
+            "quote_date": "2026-06-15T00:00:00",
+            "valid_until": "2026-09-13T00:00:00",
+            "price_status": "已过期",
+            "remark": null,
+            "eligibility": "rejected",
+            "rejection_reasons": [
+              {
+                "rule": "status_invalid",
+                "detail": "价格状态=已过期"
+              }
+            ],
+            "source_row": 79
+          }
+        ],
+        "decision": {
+          "recommended_source": "internal",
+          "selected_source_id": "STOCK-037",
+          "cost_basis_type": "standard_cost",
+          "unit_cost_original": "889.68",
+          "currency": "CNY",
+          "exchange_rate": "1",
+          "unit_cost_cny": "889.68",
+          "markup_rate": "0.20",
+          "recommended_unit_price": "1067.62",
+          "line_total": "45907.66",
+          "confidence": "high",
+          "requires_human_review": false,
+          "decision_reasons": [
+            "内部库存 1202 ≥ 需求 43，件状 FN 相符",
+            "成本基线=标准成本 889.68，加价 20%"
+          ],
+          "warnings": []
+        }
+      },
+      {
+        "line_number": 8,
+        "inquiry_no": "9000000008",
+        "part_number": "PN-0007",
+        "description": "CLAMP 卡子",
+        "quantity": "2",
+        "unit_of_measure": "EA",
+        "priority": "WSP",
+        "product_requirement": null,
+        "requested_mpn": "PN-0007",
+        "condition_required": "FN",
+        "manual_part_number": "PN-0007",
+        "product_scope": "一般备件",
+        "response_due_at": null,
+        "source": {
+          "file": "1/附件/询价报价清单.xlsx",
+          "sheet": "Sheet1",
+          "row": 9
+        },
+        "internal_candidates": [
+          {
+            "source_type": "internal",
+            "source_id": "STOCK-038",
+            "warehouse": "上海浦东库",
+            "condition": null,
+            "stock_on_hand": "0",
+            "available_quantity": "0",
+            "standard_cost": "154.36",
+            "average_cost": "149.9",
+            "last_purchase_price": "168.21",
+            "currency": "CNY",
+            "product_scope": "一般备件",
+            "preferred_supplier": "S001",
+            "cost_updated_at": "2026-06-27T00:00:00",
+            "eligibility": "rejected",
+            "rejection_reasons": [
+              {
+                "rule": "stock_insufficient",
+                "detail": "剩余可分配库存 0 < 需求 2"
+              },
+              {
+                "rule": "condition_mismatch",
+                "detail": "库存件状 (空) ≠ 需求 FN"
+              }
+            ],
+            "source_row": 38
+          }
+        ],
+        "supplier_candidates": [
+          {
+            "source_type": "supplier",
+            "source_id": "PR000079",
+            "supplier_code": "S001",
+            "supplier_name": "Skyline Aero Parts Ltd.",
+            "supplier_type": "授权分销商",
+            "country": "美国",
+            "condition": "FN",
+            "certificate": "EASA Form 1",
+            "unit_cost_original": "22.56",
+            "currency": "USD",
+            "exchange_rate": "7.1",
+            "unit_cost_cny": "160.18",
+            "moq": "1",
+            "lead_time_days": "12",
+            "in_stock": false,
+            "available_quantity": null,
+            "quote_date": "2026-06-30T00:00:00",
+            "valid_until": "2026-12-27T00:00:00",
+            "price_status": "有效",
+            "remark": "含加急服务费",
+            "eligibility": "eligible",
+            "rejection_reasons": [],
+            "source_row": 80
+          },
+          {
+            "source_type": "supplier",
+            "source_id": "PR000080",
+            "supplier_code": "S012",
+            "supplier_name": "Fjord Aviation Parts AS",
+            "supplier_type": "授权分销商",
+            "country": "挪威",
+            "condition": "OH",
+            "certificate": "FAA 8130-3",
+            "unit_cost_original": "11.12",
+            "currency": "EUR",
+            "exchange_rate": "7.75",
+            "unit_cost_cny": "86.18",
+            "moq": "1",
+            "lead_time_days": "10",
+            "in_stock": true,
+            "available_quantity": null,
+            "quote_date": "2026-07-05T00:00:00",
+            "valid_until": "2027-01-01T00:00:00",
+            "price_status": "有效",
+            "remark": "含加急服务费",
+            "eligibility": "rejected",
+            "rejection_reasons": [
+              {
+                "rule": "condition_mismatch",
+                "detail": "候选件状 OH ≠ 需求 FN"
+              }
+            ],
+            "source_row": 81
+          }
+        ],
+        "decision": {
+          "recommended_source": "supplier",
+          "selected_source_id": "PR000079",
+          "cost_basis_type": "supplier_price",
+          "unit_cost_original": "22.56",
+          "currency": "USD",
+          "exchange_rate": "7.1",
+          "unit_cost_cny": "160.18",
+          "markup_rate": "0.20",
+          "recommended_unit_price": "192.22",
+          "line_total": "384.44",
+          "confidence": "medium",
+          "requires_human_review": false,
+          "decision_reasons": [
+            "合格供应商候选 1 个，取统一成本最低者 PR000079",
+            "USD 22.56 × 汇率 7.1 = CNY 160.18",
+            "MOQ 1 ≤ 需求 2，件状 FN 相符，有效期至 2026-12-27T00:00:00"
+          ],
+          "warnings": [
+            "供应商未提供可售数量（仅现货标志），数量待确认；不据此拒绝报价建议"
+          ]
+        }
+      },
+      {
+        "line_number": 9,
+        "inquiry_no": "9000000009",
+        "part_number": "PN-0008",
+        "description": "GASKET 密封垫",
+        "quantity": "9",
+        "unit_of_measure": "EA",
+        "priority": "NOR",
+        "product_requirement": null,
+        "requested_mpn": "PN-0008",
+        "condition_required": "FN",
+        "manual_part_number": "PN-0008",
+        "product_scope": "一般备件",
+        "response_due_at": null,
+        "source": {
+          "file": "1/附件/询价报价清单.xlsx",
+          "sheet": "Sheet1",
+          "row": 10
+        },
+        "internal_candidates": [
+          {
+            "source_type": "internal",
+            "source_id": "STOCK-039",
+            "warehouse": "上海浦东库",
+            "condition": "FN",
+            "stock_on_hand": "13",
+            "available_quantity": "13",
+            "standard_cost": "307.02",
+            "average_cost": "316.72",
+            "last_purchase_price": "311.87",
+            "currency": "CNY",
+            "product_scope": "一般备件",
+            "preferred_supplier": "S009",
+            "cost_updated_at": "2026-07-21T00:00:00",
+            "eligibility": "eligible",
+            "rejection_reasons": [],
+            "source_row": 39
+          }
+        ],
+        "supplier_candidates": [
+          {
+            "source_type": "supplier",
+            "source_id": "PR000081",
+            "supplier_code": "S008",
+            "supplier_name": "Ironwood Aerospace Inc.",
+            "supplier_type": "原厂",
+            "country": "美国",
+            "condition": "FN",
+            "certificate": "EASA Form 1",
+            "unit_cost_original": "51.76",
+            "currency": "USD",
+            "exchange_rate": "7.1",
+            "unit_cost_cny": "367.50",
+            "moq": "1",
+            "lead_time_days": "83",
+            "in_stock": false,
+            "available_quantity": null,
+            "quote_date": "2026-07-09T00:00:00",
+            "valid_until": "2027-01-05T00:00:00",
+            "price_status": "有效",
+            "remark": null,
+            "eligibility": "eligible",
+            "rejection_reasons": [],
+            "source_row": 82
+          },
+          {
+            "source_type": "supplier",
+            "source_id": "PR000082",
+            "supplier_code": "S009",
+            "supplier_name": "Baltic Aero Spares UAB",
+            "supplier_type": "分销商",
+            "country": "立陶宛",
+            "condition": "FN",
+            "certificate": "EASA Form 1",
+            "unit_cost_original": "35.96",
+            "currency": "EUR",
+            "exchange_rate": "7.75",
+            "unit_cost_cny": "278.69",
+            "moq": "1",
+            "lead_time_days": "9",
+            "in_stock": true,
+            "available_quantity": null,
+            "quote_date": "2026-10-03T00:00:00",
+            "valid_until": "2027-01-01T00:00:00",
+            "price_status": "有效",
+            "remark": "需预付",
+            "eligibility": "eligible",
+            "rejection_reasons": [],
+            "source_row": 83
+          }
+        ],
+        "decision": {
+          "recommended_source": "internal",
+          "selected_source_id": "STOCK-039",
+          "cost_basis_type": "standard_cost",
+          "unit_cost_original": "307.02",
+          "currency": "CNY",
+          "exchange_rate": "1",
+          "unit_cost_cny": "307.02",
+          "markup_rate": "0.20",
+          "recommended_unit_price": "368.42",
+          "line_total": "3315.78",
+          "confidence": "high",
+          "requires_human_review": false,
+          "decision_reasons": [
+            "内部库存 13 ≥ 需求 9，件状 FN 相符",
+            "成本基线=标准成本 307.02，加价 20%"
+          ],
+          "warnings": []
+        }
+      },
+      {
+        "line_number": 10,
+        "inquiry_no": "9000000010",
+        "part_number": "PN-0009",
+        "description": "BEARING 轴承",
+        "quantity": "16",
+        "unit_of_measure": "EA",
+        "priority": null,
+        "product_requirement": null,
+        "requested_mpn": "PN-0009",
+        "condition_required": "FN",
+        "manual_part_number": "PN-0009",
+        "product_scope": "标准件",
+        "response_due_at": null,
+        "source": {
+          "file": "1/附件/询价报价清单.xlsx",
+          "sheet": "Sheet1",
+          "row": 11
+        },
+        "internal_candidates": [
+          {
+            "source_type": "internal",
+            "source_id": "STOCK-040",
+            "warehouse": "广州白云库",
+            "condition": "FN",
+            "stock_on_hand": "1281",
+            "available_quantity": "1281",
+            "standard_cost": "1128.12",
+            "average_cost": "1116.59",
+            "last_purchase_price": "1225.26",
+            "currency": "CNY",
+            "product_scope": "标准件",
+            "preferred_supplier": "S011",
+            "cost_updated_at": "2026-07-02T00:00:00",
+            "eligibility": "eligible",
+            "rejection_reasons": [],
+            "source_row": 40
+          }
+        ],
+        "supplier_candidates": [
+          {
+            "source_type": "supplier",
+            "source_id": "PR000083",
+            "supplier_code": "S004",
+            "supplier_name": "Alpenglow Components GmbH",
+            "supplier_type": "原厂",
+            "country": "德国",
+            "condition": "FN",
+            "certificate": "CoC",
+            "unit_cost_original": "176.3",
+            "currency": "EUR",
+            "exchange_rate": "7.75",
+            "unit_cost_cny": "1366.33",
+            "moq": "25",
+            "lead_time_days": "82",
+            "in_stock": false,
+            "available_quantity": null,
+            "quote_date": "2026-06-30T00:00:00",
+            "valid_until": "2026-09-28T00:00:00",
+            "price_status": "已过期",
+            "remark": "含加急服务费",
+            "eligibility": "rejected",
+            "rejection_reasons": [
+              {
+                "rule": "status_invalid",
+                "detail": "价格状态=已过期"
+              },
+              {
+                "rule": "moq_exceeds",
+                "detail": "MOQ 25 > 需求 16"
+              }
+            ],
+            "source_row": 84
+          },
+          {
+            "source_type": "supplier",
+            "source_id": "PR000084",
+            "supplier_code": "S011",
+            "supplier_name": "西安长风航材有限公司",
+            "supplier_type": "分销商",
+            "country": "中国",
+            "condition": "FN",
+            "certificate": "CoC",
+            "unit_cost_original": "1193.01",
+            "currency": "CNY",
+            "exchange_rate": "1",
+            "unit_cost_cny": "1193.01",
+            "moq": "200",
+            "lead_time_days": "17",
+            "in_stock": false,
+            "available_quantity": null,
+            "quote_date": "2026-10-12T00:00:00",
+            "valid_until": "2027-04-10T00:00:00",
+            "price_status": "有效",
+            "remark": null,
+            "eligibility": "rejected",
+            "rejection_reasons": [
+              {
+                "rule": "moq_exceeds",
+                "detail": "MOQ 200 > 需求 16"
+              }
+            ],
+            "source_row": 85
+          }
+        ],
+        "decision": {
+          "recommended_source": "internal",
+          "selected_source_id": "STOCK-040",
+          "cost_basis_type": "standard_cost",
+          "unit_cost_original": "1128.12",
+          "currency": "CNY",
+          "exchange_rate": "1",
+          "unit_cost_cny": "1128.12",
+          "markup_rate": "0.20",
+          "recommended_unit_price": "1353.74",
+          "line_total": "21659.84",
+          "confidence": "high",
+          "requires_human_review": false,
+          "decision_reasons": [
+            "内部库存 1281 ≥ 需求 16，件状 FN 相符",
+            "成本基线=标准成本 1128.12，加价 20%"
+          ],
+          "warnings": []
+        }
+      },
+      {
+        "line_number": 11,
+        "inquiry_no": "9000000011",
+        "part_number": "PN-0010",
+        "description": "CONNECTOR 接头",
+        "quantity": "23",
+        "unit_of_measure": "EA",
+        "priority": "USR",
+        "product_requirement": null,
+        "requested_mpn": "PN-0010",
+        "condition_required": "FN",
+        "manual_part_number": "PN-0010",
+        "product_scope": "一般备件",
+        "response_due_at": null,
+        "source": {
+          "file": "1/附件/询价报价清单.xlsx",
+          "sheet": "Sheet1",
+          "row": 12
+        },
+        "internal_candidates": [
+          {
+            "source_type": "internal",
+            "source_id": "STOCK-041",
+            "warehouse": "上海浦东库",
+            "condition": "SV",
+            "stock_on_hand": "15",
+            "available_quantity": "15",
+            "standard_cost": "1038.88",
+            "average_cost": "1111.59",
+            "last_purchase_price": "1138.34",
+            "currency": "CNY",
+            "product_scope": "一般备件",
+            "preferred_supplier": "S012",
+            "cost_updated_at": "2026-08-14T00:00:00",
+            "eligibility": "rejected",
+            "rejection_reasons": [
+              {
+                "rule": "stock_insufficient",
+                "detail": "剩余可分配库存 15 < 需求 23"
+              },
+              {
+                "rule": "condition_mismatch",
+                "detail": "库存件状 SV ≠ 需求 FN"
+              }
+            ],
+            "source_row": 41
+          }
+        ],
+        "supplier_candidates": [
+          {
+            "source_type": "supplier",
+            "source_id": "PR000085",
+            "supplier_code": "S012",
+            "supplier_name": "Fjord Aviation Parts AS",
+            "supplier_type": "授权分销商",
+            "country": "挪威",
+            "condition": "FN",
+            "certificate": "EASA Form 1",
+            "unit_cost_original": "132.44",
+            "currency": "EUR",
+            "exchange_rate": "7.75",
+            "unit_cost_cny": "1026.41",
+            "moq": "1",
+            "lead_time_days": "28",
+            "in_stock": false,
+            "available_quantity": null,
+            "quote_date": "2026-09-12T00:00:00",
+            "valid_until": "2026-12-11T00:00:00",
+            "price_status": "有效",
+            "remark": "不含税",
+            "eligibility": "eligible",
+            "rejection_reasons": [],
+            "source_row": 86
+          }
+        ],
+        "decision": {
+          "recommended_source": "supplier",
+          "selected_source_id": "PR000085",
+          "cost_basis_type": "supplier_price",
+          "unit_cost_original": "132.44",
+          "currency": "EUR",
+          "exchange_rate": "7.75",
+          "unit_cost_cny": "1026.41",
+          "markup_rate": "0.20",
+          "recommended_unit_price": "1231.69",
+          "line_total": "28328.87",
+          "confidence": "medium",
+          "requires_human_review": false,
+          "decision_reasons": [
+            "合格供应商候选 1 个，取统一成本最低者 PR000085",
+            "EUR 132.44 × 汇率 7.75 = CNY 1026.41",
+            "MOQ 1 ≤ 需求 23，件状 FN 相符，有效期至 2026-12-11T00:00:00"
+          ],
+          "warnings": [
+            "供应商未提供可售数量（仅现货标志），数量待确认；不据此拒绝报价建议"
+          ]
+        }
+      },
+      {
+        "line_number": 12,
+        "inquiry_no": "9000000012",
+        "part_number": "PN-0011",
+        "description": "WASHER 垫片",
+        "quantity": "30",
+        "unit_of_measure": "EA",
+        "priority": "WSP",
+        "product_requirement": null,
+        "requested_mpn": "PN-0011",
+        "condition_required": "FN",
+        "manual_part_number": "PN-0011",
+        "product_scope": "一般备件",
+        "response_due_at": null,
+        "source": {
+          "file": "1/附件/询价报价清单.xlsx",
+          "sheet": "Sheet1",
+          "row": 13
+        },
+        "internal_candidates": [
+          {
+            "source_type": "internal",
+            "source_id": "STOCK-042",
+            "warehouse": "北京大兴库",
+            "condition": "FN",
+            "stock_on_hand": "9",
+            "available_quantity": "9",
+            "standard_cost": "23.33",
+            "average_cost": "22.81",
+            "last_purchase_price": "21.51",
+            "currency": "CNY",
+            "product_scope": "一般备件",
+            "preferred_supplier": "S012",
+            "cost_updated_at": "2026-07-17T00:00:00",
+            "eligibility": "rejected",
+            "rejection_reasons": [
+              {
+                "rule": "stock_insufficient",
+                "detail": "剩余可分配库存 9 < 需求 30"
+              }
+            ],
+            "source_row": 42
+          }
+        ],
+        "supplier_candidates": [
+          {
+            "source_type": "supplier",
+            "source_id": "PR000086",
+            "supplier_code": "S012",
+            "supplier_name": "Fjord Aviation Parts AS",
+            "supplier_type": "授权分销商",
+            "country": "挪威",
+            "condition": "FN",
+            "certificate": "EASA Form 1",
+            "unit_cost_original": "2.88",
+            "currency": "EUR",
+            "exchange_rate": "7.75",
+            "unit_cost_cny": "22.32",
+            "moq": "1",
+            "lead_time_days": "16",
+            "in_stock": false,
+            "available_quantity": null,
+            "quote_date": "2026-08-27T00:00:00",
+            "valid_until": "2027-02-23T00:00:00",
+            "price_status": "有效",
+            "remark": null,
+            "eligibility": "eligible",
+            "rejection_reasons": [],
+            "source_row": 87
+          }
+        ],
+        "decision": {
+          "recommended_source": "supplier",
+          "selected_source_id": "PR000086",
+          "cost_basis_type": "supplier_price",
+          "unit_cost_original": "2.88",
+          "currency": "EUR",
+          "exchange_rate": "7.75",
+          "unit_cost_cny": "22.32",
+          "markup_rate": "0.20",
+          "recommended_unit_price": "26.78",
+          "line_total": "803.40",
+          "confidence": "medium",
+          "requires_human_review": false,
+          "decision_reasons": [
+            "合格供应商候选 1 个，取统一成本最低者 PR000086",
+            "EUR 2.88 × 汇率 7.75 = CNY 22.32",
+            "MOQ 1 ≤ 需求 30，件状 FN 相符，有效期至 2027-02-23T00:00:00"
+          ],
+          "warnings": [
+            "供应商未提供可售数量（仅现货标志），数量待确认；不据此拒绝报价建议"
+          ]
+        }
+      },
+      {
+        "line_number": 13,
+        "inquiry_no": "9000000013",
+        "part_number": "PN-0012",
+        "description": "BOLT 螺栓",
+        "quantity": "37",
+        "unit_of_measure": "EA",
+        "priority": "NOR",
+        "product_requirement": null,
+        "requested_mpn": "PN-0012",
+        "condition_required": "FN",
+        "manual_part_number": "PN-0012",
+        "product_scope": "标准件",
+        "response_due_at": null,
+        "source": {
+          "file": "1/附件/询价报价清单.xlsx",
+          "sheet": "Sheet1",
+          "row": 14
+        },
+        "internal_candidates": [
+          {
+            "source_type": "internal",
+            "source_id": "STOCK-043",
+            "warehouse": "广州白云库",
+            "condition": "FN",
+            "stock_on_hand": "1700",
+            "available_quantity": "1700",
+            "standard_cost": "23.63",
+            "average_cost": "25.21",
+            "last_purchase_price": "24.91",
+            "currency": "CNY",
+            "product_scope": "标准件",
+            "preferred_supplier": "S011",
+            "cost_updated_at": "2026-08-03T00:00:00",
+            "eligibility": "eligible",
+            "rejection_reasons": [],
+            "source_row": 43
+          }
+        ],
+        "supplier_candidates": [
+          {
+            "source_type": "supplier",
+            "source_id": "PR000087",
+            "supplier_code": "S001",
+            "supplier_name": "Skyline Aero Parts Ltd.",
+            "supplier_type": "授权分销商",
+            "country": "美国",
+            "condition": "FN",
+            "certificate": "CoC",
+            "unit_cost_original": "3.29",
+            "currency": "USD",
+            "exchange_rate": "7.1",
+            "unit_cost_cny": "23.36",
+            "moq": "500",
+            "lead_time_days": "29",
+            "in_stock": false,
+            "available_quantity": null,
+            "quote_date": "2026-08-16T00:00:00",
+            "valid_until": "2027-02-12T00:00:00",
+            "price_status": "有效",
+            "remark": null,
+            "eligibility": "rejected",
+            "rejection_reasons": [
+              {
+                "rule": "moq_exceeds",
+                "detail": "MOQ 500 > 需求 37"
+              }
+            ],
+            "source_row": 88
+          },
+          {
+            "source_type": "supplier",
+            "source_id": "PR000088",
+            "supplier_code": "S008",
+            "supplier_name": "Ironwood Aerospace Inc.",
+            "supplier_type": "原厂",
+            "country": "美国",
+            "condition": "NE",
+            "certificate": "CoC",
+            "unit_cost_original": "4.79",
+            "currency": "USD",
+            "exchange_rate": "7.1",
+            "unit_cost_cny": "34.01",
+            "moq": "200",
+            "lead_time_days": "43",
+            "in_stock": false,
+            "available_quantity": null,
+            "quote_date": "2026-08-23T00:00:00",
+            "valid_until": "2027-02-19T00:00:00",
+            "price_status": "有效",
+            "remark": "价格随汇率浮动",
+            "eligibility": "rejected",
+            "rejection_reasons": [
+              {
+                "rule": "moq_exceeds",
+                "detail": "MOQ 200 > 需求 37"
+              },
+              {
+                "rule": "condition_mismatch",
+                "detail": "候选件状 NE ≠ 需求 FN"
+              }
+            ],
+            "source_row": 89
+          },
+          {
+            "source_type": "supplier",
+            "source_id": "PR000089",
+            "supplier_code": "S011",
+            "supplier_name": "西安长风航材有限公司",
+            "supplier_type": "分销商",
+            "country": "中国",
+            "condition": "FN",
+            "certificate": "CoC",
+            "unit_cost_original": "21.68",
+            "currency": "CNY",
+            "exchange_rate": "1",
+            "unit_cost_cny": "21.68",
+            "moq": "50",
+            "lead_time_days": "9",
+            "in_stock": true,
+            "available_quantity": null,
+            "quote_date": "2026-07-14T00:00:00",
+            "valid_until": "2027-01-10T00:00:00",
+            "price_status": "有效",
+            "remark": null,
+            "eligibility": "rejected",
+            "rejection_reasons": [
+              {
+                "rule": "moq_exceeds",
+                "detail": "MOQ 50 > 需求 37"
+              }
+            ],
+            "source_row": 90
+          }
+        ],
+        "decision": {
+          "recommended_source": "internal",
+          "selected_source_id": "STOCK-043",
+          "cost_basis_type": "standard_cost",
+          "unit_cost_original": "23.63",
+          "currency": "CNY",
+          "exchange_rate": "1",
+          "unit_cost_cny": "23.63",
+          "markup_rate": "0.20",
+          "recommended_unit_price": "28.36",
+          "line_total": "1049.32",
+          "confidence": "high",
+          "requires_human_review": false,
+          "decision_reasons": [
+            "内部库存 1700 ≥ 需求 37，件状 FN 相符",
+            "成本基线=标准成本 23.63，加价 20%"
+          ],
+          "warnings": []
+        }
+      },
+      {
+        "line_number": 14,
+        "inquiry_no": "9000000014",
+        "part_number": "PN-0013",
+        "description": "SEAL 封严件",
+        "quantity": "44",
+        "unit_of_measure": "EA",
+        "priority": null,
+        "product_requirement": null,
+        "requested_mpn": "PN-0013",
+        "condition_required": "FN",
+        "manual_part_number": "PN-0013",
+        "product_scope": "一般备件",
+        "response_due_at": null,
+        "source": {
+          "file": "1/附件/询价报价清单.xlsx",
+          "sheet": "Sheet1",
+          "row": 15
+        },
+        "internal_candidates": [
+          {
+            "source_type": "internal",
+            "source_id": "STOCK-044",
+            "warehouse": "广州白云库",
+            "condition": "FN",
+            "stock_on_hand": "25",
+            "available_quantity": "25",
+            "standard_cost": "224.2",
+            "average_cost": "241.28",
+            "last_purchase_price": "217.93",
+            "currency": "CNY",
+            "product_scope": "一般备件",
+            "preferred_supplier": "S007",
+            "cost_updated_at": "2026-07-10T00:00:00",
+            "eligibility": "rejected",
+            "rejection_reasons": [
+              {
+                "rule": "stock_insufficient",
+                "detail": "剩余可分配库存 25 < 需求 44"
+              }
+            ],
+            "source_row": 44
+          }
+        ],
+        "supplier_candidates": [
+          {
+            "source_type": "supplier",
+            "source_id": "PR000090",
+            "supplier_code": "S007",
+            "supplier_name": "广州白鹭航空技术服务有限公司",
+            "supplier_type": "MRO",
+            "country": "中国",
+            "condition": "FN",
+            "certificate": "FAA 8130-3",
+            "unit_cost_original": "204.75",
+            "currency": "CNY",
+            "exchange_rate": "1",
+            "unit_cost_cny": "204.75",
+            "moq": "1",
+            "lead_time_days": "16",
+            "in_stock": false,
+            "available_quantity": null,
+            "quote_date": "2026-06-28T00:00:00",
+            "valid_until": "2026-12-25T00:00:00",
+            "price_status": "有效",
+            "remark": null,
+            "eligibility": "eligible",
+            "rejection_reasons": [],
+            "source_row": 91
+          },
+          {
+            "source_type": "supplier",
+            "source_id": "PR000091",
+            "supplier_code": "S012",
+            "supplier_name": "Fjord Aviation Parts AS",
+            "supplier_type": "授权分销商",
+            "country": "挪威",
+            "condition": "FN",
+            "certificate": "EASA Form 1",
+            "unit_cost_original": "29.26",
+            "currency": "EUR",
+            "exchange_rate": "7.75",
+            "unit_cost_cny": "226.77",
+            "moq": "1",
+            "lead_time_days": "8",
+            "in_stock": true,
+            "available_quantity": null,
+            "quote_date": "2026-10-09T00:00:00",
+            "valid_until": "2027-04-07T00:00:00",
+            "price_status": "有效",
+            "remark": "批量价另议",
+            "eligibility": "eligible",
+            "rejection_reasons": [],
+            "source_row": 92
+          }
+        ],
+        "decision": {
+          "recommended_source": "supplier",
+          "selected_source_id": "PR000090",
+          "cost_basis_type": "supplier_price",
+          "unit_cost_original": "204.75",
+          "currency": "CNY",
+          "exchange_rate": "1",
+          "unit_cost_cny": "204.75",
+          "markup_rate": "0.20",
+          "recommended_unit_price": "245.70",
+          "line_total": "10810.80",
+          "confidence": "medium",
+          "requires_human_review": false,
+          "decision_reasons": [
+            "合格供应商候选 2 个，取统一成本最低者 PR000090",
+            "CNY 204.75 × 汇率 1 = CNY 204.75",
+            "MOQ 1 ≤ 需求 44，件状 FN 相符，有效期至 2026-12-25T00:00:00"
+          ],
+          "warnings": [
+            "供应商未提供可售数量（仅现货标志），数量待确认；不据此拒绝报价建议"
+          ]
+        }
+      },
+      {
+        "line_number": 15,
+        "inquiry_no": "9000000015",
+        "part_number": "PN-0014",
+        "description": "PIN 销子",
+        "quantity": "3",
+        "unit_of_measure": "EA",
+        "priority": "USR",
+        "product_requirement": null,
+        "requested_mpn": "PN-0014",
+        "condition_required": "FN",
+        "manual_part_number": "PN-0014",
+        "product_scope": "一般备件",
+        "response_due_at": null,
+        "source": {
+          "file": "1/附件/询价报价清单.xlsx",
+          "sheet": "Sheet1",
+          "row": 16
+        },
+        "internal_candidates": [
+          {
+            "source_type": "internal",
+            "source_id": "STOCK-045",
+            "warehouse": "北京大兴库",
+            "condition": null,
+            "stock_on_hand": "0",
+            "available_quantity": "0",
+            "standard_cost": "45.17",
+            "average_cost": "47.97",
+            "last_purchase_price": "47.3",
+            "currency": "CNY",
+            "product_scope": "一般备件",
+            "preferred_supplier": "S006",
+            "cost_updated_at": "2026-09-21T00:00:00",
+            "eligibility": "rejected",
+            "rejection_reasons": [
+              {
+                "rule": "stock_insufficient",
+                "detail": "剩余可分配库存 0 < 需求 3"
+              },
+              {
+                "rule": "condition_mismatch",
+                "detail": "库存件状 (空) ≠ 需求 FN"
+              }
+            ],
+            "source_row": 45
+          }
+        ],
+        "supplier_candidates": [
+          {
+            "source_type": "supplier",
+            "source_id": "PR000092",
+            "supplier_code": "S006",
+            "supplier_name": "北京云端航材贸易有限公司",
+            "supplier_type": "贸易商",
+            "country": "中国",
+            "condition": "FN",
+            "certificate": "EASA Form 1",
+            "unit_cost_original": "46.63",
+            "currency": "CNY",
+            "exchange_rate": "1",
+            "unit_cost_cny": "46.63",
+            "moq": "1",
+            "lead_time_days": "7",
+            "in_stock": true,
+            "available_quantity": null,
+            "quote_date": "2026-09-05T00:00:00",
+            "valid_until": "2027-03-04T00:00:00",
+            "price_status": "有效",
+            "remark": null,
+            "eligibility": "eligible",
+            "rejection_reasons": [],
+            "source_row": 93
+          },
+          {
+            "source_type": "supplier",
+            "source_id": "PR000093",
+            "supplier_code": "S012",
+            "supplier_name": "Fjord Aviation Parts AS",
+            "supplier_type": "授权分销商",
+            "country": "挪威",
+            "condition": "OH",
+            "certificate": "FAA 8130-3",
+            "unit_cost_original": "4.91",
+            "currency": "EUR",
+            "exchange_rate": "7.75",
+            "unit_cost_cny": "38.05",
+            "moq": "1",
+            "lead_time_days": "24",
+            "in_stock": false,
+            "available_quantity": null,
+            "quote_date": "2026-07-09T00:00:00",
+            "valid_until": "2027-01-05T00:00:00",
+            "price_status": "有效",
+            "remark": null,
+            "eligibility": "rejected",
+            "rejection_reasons": [
+              {
+                "rule": "condition_mismatch",
+                "detail": "候选件状 OH ≠ 需求 FN"
+              }
+            ],
+            "source_row": 94
+          }
+        ],
+        "decision": {
+          "recommended_source": "supplier",
+          "selected_source_id": "PR000092",
+          "cost_basis_type": "supplier_price",
+          "unit_cost_original": "46.63",
+          "currency": "CNY",
+          "exchange_rate": "1",
+          "unit_cost_cny": "46.63",
+          "markup_rate": "0.20",
+          "recommended_unit_price": "55.96",
+          "line_total": "167.88",
+          "confidence": "medium",
+          "requires_human_review": false,
+          "decision_reasons": [
+            "合格供应商候选 1 个，取统一成本最低者 PR000092",
+            "CNY 46.63 × 汇率 1 = CNY 46.63",
+            "MOQ 1 ≤ 需求 3，件状 FN 相符，有效期至 2027-03-04T00:00:00"
+          ],
+          "warnings": [
+            "供应商未提供可售数量（仅现货标志），数量待确认；不据此拒绝报价建议"
+          ]
+        }
+      },
+      {
+        "line_number": 16,
+        "inquiry_no": "9000000016",
+        "part_number": "PN-0015",
+        "description": "BRACKET 支架",
+        "quantity": "10",
+        "unit_of_measure": "EA",
+        "priority": "WSP",
+        "product_requirement": null,
+        "requested_mpn": "PN-0015",
+        "condition_required": "FN",
+        "manual_part_number": "PN-0015",
+        "product_scope": "标准件",
+        "response_due_at": null,
+        "source": {
+          "file": "1/附件/询价报价清单.xlsx",
+          "sheet": "Sheet1",
+          "row": 17
+        },
+        "internal_candidates": [
+          {
+            "source_type": "internal",
+            "source_id": "STOCK-046",
+            "warehouse": "上海浦东库",
+            "condition": "NE",
+            "stock_on_hand": "840",
+            "available_quantity": "840",
+            "standard_cost": "287.17",
+            "average_cost": "280.62",
+            "last_purchase_price": "292.23",
+            "currency": "CNY",
+            "product_scope": "标准件",
+            "preferred_supplier": "S004",
+            "cost_updated_at": "2026-09-28T00:00:00",
+            "eligibility": "rejected",
+            "rejection_reasons": [
+              {
+                "rule": "condition_mismatch",
+                "detail": "库存件状 NE ≠ 需求 FN"
+              }
+            ],
+            "source_row": 46
+          }
+        ],
+        "supplier_candidates": [
+          {
+            "source_type": "supplier",
+            "source_id": "PR000094",
+            "supplier_code": "S004",
+            "supplier_name": "Alpenglow Components GmbH",
+            "supplier_type": "原厂",
+            "country": "德国",
+            "condition": "FN",
+            "certificate": "CoC",
+            "unit_cost_original": "41.42",
+            "currency": "EUR",
+            "exchange_rate": "7.75",
+            "unit_cost_cny": "321.01",
+            "moq": "50",
+            "lead_time_days": "37",
+            "in_stock": false,
+            "available_quantity": null,
+            "quote_date": "2026-07-09T00:00:00",
+            "valid_until": "2027-01-05T00:00:00",
+            "price_status": "有效",
+            "remark": "价格随汇率浮动",
+            "eligibility": "rejected",
+            "rejection_reasons": [
+              {
+                "rule": "moq_exceeds",
+                "detail": "MOQ 50 > 需求 10"
+              }
+            ],
+            "source_row": 95
+          },
+          {
+            "source_type": "supplier",
+            "source_id": "PR000095",
+            "supplier_code": "S001",
+            "supplier_name": "Skyline Aero Parts Ltd.",
+            "supplier_type": "授权分销商",
+            "country": "美国",
+            "condition": "NE",
+            "certificate": "CoC",
+            "unit_cost_original": "45.6",
+            "currency": "USD",
+            "exchange_rate": "7.1",
+            "unit_cost_cny": "323.76",
+            "moq": "50",
+            "lead_time_days": "14",
+            "in_stock": false,
+            "available_quantity": null,
+            "quote_date": "2026-10-03T00:00:00",
+            "valid_until": "2027-04-01T00:00:00",
+            "price_status": "有效",
+            "remark": "批量价另议",
+            "eligibility": "rejected",
+            "rejection_reasons": [
+              {
+                "rule": "moq_exceeds",
+                "detail": "MOQ 50 > 需求 10"
+              },
+              {
+                "rule": "condition_mismatch",
+                "detail": "候选件状 NE ≠ 需求 FN"
+              }
+            ],
+            "source_row": 96
+          }
+        ],
+        "decision": {
+          "recommended_source": "manual",
+          "selected_source_id": null,
+          "confidence": "low",
+          "requires_human_review": true,
+          "unit_cost_cny": null,
+          "recommended_unit_price": null,
+          "line_total": null,
+          "decision_reasons": [
+            "无满足全部硬约束的候选，转人工"
+          ],
+          "warnings": [
+            "不得为凑数而放宽件状或超额采购"
+          ]
+        }
+      },
+      {
+        "line_number": 17,
+        "inquiry_no": "9000000017",
+        "part_number": "PN-0016",
+        "description": "SWITCH 开关",
+        "quantity": "17",
+        "unit_of_measure": "EA",
+        "priority": "NOR",
+        "product_requirement": null,
+        "requested_mpn": "PN-0016",
+        "condition_required": "FN",
+        "manual_part_number": "PN-0016",
+        "product_scope": "一般备件",
+        "response_due_at": null,
+        "source": {
+          "file": "1/附件/询价报价清单.xlsx",
+          "sheet": "Sheet1",
+          "row": 18
+        },
+        "internal_candidates": [
+          {
+            "source_type": "internal",
+            "source_id": "STOCK-047",
+            "warehouse": "北京大兴库",
+            "condition": "OH",
+            "stock_on_hand": "7",
+            "available_quantity": "7",
+            "standard_cost": "3202.18",
+            "average_cost": "3173.44",
+            "last_purchase_price": "3119.23",
+            "currency": "CNY",
+            "product_scope": "一般备件",
+            "preferred_supplier": "S005",
+            "cost_updated_at": "2026-07-08T00:00:00",
+            "eligibility": "rejected",
+            "rejection_reasons": [
+              {
+                "rule": "stock_insufficient",
+                "detail": "剩余可分配库存 7 < 需求 17"
+              },
+              {
+                "rule": "condition_mismatch",
+                "detail": "库存件状 OH ≠ 需求 FN"
+              }
+            ],
+            "source_row": 47
+          }
+        ],
+        "supplier_candidates": [
+          {
+            "source_type": "supplier",
+            "source_id": "PR000096",
+            "supplier_code": "S005",
+            "supplier_name": "上海远航器材有限公司",
+            "supplier_type": "分销商",
+            "country": "中国",
+            "condition": "FN",
+            "certificate": "EASA Form 1",
+            "unit_cost_original": "2857.47",
+            "currency": "CNY",
+            "exchange_rate": "1",
+            "unit_cost_cny": "2857.47",
+            "moq": "1",
+            "lead_time_days": "6",
+            "in_stock": true,
+            "available_quantity": null,
+            "quote_date": "2026-09-23T00:00:00",
+            "valid_until": "2027-03-22T00:00:00",
+            "price_status": "有效",
+            "remark": null,
+            "eligibility": "eligible",
+            "rejection_reasons": [],
+            "source_row": 97
+          },
+          {
+            "source_type": "supplier",
+            "source_id": "PR000097",
+            "supplier_code": "S004",
+            "supplier_name": "Alpenglow Components GmbH",
+            "supplier_type": "原厂",
+            "country": "德国",
+            "condition": "FN",
+            "certificate": "FAA 8130-3",
+            "unit_cost_original": "455.76",
+            "currency": "EUR",
+            "exchange_rate": "7.75",
+            "unit_cost_cny": "3532.14",
+            "moq": "1",
+            "lead_time_days": "72",
+            "in_stock": false,
+            "available_quantity": null,
+            "quote_date": "2026-09-19T00:00:00",
+            "valid_until": "2027-03-18T00:00:00",
+            "price_status": "有效",
+            "remark": null,
+            "eligibility": "eligible",
+            "rejection_reasons": [],
+            "source_row": 98
+          }
+        ],
+        "decision": {
+          "recommended_source": "supplier",
+          "selected_source_id": "PR000096",
+          "cost_basis_type": "supplier_price",
+          "unit_cost_original": "2857.47",
+          "currency": "CNY",
+          "exchange_rate": "1",
+          "unit_cost_cny": "2857.47",
+          "markup_rate": "0.20",
+          "recommended_unit_price": "3428.96",
+          "line_total": "58292.32",
+          "confidence": "medium",
+          "requires_human_review": false,
+          "decision_reasons": [
+            "合格供应商候选 2 个，取统一成本最低者 PR000096",
+            "CNY 2857.47 × 汇率 1 = CNY 2857.47",
+            "MOQ 1 ≤ 需求 17，件状 FN 相符，有效期至 2027-03-22T00:00:00"
+          ],
+          "warnings": [
+            "供应商未提供可售数量（仅现货标志），数量待确认；不据此拒绝报价建议"
+          ]
+        }
+      },
+      {
+        "line_number": 18,
+        "inquiry_no": "9000000018",
+        "part_number": "PN-0017",
+        "description": "CLAMP 卡子",
+        "quantity": "24",
+        "unit_of_measure": "IN",
+        "priority": null,
+        "product_requirement": null,
+        "requested_mpn": "PN-0017",
+        "condition_required": "FN",
+        "manual_part_number": "PN-0017",
+        "product_scope": "一般备件",
+        "response_due_at": null,
+        "source": {
+          "file": "1/附件/询价报价清单.xlsx",
+          "sheet": "Sheet1",
+          "row": 19
+        },
+        "internal_candidates": [
+          {
+            "source_type": "internal",
+            "source_id": "STOCK-048",
+            "warehouse": "北京大兴库",
+            "condition": null,
+            "stock_on_hand": "0",
+            "available_quantity": "0",
+            "standard_cost": "168.66",
+            "average_cost": "160.8",
+            "last_purchase_price": "177.87",
+            "currency": "CNY",
+            "product_scope": "一般备件",
+            "preferred_supplier": "S012",
+            "cost_updated_at": "2026-10-01T00:00:00",
+            "eligibility": "rejected",
+            "rejection_reasons": [
+              {
+                "rule": "stock_insufficient",
+                "detail": "剩余可分配库存 0 < 需求 24"
+              },
+              {
+                "rule": "condition_mismatch",
+                "detail": "库存件状 (空) ≠ 需求 FN"
+              }
+            ],
+            "source_row": 48
+          }
+        ],
+        "supplier_candidates": [
+          {
+            "source_type": "supplier",
+            "source_id": "PR000098",
+            "supplier_code": "S012",
+            "supplier_name": "Fjord Aviation Parts AS",
+            "supplier_type": "授权分销商",
+            "country": "挪威",
+            "condition": "FN",
+            "certificate": "EASA Form 1",
+            "unit_cost_original": "21.21",
+            "currency": "EUR",
+            "exchange_rate": "7.75",
+            "unit_cost_cny": "164.38",
+            "moq": "1",
+            "lead_time_days": "16",
+            "in_stock": false,
+            "available_quantity": null,
+            "quote_date": "2026-07-21T00:00:00",
+            "valid_until": "2027-01-17T00:00:00",
+            "price_status": "有效",
+            "remark": "含包装费",
+            "eligibility": "eligible",
+            "rejection_reasons": [],
+            "source_row": 99
+          }
+        ],
+        "decision": {
+          "recommended_source": "supplier",
+          "selected_source_id": "PR000098",
+          "cost_basis_type": "supplier_price",
+          "unit_cost_original": "21.21",
+          "currency": "EUR",
+          "exchange_rate": "7.75",
+          "unit_cost_cny": "164.38",
+          "markup_rate": "0.20",
+          "recommended_unit_price": "197.26",
+          "line_total": "4734.24",
+          "confidence": "medium",
+          "requires_human_review": false,
+          "decision_reasons": [
+            "合格供应商候选 1 个，取统一成本最低者 PR000098",
+            "EUR 21.21 × 汇率 7.75 = CNY 164.38",
+            "MOQ 1 ≤ 需求 24，件状 FN 相符，有效期至 2027-01-17T00:00:00"
+          ],
+          "warnings": [
+            "供应商未提供可售数量（仅现货标志），数量待确认；不据此拒绝报价建议"
+          ]
+        }
+      },
+      {
+        "line_number": 19,
+        "inquiry_no": "9000000019",
+        "part_number": "PN-0018",
+        "description": "GASKET 密封垫",
+        "quantity": "31",
+        "unit_of_measure": "EA",
+        "priority": "USR",
+        "product_requirement": null,
+        "requested_mpn": "PN-0018",
+        "condition_required": "FN",
+        "manual_part_number": "PN-0018",
+        "product_scope": "标准件",
+        "response_due_at": null,
+        "source": {
+          "file": "1/附件/询价报价清单.xlsx",
+          "sheet": "Sheet1",
+          "row": 20
+        },
+        "internal_candidates": [
+          {
+            "source_type": "internal",
+            "source_id": "STOCK-049",
+            "warehouse": "北京大兴库",
+            "condition": "NE",
+            "stock_on_hand": "2186",
+            "available_quantity": "2186",
+            "standard_cost": "120.17",
+            "average_cost": "128.24",
+            "last_purchase_price": "117.83",
+            "currency": "CNY",
+            "product_scope": "标准件",
+            "preferred_supplier": "S011",
+            "cost_updated_at": "2026-10-10T00:00:00",
+            "eligibility": "rejected",
+            "rejection_reasons": [
+              {
+                "rule": "condition_mismatch",
+                "detail": "库存件状 NE ≠ 需求 FN"
+              }
+            ],
+            "source_row": 49
+          }
+        ],
+        "supplier_candidates": [
+          {
+            "source_type": "supplier",
+            "source_id": "PR000099",
+            "supplier_code": "S011",
+            "supplier_name": "西安长风航材有限公司",
+            "supplier_type": "分销商",
+            "country": "中国",
+            "condition": "FN",
+            "certificate": "CoC",
+            "unit_cost_original": "112.04",
+            "currency": "CNY",
+            "exchange_rate": "1",
+            "unit_cost_cny": "112.04",
+            "moq": "200",
+            "lead_time_days": "8",
+            "in_stock": true,
+            "available_quantity": null,
+            "quote_date": "2026-08-22T00:00:00",
+            "valid_until": "2027-02-18T00:00:00",
+            "price_status": "有效",
+            "remark": null,
+            "eligibility": "rejected",
+            "rejection_reasons": [
+              {
+                "rule": "moq_exceeds",
+                "detail": "MOQ 200 > 需求 31"
+              }
+            ],
+            "source_row": 100
+          },
+          {
+            "source_type": "supplier",
+            "source_id": "PR000100",
+            "supplier_code": "S006",
+            "supplier_name": "北京云端航材贸易有限公司",
+            "supplier_type": "贸易商",
+            "country": "中国",
+            "condition": "FN",
+            "certificate": "CoC",
+            "unit_cost_original": "103.64",
+            "currency": "CNY",
+            "exchange_rate": "1",
+            "unit_cost_cny": "103.64",
+            "moq": "500",
+            "lead_time_days": "13",
+            "in_stock": false,
+            "available_quantity": null,
+            "quote_date": "2026-06-22T00:00:00",
+            "valid_until": "2026-09-20T00:00:00",
+            "price_status": "已过期",
+            "remark": "含加急服务费",
+            "eligibility": "rejected",
+            "rejection_reasons": [
+              {
+                "rule": "status_invalid",
+                "detail": "价格状态=已过期"
+              },
+              {
+                "rule": "moq_exceeds",
+                "detail": "MOQ 500 > 需求 31"
+              }
+            ],
+            "source_row": 101
+          },
+          {
+            "source_type": "supplier",
+            "source_id": "PR000101",
+            "supplier_code": "S008",
+            "supplier_name": "Ironwood Aerospace Inc.",
+            "supplier_type": "原厂",
+            "country": "美国",
+            "condition": "FN",
+            "certificate": "CoC",
+            "unit_cost_original": "19.06",
+            "currency": "USD",
+            "exchange_rate": "7.1",
+            "unit_cost_cny": "135.33",
+            "moq": "500",
+            "lead_time_days": "78",
+            "in_stock": false,
+            "available_quantity": null,
+            "quote_date": "2026-09-27T00:00:00",
+            "valid_until": "2027-03-26T00:00:00",
+            "price_status": "有效",
+            "remark": null,
+            "eligibility": "rejected",
+            "rejection_reasons": [
+              {
+                "rule": "moq_exceeds",
+                "detail": "MOQ 500 > 需求 31"
+              }
+            ],
+            "source_row": 102
+          }
+        ],
+        "decision": {
+          "recommended_source": "manual",
+          "selected_source_id": null,
+          "confidence": "low",
+          "requires_human_review": true,
+          "unit_cost_cny": null,
+          "recommended_unit_price": null,
+          "line_total": null,
+          "decision_reasons": [
+            "无满足全部硬约束的候选，转人工"
+          ],
+          "warnings": [
+            "不得为凑数而放宽件状或超额采购"
+          ]
+        }
+      },
+      {
+        "line_number": 20,
+        "inquiry_no": "9000000020",
+        "part_number": "PN-0019",
+        "description": "BEARING 轴承",
+        "quantity": "38",
+        "unit_of_measure": "EA",
+        "priority": "WSP",
+        "product_requirement": null,
+        "requested_mpn": "PN-0019",
+        "condition_required": "FN",
+        "manual_part_number": "PN-0019",
+        "product_scope": "一般备件",
+        "response_due_at": null,
+        "source": {
+          "file": "1/附件/询价报价清单.xlsx",
+          "sheet": "Sheet1",
+          "row": 21
+        },
+        "internal_candidates": [
+          {
+            "source_type": "internal",
+            "source_id": "STOCK-050",
+            "warehouse": "上海浦东库",
+            "condition": "OH",
+            "stock_on_hand": "1",
+            "available_quantity": "1",
+            "standard_cost": "2491.54",
+            "average_cost": "2620.04",
+            "last_purchase_price": "2697.76",
+            "currency": "CNY",
+            "product_scope": "一般备件",
+            "preferred_supplier": "S002",
+            "cost_updated_at": "2026-09-20T00:00:00",
+            "eligibility": "rejected",
+            "rejection_reasons": [
+              {
+                "rule": "stock_insufficient",
+                "detail": "剩余可分配库存 1 < 需求 38"
+              },
+              {
+                "rule": "condition_mismatch",
+                "detail": "库存件状 OH ≠ 需求 FN"
+              }
+            ],
+            "source_row": 50
+          }
+        ],
+        "supplier_candidates": [
+          {
+            "source_type": "supplier",
+            "source_id": "PR000102",
+            "supplier_code": "S002",
+            "supplier_name": "Crestwood Aviation Supply",
+            "supplier_type": "分销商",
+            "country": "美国",
+            "condition": "FN",
+            "certificate": "EASA Form 1",
+            "unit_cost_original": "321.03",
+            "currency": "USD",
+            "exchange_rate": "7.1",
+            "unit_cost_cny": "2279.31",
+            "moq": "1",
+            "lead_time_days": "9",
+            "in_stock": true,
+            "available_quantity": null,
+            "quote_date": "2026-10-08T00:00:00",
+            "valid_until": "2027-01-06T00:00:00",
+            "price_status": "有效",
+            "remark": null,
+            "eligibility": "eligible",
+            "rejection_reasons": [],
+            "source_row": 103
+          },
+          {
+            "source_type": "supplier",
+            "source_id": "PR000103",
+            "supplier_code": "S008",
+            "supplier_name": "Ironwood Aerospace Inc.",
+            "supplier_type": "原厂",
+            "country": "美国",
+            "condition": "OH",
+            "certificate": "FAA 8130-3",
+            "unit_cost_original": "276.12",
+            "currency": "USD",
+            "exchange_rate": "7.1",
+            "unit_cost_cny": "1960.45",
+            "moq": "1",
+            "lead_time_days": "69",
+            "in_stock": false,
+            "available_quantity": null,
+            "quote_date": "2026-09-24T00:00:00",
+            "valid_until": "2027-03-23T00:00:00",
+            "price_status": "有效",
+            "remark": "含包装费",
+            "eligibility": "rejected",
+            "rejection_reasons": [
+              {
+                "rule": "condition_mismatch",
+                "detail": "候选件状 OH ≠ 需求 FN"
+              }
+            ],
+            "source_row": 104
+          },
+          {
+            "source_type": "supplier",
+            "source_id": "PR000104",
+            "supplier_code": "S012",
+            "supplier_name": "Fjord Aviation Parts AS",
+            "supplier_type": "授权分销商",
+            "country": "挪威",
+            "condition": "FN",
+            "certificate": "FAA 8130-3",
+            "unit_cost_original": "363.48",
+            "currency": "EUR",
+            "exchange_rate": "7.75",
+            "unit_cost_cny": "2816.97",
+            "moq": "1",
+            "lead_time_days": "21",
+            "in_stock": false,
+            "available_quantity": null,
+            "quote_date": "2026-07-20T00:00:00",
+            "valid_until": "2027-01-16T00:00:00",
+            "price_status": "有效",
+            "remark": "含包装费",
+            "eligibility": "eligible",
+            "rejection_reasons": [],
+            "source_row": 105
+          }
+        ],
+        "decision": {
+          "recommended_source": "supplier",
+          "selected_source_id": "PR000102",
+          "cost_basis_type": "supplier_price",
+          "unit_cost_original": "321.03",
+          "currency": "USD",
+          "exchange_rate": "7.1",
+          "unit_cost_cny": "2279.31",
+          "markup_rate": "0.20",
+          "recommended_unit_price": "2735.17",
+          "line_total": "103936.46",
+          "confidence": "medium",
+          "requires_human_review": false,
+          "decision_reasons": [
+            "合格供应商候选 2 个，取统一成本最低者 PR000102",
+            "USD 321.03 × 汇率 7.1 = CNY 2279.31",
+            "MOQ 1 ≤ 需求 38，件状 FN 相符，有效期至 2027-01-06T00:00:00"
+          ],
+          "warnings": [
+            "供应商未提供可售数量（仅现货标志），数量待确认；不据此拒绝报价建议"
+          ]
+        }
+      },
+      {
+        "line_number": 21,
+        "inquiry_no": "9000000021",
+        "part_number": "PN-0020",
+        "description": "CONNECTOR 接头",
+        "quantity": "45",
+        "unit_of_measure": "EA",
+        "priority": "NOR",
+        "product_requirement": null,
+        "requested_mpn": "PN-0020",
+        "condition_required": "FN",
+        "manual_part_number": "PN-0020",
+        "product_scope": "一般备件",
+        "response_due_at": null,
+        "source": {
+          "file": "1/附件/询价报价清单.xlsx",
+          "sheet": "Sheet1",
+          "row": 22
+        },
+        "internal_candidates": [
+          {
+            "source_type": "internal",
+            "source_id": "STOCK-051",
+            "warehouse": "上海浦东库",
+            "condition": null,
+            "stock_on_hand": "0",
+            "available_quantity": "0",
+            "standard_cost": "810.44",
+            "average_cost": "855.74",
+            "last_purchase_price": "794.13",
+            "currency": "CNY",
+            "product_scope": "一般备件",
+            "preferred_supplier": "S008",
+            "cost_updated_at": "2026-09-30T00:00:00",
+            "eligibility": "rejected",
+            "rejection_reasons": [
+              {
+                "rule": "stock_insufficient",
+                "detail": "剩余可分配库存 0 < 需求 45"
+              },
+              {
+                "rule": "condition_mismatch",
+                "detail": "库存件状 (空) ≠ 需求 FN"
+              }
+            ],
+            "source_row": 51
+          }
+        ],
+        "supplier_candidates": [
+          {
+            "source_type": "supplier",
+            "source_id": "PR000105",
+            "supplier_code": "S004",
+            "supplier_name": "Alpenglow Components GmbH",
+            "supplier_type": "原厂",
+            "country": "德国",
+            "condition": "FN",
+            "certificate": "FAA 8130-3",
+            "unit_cost_original": "117.89",
+            "currency": "EUR",
+            "exchange_rate": "7.75",
+            "unit_cost_cny": "913.65",
+            "moq": "1",
+            "lead_time_days": "51",
+            "in_stock": false,
+            "available_quantity": null,
+            "quote_date": "2026-06-19T00:00:00",
+            "valid_until": "2026-09-17T00:00:00",
+            "price_status": "已过期",
+            "remark": "不含税",
+            "eligibility": "rejected",
+            "rejection_reasons": [
+              {
+                "rule": "status_invalid",
+                "detail": "价格状态=已过期"
+              }
+            ],
+            "source_row": 106
+          },
+          {
+            "source_type": "supplier",
+            "source_id": "PR000106",
+            "supplier_code": "S008",
+            "supplier_name": "Ironwood Aerospace Inc.",
+            "supplier_type": "原厂",
+            "country": "美国",
+            "condition": "FN",
+            "certificate": "EASA Form 1",
+            "unit_cost_original": "129.51",
+            "currency": "USD",
+            "exchange_rate": "7.1",
+            "unit_cost_cny": "919.52",
+            "moq": "1",
+            "lead_time_days": "46",
+            "in_stock": false,
+            "available_quantity": null,
+            "quote_date": "2026-06-30T00:00:00",
+            "valid_until": "2026-12-27T00:00:00",
+            "price_status": "有效",
+            "remark": null,
+            "eligibility": "eligible",
+            "rejection_reasons": [],
+            "source_row": 107
+          }
+        ],
+        "decision": {
+          "recommended_source": "supplier",
+          "selected_source_id": "PR000106",
+          "cost_basis_type": "supplier_price",
+          "unit_cost_original": "129.51",
+          "currency": "USD",
+          "exchange_rate": "7.1",
+          "unit_cost_cny": "919.52",
+          "markup_rate": "0.20",
+          "recommended_unit_price": "1103.42",
+          "line_total": "49653.90",
+          "confidence": "medium",
+          "requires_human_review": false,
+          "decision_reasons": [
+            "合格供应商候选 1 个，取统一成本最低者 PR000106",
+            "USD 129.51 × 汇率 7.1 = CNY 919.52",
+            "MOQ 1 ≤ 需求 45，件状 FN 相符，有效期至 2026-12-27T00:00:00"
+          ],
+          "warnings": [
+            "供应商未提供可售数量（仅现货标志），数量待确认；不据此拒绝报价建议"
+          ]
+        }
+      }
+    ]
+  },
+  "expected_summary": {
+    "lines": 21,
+    "distinct_part_numbers": 20,
+    "priced_lines": 19,
+    "review_lines": 2,
+    "source_breakdown": {
+      "internal": 5,
+      "supplier": 14
+    },
+    "priced_subtotal_cny": "386595.80",
+    "duplicate_part_numbers": [
+      "PN-0001"
+    ]
+  },
+  "review_items": [
+    {
+      "id": "RI-0001",
+      "target": {
+        "type": "line",
+        "line_number": 16,
+        "part_number": "PN-0015"
+      },
+      "kinds": [
+        "condition_mismatch",
+        "moq_exceeds"
+      ],
+      "severity": "blocking",
+      "question": "PN-0015（需求 10，件状 FN）无可用候选，请选择处理方式",
+      "options": [
+        {
+          "id": "quote_with_moq",
+          "label": "按供应商 MOQ 超额采购并报价"
+        },
+        {
+          "id": "accept_alternate_condition",
+          "label": "接受替代件状（如 NE）"
+        },
+        {
+          "id": "request_quotation",
+          "label": "转人工询价，本期不报价"
+        }
+      ],
+      "default_option": "request_quotation",
+      "evidence": [
+        {
+          "rule": "condition_mismatch",
+          "detail": "库存件状 NE ≠ 需求 FN"
+        },
+        {
+          "rule": "moq_exceeds",
+          "detail": "MOQ 50 > 需求 10"
+        },
+        {
+          "rule": "condition_mismatch",
+          "detail": "候选件状 NE ≠ 需求 FN"
+        }
+      ],
+      "status": "open",
+      "answer": null
+    },
+    {
+      "id": "RI-0002",
+      "target": {
+        "type": "line",
+        "line_number": 19,
+        "part_number": "PN-0018"
+      },
+      "kinds": [
+        "condition_mismatch",
+        "moq_exceeds",
+        "status_invalid"
+      ],
+      "severity": "blocking",
+      "question": "PN-0018（需求 31，件状 FN）无可用候选，请选择处理方式",
+      "options": [
+        {
+          "id": "quote_with_moq",
+          "label": "按供应商 MOQ 超额采购并报价"
+        },
+        {
+          "id": "accept_alternate_condition",
+          "label": "接受替代件状（如 NE）"
+        },
+        {
+          "id": "request_quotation",
+          "label": "转人工询价，本期不报价"
+        }
+      ],
+      "default_option": "request_quotation",
+      "evidence": [
+        {
+          "rule": "condition_mismatch",
+          "detail": "库存件状 NE ≠ 需求 FN"
+        },
+        {
+          "rule": "moq_exceeds",
+          "detail": "MOQ 200 > 需求 31"
+        },
+        {
+          "rule": "status_invalid",
+          "detail": "价格状态=已过期"
+        },
+        {
+          "rule": "moq_exceeds",
+          "detail": "MOQ 500 > 需求 31"
+        }
+      ],
+      "status": "open",
+      "answer": null
+    }
+  ]
+}
