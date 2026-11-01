@@ -7,6 +7,7 @@
 | 文件 | 作用 | 读到它的时机 |
 |---|---|---|
 | [RFQ赛题解析.md](./RFQ赛题解析.md) | **事实基线**。赛事素材的可核对事实，不含方案主张 | 任何需要确认“素材到底有什么”的时候 |
+| [RFQ_BASELINE_DESIGN.md](./RFQ_BASELINE_DESIGN.md) | **行业无关基准**。通用 Schema、规则协议、双状态机、知识边界和验收矩阵 | 开发核心模型、规则或新行业扩展之前 |
 | [RFQ_SOLUTION_DESIGN.md](./RFQ_SOLUTION_DESIGN.md) | **方案设计**。架构、数据模型、规则引擎、Agent 边界 | 决定怎么实现之前 |
 | [RFQ_REQUIREMENTS_BACKLOG.md](./RFQ_REQUIREMENTS_BACKLOG.md) | **需求清单**。需求编号、优先级、状态、验收标准 | 认领任务、判断做到哪一步时 |
 | [RFQ_DEVELOPMENT_PLAN.md](./RFQ_DEVELOPMENT_PLAN.md) | **开发计划**。阶段划分、预算、退出条件、审核修订记录 | 排期与阶段验收时 |
@@ -14,7 +15,7 @@
 | [RFQ_INDUSTRY_BENCHMARK.md](./RFQ_INDUSTRY_BENCHMARK.md) | 业界 RFQ/报价流程对标、与本文档体系的差异、改动清单 | 判断“这么做是否符合行业惯例”时 |
 | [RFQ_DESIGN_REVIEW.md](./RFQ_DESIGN_REVIEW.md) | 2026-11-01 对上述文档的评审意见与实测证据 | 想了解“为什么这么改”时 |
 
-冲突时的优先级：**赛题解析 > 开发计划 > 方案设计 > 需求清单**。赛题解析只写可核对的事实；方案里的定价参数一律是方案假设，不得当作赛事规则引用。
+冲突时的优先级：**赛题解析（素材事实） > 行业无关基准（核心契约） > 开发计划 > 方案设计 > 需求清单**。赛题解析只写可核对的事实；方案里的定价参数一律是方案假设，不得当作赛事规则引用。
 
 ## 维护规则
 

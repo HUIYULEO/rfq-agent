@@ -22,7 +22,6 @@
   button{font:inherit;cursor:pointer}
   .num{font-variant-numeric:tabular-nums}
 
-  /* top */
   .top{display:flex;align-items:center;gap:18px;height:50px;padding:0 18px;background:var(--card);
        border-bottom:1px solid var(--line)}
   .brand{display:flex;align-items:baseline;gap:8px;font-size:15px;font-weight:650;letter-spacing:-.2px}
@@ -33,35 +32,43 @@
   .dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--ok);margin-right:5px;vertical-align:1px}
   .dot.off{background:var(--warn)}
 
-  /* shell */
-  .shell{display:grid;grid-template-columns:264px minmax(0,1fr) 344px;height:calc(100% - 50px)}
+  .shell{display:grid;grid-template-columns:272px minmax(0,1fr) 340px;height:calc(100% - 50px)}
 
-  /* inbox */
-  .inbox{background:var(--card);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
-  .inbox-head{display:flex;justify-content:space-between;padding:13px 14px 8px;font-size:11.5px;
-              font-weight:650;color:var(--ink2);letter-spacing:.2px}
-  .inbox-head span{color:var(--faint);font-weight:500}
-  ul.list{list-style:none;margin:0;padding:0 8px 8px;overflow:auto;flex:1}
+  /* left */
+  .side{background:var(--card);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+  .side-head{display:flex;justify-content:space-between;align-items:center;padding:13px 13px 7px;
+             font-size:11.5px;font-weight:650;color:var(--ink2)}
+  .side-head span{color:var(--faint);font-weight:500}
+  ul.list{list-style:none;margin:0;padding:0 7px;overflow:auto}
+  ul.list.pool{max-height:190px;padding-bottom:8px}
   li.item{border-radius:8px;padding:8px 9px;cursor:pointer;border:1px solid transparent}
   li.item:hover{background:var(--line2)}
   li.item.on{background:var(--accent-soft);border-color:#c7d7fe}
   li.item .r1{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
   li.item .who{font-weight:640;font-size:12.5px}
-  li.item .cnt{font-size:10.5px;color:var(--faint);font-variant-numeric:tabular-nums}
-  li.item .sub{font-size:11px;color:var(--muted);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  li.item .cnt{font-size:10.5px;color:var(--faint)}
+  li.item .sub{font-size:10.5px;color:var(--muted);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   li.item .meta{font-size:10.5px;color:var(--faint);margin-top:3px;display:flex;gap:5px;align-items:center}
   .tag{padding:0 5px;border-radius:4px;background:var(--line2);color:var(--ink2);font-size:10px;line-height:15px;white-space:nowrap}
   .tag.warn{background:var(--warn-soft);color:var(--warn)}
   .tag.ok{background:var(--ok-soft);color:var(--ok)}
-  .drop{margin:0 10px 12px;padding:11px 10px;border:1px dashed #cbd5e1;border-radius:8px;text-align:center;
+  .tag.new{background:var(--accent-soft);color:var(--accent)}
+  li.pool-item{display:flex;align-items:center;gap:8px;padding:7px 9px}
+  li.pool-item .who{flex:1;min-width:0}
+  li.pool-item button{border:1px solid #cbd5e1;background:#fff;border-radius:6px;font-size:11px;
+                      padding:3px 9px;color:var(--ink2);white-space:nowrap}
+  li.pool-item button:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+  .divider{border-top:1px solid var(--line2);margin:8px 0 2px}
+  .drop{margin:8px 10px 12px;padding:11px 10px;border:1px dashed #cbd5e1;border-radius:8px;text-align:center;
         color:var(--muted);font-size:11.5px;background:#fcfdff}
   .drop:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
   .drop b{display:block;font-size:12px;font-weight:600;margin-bottom:1px}
 
   /* work */
   .work{min-width:0;display:flex;flex-direction:column;overflow:hidden;position:relative}
-  .empty{margin:auto;color:var(--faint)}
-  .docheck{padding:16px 22px 0;background:var(--card);border-bottom:1px solid var(--line)}
+  .empty{margin:auto;max-width:380px;text-align:center;color:var(--muted)}
+  .empty h2{font-size:15px;font-weight:650;color:var(--ink);margin:0 0 6px}
+  .dochead{padding:15px 22px 0;background:var(--card);border-bottom:1px solid var(--line)}
   .doc-head{display:flex;align-items:flex-start;gap:14px}
   .doc-head h1{margin:0;font-size:17px;font-weight:650;letter-spacing:-.2px}
   .doc-head .sub{margin-top:2px;font-size:11.5px;color:var(--muted)}
@@ -69,38 +76,38 @@
   .pill{padding:2px 9px;border-radius:999px;font-size:11px;font-weight:650;background:var(--line2);color:var(--ink2)}
   .pill.awaiting_review{background:var(--warn-soft);color:var(--warn)}
   .pill.draft_ready,.pill.exported{background:var(--ok-soft);color:var(--ok)}
-  .doc-actions{display:flex;gap:8px;padding:12px 0 14px}
+  .doc-actions{display:flex;gap:8px;padding:12px 0 14px;align-items:center}
+  .doc-actions .note{font-size:11px;color:var(--faint);margin-left:4px}
+
   .btn{border:1px solid #cbd5e1;background:#fff;border-radius:7px;padding:6px 12px;font-size:12px;color:var(--ink2)}
   .btn:hover{border-color:var(--accent);color:var(--accent)}
   .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
   .btn.primary:hover{background:#1a44bd;color:#fff}
   .btn:disabled{opacity:.45;cursor:default}
+  .btn.lg{padding:8px 16px;font-size:12.5px}
 
-  /* stages */
   .stages{flex:1;overflow:auto;padding:16px 22px 26px}
   .stage{display:grid;grid-template-columns:26px minmax(0,1fr);gap:12px;margin-bottom:12px}
-  .stage .no{width:26px;height:26px;border-radius:50%;background:var(--line2);color:var(--ink2);
-             display:grid;place-items:center;font-size:11.5px;font-weight:650;border:1px solid var(--line);
-             margin-top:11px}
+  .stage .no{width:26px;height:26px;border-radius:50%;background:var(--line2);color:var(--faint);
+             display:grid;place-items:center;font-size:11.5px;font-weight:650;border:1px solid var(--line);margin-top:11px}
   .stage.ok .no{background:var(--ok-soft);color:var(--ok);border-color:var(--ok-line)}
   .stage.warn .no{background:var(--warn-soft);color:var(--warn);border-color:var(--warn-line)}
+  .stage.wait .no{background:#fff;color:var(--faint);border-style:dashed}
+  .stage.wait .card{background:#fcfdff;border-style:dashed}
   .card{background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden}
   .card>header{display:flex;align-items:center;gap:9px;padding:9px 13px;border-bottom:1px solid var(--line2)}
-  .card>header h2{margin:0;font-size:12.5px;font-weight:650;letter-spacing:.1px}
+  .card>header h2{margin:0;font-size:12.5px;font-weight:650}
   .card>header .spacer{flex:1}
   .card>.body{padding:11px 13px}
   .card>.foot{padding:8px 13px;border-top:1px solid var(--line2);background:#fcfdff;font-size:10.5px;
               color:var(--muted);display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center}
   .card>.foot code{font-family:var(--mono);color:var(--ink2)}
-
   .kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:9px 18px}
-  .kv div{min-width:0}
   .kv .k{font-size:10.5px;color:var(--faint);margin-bottom:1px}
-  .kv .v{font-size:12.5px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .kv .v{font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .kv .v.mono{font-family:var(--mono);font-size:11.5px}
   .kv .v.big{font-size:15px;font-weight:650;font-variant-numeric:tabular-nums}
-
-  .bars{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px 20px;margin-top:2px}
+  .bars{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px 20px}
   .bar .h{display:flex;justify-content:space-between;font-size:10.5px;color:var(--muted);margin-bottom:3px}
   .bar .t{height:4px;background:var(--line2);border-radius:2px;overflow:hidden}
   .bar .f{height:100%;background:var(--ok);border-radius:2px}
@@ -116,19 +123,24 @@
   .ask details{margin-top:6px;font-size:11px;color:var(--muted)}
   .ask summary{cursor:pointer;color:var(--accent)}
   .ask code{font-family:var(--mono)}
-
   .art{display:flex;flex-direction:column;gap:5px;font-family:var(--mono);font-size:11.5px}
   .art a{color:var(--accent);text-decoration:none}
   .art a:hover{text-decoration:underline}
   .muted{color:var(--faint);font-size:11.5px}
 
-  /* chat rail */
+  .gate{padding:26px 24px;text-align:center}
+  .gate h2{margin:0 0 6px;font-size:15px}
+  .gate p{margin:0 auto 14px;max-width:460px;color:var(--muted);font-size:12.5px}
+  .pipeline{display:flex;justify-content:center;gap:6px;margin:0 0 16px;flex-wrap:wrap}
+  .pipeline span{font-size:11px;color:var(--muted);background:var(--line2);border-radius:999px;padding:3px 9px}
+  .pipeline span.stop{background:var(--warn-soft);color:var(--warn)}
+
+  /* chat */
   .rail{background:var(--card);border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
   .rail-head{display:flex;align-items:center;gap:7px;padding:11px 13px;border-bottom:1px solid var(--line);
              font-size:11.5px;font-weight:650;color:var(--ink2)}
   .rail-head .model{margin-left:auto;font-weight:500;color:var(--faint);font-size:10.5px}
   .thread{flex:1;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:10px}
-  .msg{max-width:100%}
   .msg .who{font-size:10px;color:var(--faint);margin-bottom:3px}
   .msg .txt{background:#fbfcfe;border:1px solid var(--line);border-radius:9px;padding:8px 10px;
             white-space:pre-wrap;word-break:break-word;font-size:12px;line-height:1.5}
@@ -142,7 +154,6 @@
   .composer textarea:focus{outline:none;border-color:var(--accent);background:#fff}
   .composer textarea:disabled{background:var(--line2);color:var(--faint)}
 
-  /* drawer */
   .drawer{position:absolute;inset:0;background:var(--bg);display:flex;flex-direction:column;z-index:5}
   .drawer[hidden]{display:none}
   .drawer-head{display:flex;align-items:center;gap:10px;padding:11px 22px;background:var(--card);
@@ -176,18 +187,25 @@
 </header>
 
 <main class="shell">
-  <aside class="inbox">
-    <div class="inbox-head">待处理询价 <span id="count"></span></div>
+  <aside class="side">
+    <div class="side-head">待处理 <span id="count"></span></div>
     <ul class="list" id="list"></ul>
+    <div class="divider"></div>
+    <div class="side-head">可导入素材 <span id="poolcount"></span></div>
+    <ul class="list pool" id="pool"></ul>
     <div class="drop" id="drop"><b>导入邮件</b>拖入 .eml 或点击</div>
     <input type="file" id="file" accept=".eml" hidden />
   </aside>
 
   <section class="work">
-    <div class="empty" id="empty">从左侧选择一封询价邮件</div>
+    <div class="empty" id="empty">
+      <h2>等待一封询价</h2>
+      <div>左侧有一条预置样例；导入其余素材或自己的 <code>.eml</code> 后，<br />
+        点「开始处理」，它会解析、定价，然后停在需要你决定的地方。</div>
+    </div>
 
     <div id="docwrap" hidden>
-      <div class="docheck">
+      <div class="dochead">
         <div class="doc-head">
           <div>
             <h1 id="cust">—</h1>
@@ -196,8 +214,10 @@
           <div class="right"><span class="pill" id="status">—</span></div>
         </div>
         <div class="doc-actions">
-          <button class="btn primary" id="export">生成报价草案</button>
-          <button class="btn" id="rowsbtn">查看 0 行明细</button>
+          <button class="btn primary" id="start">开始处理</button>
+          <button class="btn" id="export" hidden>生成报价草案</button>
+          <button class="btn" id="rowsbtn" hidden>查看明细</button>
+          <span class="note" id="stepnote"></span>
         </div>
       </div>
       <div class="stages" id="stages"></div>
@@ -205,7 +225,7 @@
 
     <div class="drawer" id="drawer" hidden>
       <div class="drawer-head">
-        <button class="btn" id="back">← 返回阶段</button>
+        <button class="btn" id="back">← 返回</button>
         <h2 id="drawertitle">行项目明细</h2>
         <div class="spacer"></div>
         <span class="muted" id="drawerhint"></span>
@@ -225,11 +245,10 @@
   <aside class="rail">
     <div class="rail-head">报价助手 <span class="model" id="modelname"></span></div>
     <div class="thread" id="thread">
-      <div class="msg"><div class="who">系统</div><div class="txt">选一封询价邮件，我会把每一步的产物摊开；
-        也可以直接问我某一行为什么没价。</div></div>
+      <div class="msg"><div class="who">系统</div><div class="txt">也可以直接说话：帮我看看这条询价该怎么处理。</div></div>
     </div>
     <div class="composer">
-      <textarea id="chat" rows="1" placeholder="例如：第 16 行为什么没有价格？"></textarea>
+      <textarea id="chat" rows="1" placeholder="例如：这单为什么停住了？"></textarea>
       <button class="btn primary" id="send">发送</button>
     </div>
   </aside>
@@ -244,8 +263,9 @@ const money = (v) => (v === null || v === undefined || v === "")
 const CONTAINER = { "body-html": "正文表格", "body-text": "正文表格", "attachment-xlsx": "Excel 附件",
                     "attachment-pdf": "PDF 附件" };
 const SOURCE = { internal: "内部库存", supplier: "供应商报价", manual: "转人工" };
+const STAGE = { received: "待处理", parsed: "已解析", priced: "待确认", draft: "已出草案" };
 
-let CASES = [], CASEKEY = null, S = null, SID = null, TASKS = {}, DATA = null;
+let CASES = [], POOL = [], CASEKEY = null, S = null, SID = null, DATA = null, BUSY = false;
 
 async function api(path, body) {
   const opt = body === undefined ? {} : {
@@ -258,138 +278,177 @@ async function api(path, body) {
   return data;
 }
 
-/* ---------- inbox ---------- */
-async function loadCases() {
-  CASES = await api("/api/cases");
+/* ---------- lists ---------- */
+async function refresh() {
+  [CASES, POOL] = await Promise.all([api("/api/cases"), api("/api/material")]);
   $("count").textContent = CASES.length;
+  $("poolcount").textContent = POOL.length;
   $("list").innerHTML = CASES.map((c) => {
-    const t = TASKS[c.key];
-    const chip = !t ? "" : t.status === "awaiting_review" ? `<span class="tag warn">待确认 ${t.open}</span>`
-      : t.status === "exported" ? `<span class="tag ok">已导出</span>` : `<span class="tag ok">草案就绪</span>`;
+    const stage = STAGE[c.stage] || c.stage;
+    const cls = c.stage === "received" ? "new" : c.stage === "priced" ? "warn" : "ok";
     return `<li class="item${c.key === CASEKEY ? " on" : ""}" data-key="${esc(c.key)}">
       <div class="r1"><span class="who">${esc(c.customer)}</span><span class="cnt">${c.lines} 行</span></div>
       <div class="sub">${esc(c.subject || c.file)}</div>
-      <div class="meta"><span class="tag">${esc(CONTAINER[c.container] || c.container)}</span>${chip}</div>
+      <div class="meta"><span class="tag">${esc(CONTAINER[c.container] || c.container)}</span>
+        <span class="tag ${cls}">${esc(stage)}</span></div>
     </li>`;
   }).join("");
-  $("list").querySelectorAll("li.item").forEach((li) => { li.onclick = () => openCase(li.dataset.key); });
+  $("list").querySelectorAll("li.item").forEach((li) => { li.onclick = () => select(li.dataset.key); });
+
+  $("pool").innerHTML = POOL.map((c) => `
+    <li class="pool-item" data-key="${esc(c.key)}">
+      <div class="who"><div class="r1"><span class="who">${esc(c.customer)}</span></div>
+        <div class="sub">${esc(CONTAINER[c.container] || c.container)} · ${c.lines} 行</div></div>
+      <button data-import="${esc(c.key)}">导入</button>
+    </li>`).join("") || `<li class="pool-item"><div class="who muted">素材已全部导入</div></li>`;
+  $("pool").querySelectorAll("button[data-import]").forEach((b) => {
+    b.onclick = () => admit(b.dataset.import);
+  });
 }
 
-async function openCase(key) {
-  CASEKEY = key; SID = null;
-  $("empty").hidden = true; $("docwrap").hidden = false;
-  $("stages").innerHTML = `<div class="muted" style="padding:6px 2px"><span class="spin"></span> 正在解析这封邮件…</div>`;
+async function admit(key) {
   try {
-    S = await api("/api/run", { case: key, autonomy: "interactive" });
-  } catch (e) {
-    $("stages").innerHTML = `<div class="muted" style="color:var(--bad)">${esc(e.message)}</div>`; return;
-  }
-  remember();
-  render();
-  loadCases();
+    await api("/api/import", { key });
+    await refresh();
+    select(key);
+  } catch (e) { chatSay("sys", "导入失败", e.message); }
 }
 
-function remember() {
-  TASKS[CASEKEY] = { status: S.status, open: S.review_items.filter((i) => i.status === "open").length };
+/* ---------- case view ---------- */
+async function select(key) {
+  CASEKEY = key; SID = null; S = null;
+  const meta = CASES.find((c) => c.key === key);
+  $("empty").hidden = true; $("docwrap").hidden = false;
+  $("cust").textContent = meta ? meta.customer : key;
+  $("subline").textContent = meta ? [CONTAINER[meta.container] || meta.container, `${meta.lines} 行`].join(" · ") : "";
+  $("status").className = "pill"; $("status").textContent = "待处理";
+  if (meta && meta.task_id) {
+    try { S = await api(`/api/task?id=${encodeURIComponent(meta.task_id)}`); } catch (e) { S = null; }
+  }
+  render();
+  refresh();
+}
+
+async function start() {
+  if (BUSY) return;
+  BUSY = true;
+  $("start").disabled = true;
+  $("stages").innerHTML = `<div class="muted" style="padding:8px 2px"><span class="spin"></span>
+    解析邮件 · 提取行项目 · 查参考表…（停在需要你决定的地方）</div>`;
+  try {
+    S = await api("/api/run", { case: CASEKEY, autonomy: "interactive" });
+    chatSay("tool", "已处理", `${S.summary.lines} 行 · ${S.summary.priced_lines} 行有依据 · ` +
+      `${S.review_items.filter((i) => i.status === "open").length} 项待确认`);
+  } catch (e) {
+    $("stages").innerHTML = `<div class="muted" style="color:var(--bad)">${esc(e.message)}</div>`;
+  } finally {
+    BUSY = false; $("start").disabled = false;
+    render(); refresh();
+  }
 }
 
 /* ---------- render ---------- */
+function stageCard(n, title, state, chip, body, foot) {
+  const cls = state === "ok" ? "ok" : state === "warn" ? "warn" : "wait";
+  return `<section class="stage ${cls}"><div class="no">${n}</div><div class="card">
+    <header><h2>${title}</h2>${chip ? `<span class="tag ${cls === "wait" ? "" : cls}">${chip}</span>` : ""}</header>
+    <div class="body">${body}</div>${foot ? `<div class="foot">${foot}</div>` : ""}
+  </div></section>`;
+}
+const waitBody = (text) => `<div class="muted">${text}</div>`;
+
 function render() {
+  const meta = CASES.find((c) => c.key === CASEKEY);
+  if (!S) {
+    $("start").hidden = false; $("export").hidden = true; $("rowsbtn").hidden = true;
+    $("stepnote").textContent = "";
+    $("status").className = "pill"; $("status").textContent = "待处理";
+    $("stages").innerHTML = `<div class="gate">
+      <h2>这封邮件还没处理</h2>
+      <p>点「开始处理」后，系统会解析邮件正文或附件、提取行项目、查询内部成本与供应商价格，
+         然后停在需要你决定的项上——不会替你决定。</p>
+      <div class="pipeline"><span>解析</span><span>标准化</span><span>异常识别</span>
+        <span>匹配价格</span><span>硬约束过滤</span><span class="stop">停在待确认</span></div>
+      <button class="btn primary lg" id="gateStart">开始处理</button>
+    </div>`;
+    $("gateStart").onclick = start;
+    return;
+  }
   const s = S, m = s.summary, f = s.fields, d = s.data || {};
   const open = s.review_items.filter((i) => i.status === "open");
+  const answered = s.review_items.filter((i) => i.status !== "open");
 
   $("cust").textContent = s.customer;
   $("subline").textContent = [s.rfq_number, CONTAINER[s.container] || s.container, `${m.lines} 行`,
     `评估日 ${s.evaluation_date}`, s.source_files.join("、")].filter(Boolean).join(" · ");
-  const st = $("status");
-  st.className = "pill " + s.status;
-  st.textContent = s.status === "awaiting_review" ? `待确认 ${open.length}`
+  $("status").className = "pill " + s.status;
+  $("status").textContent = s.status === "awaiting_review" ? `待确认 ${open.length}`
     : s.status === "exported" ? "已导出" : s.status === "draft_ready" ? "草案就绪" : s.status;
-  $("rowsbtn").textContent = `查看 ${m.lines} 行明细`;
-  $("rowsbtn").onclick = () => { $("drawer").hidden = false; renderRows(s); };
-  $("back").onclick = () => { $("drawer").hidden = true; };
   $("policyline").textContent = `策略 ${s.policy_version}`;
   if (DATA) $("dataline").innerHTML = `数据 <b>${esc(DATA.snapshot_id)}</b> · ${DATA.price_rows + DATA.cost_rows} 行`;
 
-  const stage1 = `
-    <section class="stage ok"><div class="no">1</div><div class="card">
-      <header><h2>收到邮件</h2><span class="tag ok">已读取</span></header>
-      <div class="body"><div class="kv">
-        <div><div class="k">客户</div><div class="v">${esc(s.customer)}</div></div>
-        <div><div class="k">询价号</div><div class="v mono">${esc(s.rfq_number)}</div></div>
-        <div><div class="k">邮件主题</div><div class="v" title="${esc(s.subject)}">${esc(s.subject)}</div></div>
-        <div><div class="k">表格位置</div><div class="v">${esc(CONTAINER[s.container] || s.container)}</div></div>
-      </div></div>
-      <div class="foot">来源 <code>${esc(f.eml || s.source_files.join("、"))}</code>
-        ${s.source_files.length > 1 ? `· 附件 <code>${esc(s.source_files.slice(1).join("、"))}</code>` : ""}</div>
-    </div></section>`;
+  $("start").hidden = false;
+  $("start").textContent = "重新处理";
+  $("rowsbtn").hidden = false;
+  $("rowsbtn").textContent = `查看 ${m.lines} 行明细`;
+  $("rowsbtn").onclick = () => { $("drawer").hidden = false; renderRows(s); };
+  $("back").onclick = () => { $("drawer").hidden = true; };
+  $("export").hidden = !(open.length === 0 || s.artifacts.length);
+  $("export").textContent = s.artifacts.length ? "重新生成草案" : "生成报价草案";
+  $("export").onclick = doExport;
+  $("stepnote").textContent = open.length
+    ? `停在 ${open.length} 项需要你决定的地方`
+    : s.artifacts.length ? "草案已生成，可下载" : "全部行都有依据，可以生成草案";
 
   const pct = (n) => m.lines ? Math.round(n / m.lines * 100) : 0;
-  const bar = (label, n, warn) => `<div class="bar"><div class="h"><span>${label}</span>
+  const bar = (label, n) => `<div class="bar"><div class="h"><span>${label}</span>
       <span class="num">${n}/${m.lines}</span></div>
-      <div class="t"><div class="f ${warn && n < m.lines ? "warn" : ""}" style="width:${pct(n)}%"></div></div></div>`;
-  const stage2 = `
-    <section class="stage ${f.unit === m.lines ? "ok" : "warn"}"><div class="no">2</div><div class="card">
-      <header><h2>结构化解析</h2><span class="tag ${f.unit === m.lines ? "ok" : "warn"}">${m.lines} 行</span>
-        <div class="spacer"></div><span class="muted">${f.with_evidence}/${m.lines} 行可回溯到原始单元格</span></header>
-      <div class="body"><div class="bars">
-        ${bar("料号", f.part_number)}${bar("数量", f.quantity)}${bar("单位", f.unit)}
-        ${bar("件状要求", f.condition, true)}
-      </div></div>
-      <div class="foot"><span>每行都带 <code>{文件 · 载体 · 行号}</code></span>
-        <span>表格归一后与 Excel 附件同一套列名</span></div>
-    </div></section>`;
+      <div class="t"><div class="f ${n < m.lines ? "warn" : ""}" style="width:${pct(n)}%"></div></div></div>`;
 
-  const stage3 = `
-    <section class="stage ${m.review_lines ? "warn" : "ok"}"><div class="no">3</div><div class="card">
-      <header><h2>定价</h2><span class="tag ${m.review_lines ? "warn" : "ok"}">
-          ${m.priced_lines}/${m.lines} 行有依据</span></header>
-      <div class="body"><div class="kv">
-        <div><div class="k">内部库存</div><div class="v big">${m.internal_lines} <span class="muted">行</span></div></div>
-        <div><div class="k">供应商报价</div><div class="v big">${m.supplier_lines} <span class="muted">行</span></div></div>
-        <div><div class="k">转人工</div><div class="v big" style="color:var(--warn)">${m.review_lines} <span class="muted">行</span></div></div>
-        <div><div class="k">已报价小计</div><div class="v big">¥${money(m.priced_subtotal_cny)}</div></div>
-      </div></div>
-      <div class="foot">
-        <span>价格资源表 <code>${esc(d.price_rows ?? "—")}</code> 行 · 本次命中 <code>${esc(d.hit_price ?? "—")}</code></span>
-        <span>内部成本表 <code>${esc(d.cost_rows ?? "—")}</code> 行 · 本次命中 <code>${esc(d.hit_cost ?? "—")}</code></span>
-        <span>料号 <code>${esc(d.parts ?? "—")}</code> 个</span>
-        <span>快照 <code>${esc(d.snapshot_id || "—")}</code></span>
-      </div>
-    </div></section>`;
+  const s1 = stageCard(1, "收到邮件", "ok", CONTAINER[s.container] || s.container, `<div class="kv">
+      <div><div class="k">客户</div><div class="v">${esc(s.customer)}</div></div>
+      <div><div class="k">询价号</div><div class="v mono">${esc(s.rfq_number)}</div></div>
+      <div><div class="k">主题</div><div class="v" title="${esc(s.subject)}">${esc(s.subject)}</div></div>
+      <div><div class="k">行数</div><div class="v">${m.lines}</div></div></div>`,
+    `来源 <code>${esc(s.source_files.join("、"))}</code>`);
 
-  const stage4 = `
-    <section class="stage ${open.length ? "warn" : "ok"}"><div class="no">4</div><div class="card">
-      <header><h2>需要你决定</h2><span class="tag ${open.length ? "warn" : "ok"}">
-        ${open.length ? `${open.length} 项` : "无阻塞"}</span></header>
-      <div class="body">${open.length ? `<div class="asks">${open.map((i) => `
-        <div class="ask">
-          <div class="h"><b>${esc(i.id)}</b><span>${esc(i.target.part_number || "整案")}</span>
-            <span>${esc(i.kinds.join(" · "))}</span></div>
-          <div class="q">${esc(i.question)}</div>
-          <div class="opts">${i.options.map((o) =>
-            `<button data-item="${esc(i.id)}" data-opt="${esc(o.id)}">${esc(o.label)}</button>`).join("")}</div>
-          ${i.evidence.length ? `<details><summary>看依据（${i.evidence.length} 条）</summary><ul>${
-            i.evidence.map((e) => `<li><code>${esc(e.rule)}</code> ${esc(e.detail)}</li>`).join("")}</ul></details>` : ""}
-        </div>`).join("")}</div>` : `<div class="muted">所有行都有可用依据，没有阻塞项。</div>`}</div>
-      ${s.review_items.some((i) => i.status !== "open") ? `<div class="foot">${
-        s.review_items.filter((i) => i.status !== "open").map((i) =>
-          `<span>${esc(i.id)} → ${esc(i.answer)}</span>`).join("")}</div>` : ""}
-    </div></section>`;
+  const s2 = stageCard(2, "结构化解析", "ok", `${m.lines} 行`, `<div class="bars">
+      ${bar("料号", f.part_number)}${bar("数量", f.quantity)}${bar("单位", f.unit)}${bar("件状要求", f.condition)}
+    </div>`, `${f.with_evidence}/${m.lines} 行可回溯到原始单元格 · 表格已归一为统一列名`);
+
+  const s3 = stageCard(3, "定价", m.review_lines ? "warn" : "ok", `${m.priced_lines}/${m.lines} 有依据`,
+    `<div class="kv">
+      <div><div class="k">内部库存</div><div class="v big">${m.internal_lines}</div></div>
+      <div><div class="k">供应商报价</div><div class="v big">${m.supplier_lines}</div></div>
+      <div><div class="k">转人工</div><div class="v big" style="color:var(--warn)">${m.review_lines}</div></div>
+      <div><div class="k">已报价小计</div><div class="v big">¥${money(m.priced_subtotal_cny)}</div></div>
+    </div>`,
+    `<span>价格资源表 <code>${esc(d.price_rows ?? "—")}</code> 行 · 命中 <code>${esc(d.hit_price ?? "—")}</code></span>
+     <span>内部成本表 <code>${esc(d.cost_rows ?? "—")}</code> 行 · 命中 <code>${esc(d.hit_cost ?? "—")}</code></span>
+     <span>快照 <code>${esc(d.snapshot_id || "—")}</code></span>`);
+
+  const s4 = stageCard(4, "需要你决定", open.length ? "warn" : "ok",
+    open.length ? `${open.length} 项` : "无阻塞",
+    open.length ? `<div class="asks">${open.map((i) => `<div class="ask">
+        <div class="h"><b>${esc(i.id)}</b><span>${esc(i.target.part_number || "整案")}</span>
+          <span>${esc(i.kinds.join(" · "))}</span></div>
+        <div class="q">${esc(i.question)}</div>
+        <div class="opts">${i.options.map((o) =>
+          `<button data-item="${esc(i.id)}" data-opt="${esc(o.id)}">${esc(o.label)}</button>`).join("")}</div>
+        ${i.evidence.length ? `<details><summary>看依据（${i.evidence.length} 条）</summary><ul>${
+          i.evidence.map((e) => `<li><code>${esc(e.rule)}</code> ${esc(e.detail)}</li>`).join("")}</ul></details>` : ""}
+      </div>`).join("")}</div>` : `<div class="muted">所有行都有可用依据，没有需要你决定的地方。</div>`,
+    answered.length ? answered.map((i) => `<span>${esc(i.id)} → ${esc(i.answer)}</span>`).join("") : "");
 
   const arts = s.artifacts || [];
-  const stage5 = `
-    <section class="stage ${arts.length ? "ok" : ""}"><div class="no">5</div><div class="card">
-      <header><h2>报价草案</h2><span class="tag ${arts.length ? "ok" : ""}">
-        ${arts.length ? "已生成" : "未生成"}</span></header>
-      <div class="body">${arts.length ? `<div class="art">${arts.map((a) =>
-        `<a href="/api/download?id=${encodeURIComponent(s.task_id)}&file=${encodeURIComponent(a)}"
-            target="_blank">${esc(a)}</a>`).join("")}</div>`
-        : `<div class="muted">点上方「生成报价草案」，按官方模板填充并附第二页依据摘要。</div>`}</div>
-      <div class="foot"><span>产物永远是待复核草案：未计税费运费，不预留库存</span></div>
-    </div></section>`;
+  const s5 = stageCard(5, "报价草案", arts.length ? "ok" : "wait", arts.length ? "已生成" : "未生成",
+    arts.length ? `<div class="art">${arts.map((a) =>
+      `<a href="/api/download?id=${encodeURIComponent(s.task_id)}&file=${encodeURIComponent(a)}"
+          target="_blank">${esc(a)}</a>`).join("")}</div>`
+      : waitBody(open.length ? "先处理完上面的待确认项，再生成草案。" : "点上方「生成报价草案」。"),
+    `<span>产物永远是待复核草案：未计税费运费，不预留库存</span>`);
 
-  $("stages").innerHTML = stage1 + stage2 + stage3 + stage4 + stage5;
+  $("stages").innerHTML = s1 + s2 + s3 + s4 + s5;
   $("stages").querySelectorAll(".ask .opts button").forEach((b) => {
     b.onclick = () => resolve(b.dataset.item, b.dataset.opt);
   });
@@ -397,18 +456,27 @@ function render() {
 
 async function resolve(itemId, optionId) {
   const rev = S.revision;
-  chatSay("me", `我`, `${itemId} → ${optionId}`);
+  chatSay("me", "我", `${itemId} → ${optionId}`);
   try {
     S = await api("/api/resolve", { task_id: S.task_id, revision: rev, item_id: itemId, option_id: optionId });
-    remember(); render();
-    chatSay("tool", "重算", `revision ${rev} → ${S.revision} · 状态 ${S.status}`);
-    loadCases();
+    render(); refresh();
+    chatSay("tool", "重算", `revision ${rev} → ${S.revision} · ${S.status}`);
   } catch (e) { chatSay("sys", "错误", e.message); }
+}
+
+async function doExport() {
+  $("export").disabled = true;
+  try {
+    const r = await api("/api/export", { task_id: S.task_id, revision: S.revision });
+    S = r; render(); refresh();
+    chatSay("tool", "导出", `已生成 ${(r.export && r.export.artifacts || r.artifacts || []).join("、")}`);
+  } catch (e) { chatSay("sys", "错误", e.message); }
+  finally { $("export").disabled = false; }
 }
 
 function renderRows(s) {
   $("drawertitle").textContent = `行项目明细 · ${s.summary.lines} 行`;
-  $("drawerhint").textContent = `来源：${s.source_files.join("、")}`;
+  $("drawerhint").textContent = s.source_files.join("、");
   $("rows").innerHTML = s.results.map((r) => {
     const ok = r.eligibility === "priced";
     const qty = r.quantity_basis === "moq" ? `${esc(r.requested_quantity)} → ${esc(r.quantity)}` : esc(r.quantity);
@@ -444,8 +512,7 @@ function chatSay(kind, who, text) {
 async function send() {
   const box = $("chat"), text = box.value.trim();
   if (!text) return;
-  box.value = "";
-  chatSay("me", "我", text);
+  box.value = ""; chatSay("me", "我", text);
   $("send").disabled = true;
   const pending = chatSay("tool", "调用中", "…");
   try {
@@ -457,30 +524,12 @@ async function send() {
     }
     if (r.error) chatSay("sys", "错误", r.error);
     if (r.reply) chatSay("agent", "助手", r.reply);
-    if (r.state) { S = r.state; CASEKEY = CASEKEY || null; remember(); render(); loadCases(); }
-  } catch (e) {
-    pending.remove();
-    chatSay("sys", "错误", e.message);
-  } finally { $("send").disabled = false; box.focus(); }
+    if (r.state) { S = r.state; render(); refresh(); }
+  } catch (e) { pending.remove(); chatSay("sys", "错误", e.message); }
+  finally { $("send").disabled = false; box.focus(); }
 }
 
-/* ---------- export / upload ---------- */
-$("export").onclick = async () => {
-  $("export").disabled = true;
-  try {
-    const r = await api("/api/export", { task_id: S.task_id, revision: S.revision });
-    S = r;
-    remember(); render(); loadCases();
-    const files = (r.export && r.export.artifacts) || r.artifacts || [];
-    chatSay("tool", "导出", `已生成 ${files.join("、")}（待复核草案）`);
-  } catch (e) { chatSay("sys", "错误", e.message); }
-  finally { $("export").disabled = false; }
-};
-
-$("send").onclick = send;
-$("chat").addEventListener("keydown", (e) => {
-  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
-});
+/* ---------- upload ---------- */
 $("drop").onclick = () => $("file").click();
 $("file").onchange = (e) => { if (e.target.files[0]) upload(e.target.files[0]); };
 ["dragenter", "dragover"].forEach((ev) => $("drop").addEventListener(ev, (e) => {
@@ -492,19 +541,25 @@ $("file").onchange = (e) => { if (e.target.files[0]) upload(e.target.files[0]); 
 $("drop").addEventListener("drop", (e) => { if (e.dataTransfer.files[0]) upload(e.dataTransfer.files[0]); });
 
 async function upload(file) {
-  $("drop").innerHTML = `<b><span class="spin"></span> 解析 ${esc(file.name)}</b>`;
+  $("drop").innerHTML = `<b><span class="spin"></span> ${esc(file.name)}</b>`;
   try {
     const res = await fetch("/api/upload?name=" + encodeURIComponent(file.name), { method: "POST", body: file });
     const data = JSON.parse(await res.text());
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-    await loadCases();
+    await refresh();
     const added = CASES.find((c) => c.key.startsWith("UP-"));
-    if (added) openCase(added.key);
+    if (added) select(added.key);
   } catch (e) { chatSay("sys", "导入失败", e.message); }
   finally { $("drop").innerHTML = "<b>导入邮件</b>拖入 .eml 或点击"; }
 }
 
 /* ---------- boot ---------- */
+$("send").onclick = send;
+$("chat").addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
+});
+$("start").onclick = start;
+
 async function boot() {
   try { DATA = await api("/api/data"); } catch (e) { DATA = null; }
   try {
@@ -512,12 +567,10 @@ async function boot() {
     $("agentline").innerHTML = a.enabled ? `<span class="dot"></span>模型 <b>${esc(a.model)}</b>`
       : `<span class="dot off"></span>模型未配置`;
     $("modelname").textContent = a.enabled ? a.model : "";
-    $("chat").disabled = !a.enabled;
-    $("send").disabled = !a.enabled;
+    $("chat").disabled = !a.enabled; $("send").disabled = !a.enabled;
     if (!a.enabled) $("chat").placeholder = `模型未配置（缺 ${a.missing.join("、")}）`;
-  } catch (e) { /* keep the deterministic flow usable */ }
-  await loadCases();
-  if (CASES.length) openCase(CASES[0].key);
+  } catch (e) { /* deterministic flow stays usable */ }
+  await refresh();
 }
 boot();
 </script>

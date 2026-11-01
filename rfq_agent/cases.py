@@ -22,6 +22,7 @@ TEMPLATE = "报价单样例.docx"
 
 BUYER = re.compile(r"rfq-([a-z])@", re.I)
 UPLOADS = Path("runtime") / "uploads"
+SEED = ("B",)             # the demo ships with one example; the rest the user admits
 
 
 def DB_PATH(root: Path) -> Path:
@@ -115,7 +116,7 @@ def discover(root: Path, *, refresh: bool = False) -> list[Case]:
 
 
 def save_upload(root: Path, name: str, payload: bytes) -> Path:
-    """Accept a judge's own .eml: it becomes another case, same pipeline."""
+    """Accept the user's own .eml: it becomes another case, same pipeline."""
     if not name.lower().endswith(".eml"):
         raise ValueError("目前只接受 .eml 询价邮件")
     target = root / UPLOADS
@@ -158,6 +159,65 @@ def load_case(root: Path, key: str):
             return ingest_eml(case.path), provider_for(root)
     available = ", ".join(case.key for case in discover(root))
     raise ValueError(f"素材里没有案例 {key}；可用的是 {available}")
+
+
+def case_by_key(root: Path, key: str) -> Case:
+    wanted = key.strip().upper()
+    for case in discover(root):
+        if case.key.upper() == wanted:
+            return case
+    raise ValueError(f"素材里没有案例 {key}")
+
+
+# ---------- inbox: the demo ships small, the user admits the rest ----------
+
+def _inbox_db(root: Path):
+    from .db import admit, connect, inbox_rows, mark_seeded, seeded, set_stage
+
+    connection = connect(DB_PATH(root))
+    return connection, admit, inbox_rows, mark_seeded, seeded, set_stage
+
+
+def inbox(root: Path) -> list[dict]:
+    """Cases the user has admitted. First run seeds two examples, not all six."""
+    connection, admit, inbox_rows, mark_seeded, seeded, _ = _inbox_db(root)
+    if not seeded(connection):
+        for key in SEED:
+            try:
+                admit(connection, case_by_key(root, key).path)
+            except ValueError:
+                continue
+        mark_seeded(connection)
+    rows = inbox_rows(connection)
+    by_path = {case.path.resolve(): case for case in discover(root)}
+    items = []
+    for path_str, row in rows.items():
+        case = by_path.get(Path(path_str).resolve())
+        if case is None:
+            continue
+        items.append({"case": case, "stage": row["stage"], "task_id": row["task_id"],
+                      "imported_at": row["imported_at"]})
+    items.sort(key=lambda item: (len(item["case"].key) > 1, item["case"].key))
+    return items
+
+
+def available(root: Path) -> list[Case]:
+    """Material that has not been admitted yet — what the user may still pull in."""
+    taken = {item["case"].path.resolve() for item in inbox(root)}
+    return [case for case in discover(root) if case.path.resolve() not in taken]
+
+
+def admit_case(root: Path, key: str) -> Case:
+    case = case_by_key(root, key)
+    connection, admit, *_ = _inbox_db(root)
+    admit(connection, case.path)
+    return case
+
+
+def mark_stage(root: Path, key: str, stage: str, task_id: str | None = None) -> None:
+    case = case_by_key(root, key)
+    connection, _, _, _, _, set_stage = _inbox_db(root)
+    set_stage(connection, case.path, stage, task_id)
 
 
 def case_path(root: Path, key: str) -> Path:

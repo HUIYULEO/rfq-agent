@@ -17,7 +17,8 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 from uuid import uuid4
 
-from .cases import data_status, discover, load_case, provider_for, save_upload, template_for
+from .cases import (admit_case, available, case_by_key, data_status, discover, inbox,
+                    load_case, mark_stage, provider_for, save_upload, template_for)
 from .genesis import GenesisError, Session, load_config, missing_keys
 from .pricing import summarize
 from .service import RFQService
@@ -72,6 +73,25 @@ def _view(task: dict) -> dict:
         })
     rfq = task["rfq"]
     container = (task["results"][0].get("evidence") or {}).get("container", "") if task["results"] else ""
+    container = container or (rfq.get("lines") or [{}])[0].get("evidence", {}).get("container", "")
+    lines = []
+    for line in rfq.get("lines", []):
+        evidence = line.get("evidence") or {}
+        number = str(line.get("line_id", "")).lstrip("L")
+        lines.append({
+            "line_number": int(number) if number.isdigit() else None,
+            "part_number": line.get("part_number", ""),
+            "description": line.get("description", ""),
+            "quantity": line.get("quantity"),
+            "unit": line.get("unit"),
+            "condition_accept": line.get("condition_accept") or [],
+            "priority": line.get("priority") or "",
+            "due_at": line.get("due_at") or "",
+            "provenance": f"{evidence.get('container', '')} · 第 {evidence.get('row', '?')} 行",
+            "located": bool(evidence.get("row")),
+        })
+    stage = ("draft" if task["artifacts"] else "priced" if task["results"]
+             else "parsed" if task["status"] == "analyzed" else "received")
     return {
         "task_id": task["task_id"],
         "revision": task["revision"],
@@ -86,28 +106,24 @@ def _view(task: dict) -> dict:
         "source_files": rfq.get("source_files", []),
         "container": container,
         "summary": summarize(task["results"]),
+        "stage": stage,
+        "lines": lines,
         "results": results,
         "review_items": task["review_items"],
         "decision_log": task["decision_log"],
-        "artifacts": task["artifacts"],
-        "fields": _field_health(task["results"], rfq),
+        "artifacts": [Path(name).name for name in task["artifacts"]],
+        "fields": _field_health(lines),
         "data": _data_trace(),
     }
 
 
-def _field_health(results: list[dict], rfq: dict) -> dict:
+def _field_health(lines: list[dict]) -> dict:
     """What the parse actually captured — completeness is a product fact, not a guess."""
-    total = len(results)
-    filled = lambda key: sum(1 for row in results if row.get(key) not in (None, "", []))
-    return {
-        "lines": total,
-        "part_number": filled("part_number"),
-        "quantity": filled("quantity"),
-        "unit": filled("unit"),
-        "condition": sum(1 for row in results if row.get("condition_accept")),
-        "with_evidence": sum(1 for row in results if (row.get("evidence") or {}).get("row")),
-        "eml": (rfq.get("source_files") or [""])[0],
-    }
+    total = len(lines)
+    filled = lambda key: sum(1 for row in lines if row.get(key) not in (None, "", []))
+    return {"lines": total, "part_number": filled("part_number"), "quantity": filled("quantity"),
+            "unit": filled("unit"), "condition": filled("condition_accept"),
+            "with_evidence": sum(1 for row in lines if row.get("located"))}
 
 
 def _data_trace() -> dict:
@@ -154,7 +170,10 @@ class Handler(BaseHTTPRequestHandler):
 
     def _run(self, case: str, autonomy: str):
         rfq, _ = load_case(ROOT, case)
-        return _service().start_task(rfq.to_dict(), autonomy=autonomy)
+        state = _service().start_task(rfq.to_dict(), autonomy=autonomy)
+        admit_case(ROOT, case)
+        mark_stage(ROOT, case, "priced", state["task_id"])
+        return state
 
     # ---------- routes ----------
 
@@ -169,11 +188,19 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(page)
             return
         if parsed.path == "/api/cases":
-            self._json([{"key": case.key, "label": case.label,
-                         "container": case.container, "file": case.path.name,
-                         "customer": case.customer, "subject": case.subject,
-                         "received": case.received, "lines": case.lines}
-                        for case in discover(ROOT)])
+            self._json([{"key": item["case"].key, "label": item["case"].label,
+                         "container": item["case"].container, "file": item["case"].path.name,
+                         "customer": item["case"].customer, "subject": item["case"].subject,
+                         "received": item["case"].received, "lines": item["case"].lines,
+                         "stage": item["stage"], "task_id": item["task_id"],
+                         "imported_at": item["imported_at"]}
+                        for item in inbox(ROOT)])
+            return
+        if parsed.path == "/api/material":
+            self._json([{"key": case.key, "customer": case.customer, "subject": case.subject,
+                         "container": case.container, "lines": case.lines,
+                         "received": case.received}
+                        for case in available(ROOT)])
             return
         if parsed.path == "/api/agent":
             config = load_config(ROOT)
@@ -237,8 +264,11 @@ class Handler(BaseHTTPRequestHandler):
                     uploaded = next((case for case in discover(ROOT) if case.path == saved), None)
                     if uploaded is None:
                         raise ValueError("上传的邮件里没有可识别的询价表")
-                    state = self._run(uploaded.key, "interactive")
-                    self._json(_view(state))
+                    admit_case(ROOT, uploaded.key)
+                    case = case_by_key(ROOT, uploaded.key)
+                    self._json({"key": case.key, "customer": case.customer,
+                                "subject": case.subject, "container": case.container,
+                                "lines": case.lines, "received": case.received, "stage": "received"})
                 except (ValueError, KeyError, OSError) as exc:
                     self._error(exc)
             return
@@ -275,6 +305,29 @@ class Handler(BaseHTTPRequestHandler):
 
         with LOCK:
             try:
+                if parsed.path == "/api/import":
+                    case = admit_case(ROOT, body["key"])
+                    self._json({"key": case.key, "customer": case.customer,
+                                "subject": case.subject, "container": case.container,
+                                "lines": case.lines, "received": case.received,
+                                "stage": "received"})
+                    return
+                if parsed.path == "/api/parse":
+                    case = case_by_key(ROOT, body["key"])
+                    rfq, _ = load_case(ROOT, case.key)
+                    state = _service().create_task(rfq.to_dict(), autonomy="interactive")
+                    state = _service().analyze_rfq(state["task_id"])
+                    mark_stage(ROOT, case.key, "parsed", state["task_id"])
+                    self._json(_view(state))
+                    return
+                if parsed.path == "/api/price":
+                    state = _service().build_quote_options(body["task_id"], int(body["revision"]))
+                    for item in inbox(ROOT):
+                        if item["task_id"] == state["task_id"]:
+                            mark_stage(ROOT, item["case"].key, "priced", state["task_id"])
+                            break
+                    self._json(_view(state))
+                    return
                 if parsed.path == "/api/run":
                     state = self._run(body.get("case", "B"), body.get("autonomy") or "interactive")
                     self._json(_view(state))
@@ -288,7 +341,13 @@ class Handler(BaseHTTPRequestHandler):
                 if parsed.path == "/api/export":
                     result = _service().export_quote_draft(body["task_id"], int(body["revision"]))
                     payload = _view(_service().get_task_result(body["task_id"]))
+                    if isinstance(result, dict) and "artifacts" in result:
+                        result["artifacts"] = [Path(name).name for name in result["artifacts"]]
                     payload["export"] = result
+                    for item in inbox(ROOT):
+                        if item["task_id"] == body["task_id"]:
+                            mark_stage(ROOT, item["case"].key, "draft", body["task_id"])
+                            break
                     self._json(payload)
                     return
             except (ValueError, KeyError) as exc:

@@ -57,6 +57,16 @@ CREATE TABLE IF NOT EXISTS mail (
     lines     INTEGER NOT NULL,
     container TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS inbox (
+    path        TEXT PRIMARY KEY,
+    imported_at TEXT NOT NULL,
+    task_id     TEXT,
+    stage       TEXT NOT NULL DEFAULT 'received'
+);
+CREATE TABLE IF NOT EXISTS meta (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
 """
 
 DATE_FIELDS = ("有效期至", "成本更新日期", "价格更新日期", "最近采购日期")
@@ -190,3 +200,39 @@ def remember_mail(connection: sqlite3.Connection, path: Path, mtime: float, case
             " lines, container) VALUES (?,?,?,?,?,?,?,?)",
             (str(path), mtime, case.key, case.customer, case.subject,
              case.received, case.lines, case.container))
+
+
+# ---------- inbox: what the user has actually taken in ----------
+
+def seeded(connection: sqlite3.Connection) -> bool:
+    row = connection.execute("SELECT value FROM meta WHERE key = 'seeded'").fetchone()
+    return bool(row)
+
+
+def mark_seeded(connection: sqlite3.Connection) -> None:
+    with connection:
+        connection.execute("INSERT OR REPLACE INTO meta(key, value) VALUES ('seeded', '1')")
+
+
+def admit(connection: sqlite3.Connection, path: Path) -> None:
+    with connection:
+        connection.execute(
+            "INSERT OR IGNORE INTO inbox(path, imported_at, stage) VALUES (?, ?, 'received')",
+            (str(path), dt.datetime.now().isoformat(timespec="seconds")))
+
+
+def inbox_rows(connection: sqlite3.Connection) -> dict[str, dict]:
+    return {row["path"]: dict(row) for row in connection.execute("SELECT * FROM inbox")}
+
+
+def set_stage(connection: sqlite3.Connection, path: Path, stage: str,
+              task_id: str | None = None) -> None:
+    with connection:
+        connection.execute("UPDATE inbox SET stage = ? WHERE path = ?", (stage, str(path)))
+        if task_id:
+            connection.execute("UPDATE inbox SET task_id = ? WHERE path = ?", (task_id, str(path)))
+
+
+def forget(connection: sqlite3.Connection, path: Path) -> None:
+    with connection:
+        connection.execute("DELETE FROM inbox WHERE path = ?", (str(path),))

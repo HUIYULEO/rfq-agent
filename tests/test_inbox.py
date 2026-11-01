@@ -1,0 +1,85 @@
+"""Inbox behaviour: the demo ships with one sample, the rest are admitted by the user."""
+
+import shutil
+import unittest
+from pathlib import Path
+
+from rfq_agent import cases
+from rfq_agent.cases import SEED, admit_case, available, discover, inbox, mark_stage
+
+ROOT = Path(__file__).resolve().parents[1]
+MATERIAL = ROOT / "data" / "询价信息素材"
+WORK = ROOT / "runtime" / "test_inbox"
+
+
+def _copy(target: Path):
+    """Copy the B and C mails (their attachments live inside the .eml) into a scratch root."""
+    destination = target / "data" / "询价信息素材" / "1"
+    destination.mkdir(parents=True, exist_ok=True)
+    for source in (MATERIAL / "1").glob("*.eml"):
+        if "20260902" in source.name or "Spare Parts" in source.name:
+            shutil.copyfile(source, destination / source.name)
+
+
+class InboxTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        shutil.rmtree(WORK, ignore_errors=True)
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(WORK, ignore_errors=True)
+
+    def setUp(self):
+        # One root per test: a fresh database, no state shared through the file system.
+        self.root = WORK / self._testMethodName
+        shutil.rmtree(self.root, ignore_errors=True)
+        _copy(self.root)
+        cases._CACHE.clear()
+
+    def keys(self):
+        return [item["case"].key for item in inbox(self.root)]
+
+    def test_material_has_the_two_copied_mails(self):
+        self.assertEqual([case.key for case in discover(self.root, refresh=True)], ["B", "C"])
+
+    def test_first_run_seeds_only_the_declared_sample(self):
+        self.assertEqual(SEED, ("B",))
+        self.assertEqual(self.keys(), ["B"])
+
+    def test_seeding_is_idempotent(self):
+        self.keys()
+        self.assertEqual(self.keys(), ["B"])
+
+    def test_available_is_everything_not_yet_admitted(self):
+        self.keys()
+        self.assertEqual([case.key for case in available(self.root)], ["C"])
+
+    def test_admitting_moves_a_case_from_pool_to_inbox(self):
+        self.keys()
+        admit_case(self.root, "C")
+        self.assertEqual(self.keys(), ["B", "C"])
+        self.assertEqual(available(self.root), [])
+
+    def test_admitting_twice_does_not_duplicate(self):
+        admit_case(self.root, "C")
+        admit_case(self.root, "C")
+        self.assertEqual(self.keys(), ["B", "C"])
+
+    def test_stage_starts_received_and_advances(self):
+        admit_case(self.root, "C")
+        item = next(row for row in inbox(self.root) if row["case"].key == "C")
+        self.assertEqual(item["stage"], "received")
+        self.assertIsNone(item["task_id"])
+        mark_stage(self.root, "C", "priced", "task-123")
+        item = next(row for row in inbox(self.root) if row["case"].key == "C")
+        self.assertEqual(item["stage"], "priced")
+        self.assertEqual(item["task_id"], "task-123")
+
+    def test_unknown_case_is_rejected(self):
+        with self.assertRaises(ValueError):
+            admit_case(self.root, "Z")
+
+
+if __name__ == "__main__":
+    unittest.main()

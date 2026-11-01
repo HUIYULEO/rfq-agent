@@ -4,12 +4,13 @@
 > 日期：2026-11-01  
 > 上游事实基线：[RFQ赛题解析.md](./RFQ赛题解析.md)  
 > 配套需求清单：[RFQ_REQUIREMENTS_BACKLOG.md](./RFQ_REQUIREMENTS_BACKLOG.md)
+> 行业无关核心契约：[RFQ_BASELINE_DESIGN.md](./RFQ_BASELINE_DESIGN.md)
 
 > 审核修订与实施顺序：[RFQ_DEVELOPMENT_PLAN.md](./RFQ_DEVELOPMENT_PLAN.md)。实现以该计划第2、3节的五工具边界、时间、版本和字段级证据契约为准；下文为概念结构。
 
 ## 1. 文档定位
 
-本文描述 RFQ 询价分析与报价智能体的产品方案和技术架构。赛事素材中的客观事实以《RFQ赛题解析》为准；本文只负责说明如何实现，不重复定义赛事事实。业界流程对标与差异分析见 [RFQ_INDUSTRY_BENCHMARK.md](./RFQ_INDUSTRY_BENCHMARK.md)。
+本文描述 RFQ 询价分析与报价智能体的产品方案和技术架构。通用 Schema、规则协议、处理状态与商业处置以《RFQ 行业无关基准设计》为准；航空素材是第一套扩展 fixture，不定义通用产品边界。赛事素材中的客观事实以《RFQ赛题解析》为准；本文只负责说明如何实现，不重复定义赛事事实。业界流程对标与差异分析见 [RFQ_INDUSTRY_BENCHMARK.md](./RFQ_INDUSTRY_BENCHMARK.md)。
 
 定位说明：本项目站在**供应商侧报价**（supplier-side quoting），不是买方 e-sourcing 比价。因此对标对象是 CPQ / quote-to-order，而不是采购比价平台。
 
@@ -408,7 +409,7 @@ needs_input | partially_completed | failed
 
 - Workflow：当附件输入、节点调试和 Agent 绑定稳定时使用；
 - Catalog：当 Excel 导入和结构化查询稳定时承载数据表；
-- 知识库：仅用于政策、术语和说明资料，不用于价格计算。
+- 知识层：先建设版本化规则目录，再按需要接入政策、术语和说明资料的检索；不先建设航空专用知识库，也不允许检索文本直接参与价格计算。行业知识通过扩展包注册 Schema、规则、术语和验收 fixture。
 
 ### 10.3 降级路径
 
