@@ -67,6 +67,13 @@
   .empty{color:var(--muted);text-align:center;padding:22px}
   code{font-family:var(--mono);font-size:11.5px;background:#f1f3f5;padding:1px 5px;border-radius:4px}
   .log{font-family:var(--mono);font-size:11px;color:var(--muted);max-height:96px;overflow:auto}
+  .composer{display:flex;gap:7px;margin-top:11px}
+  .composer input{flex:1;font:inherit;padding:8px 11px;border:1px solid var(--line);
+                  border-radius:7px;background:#fbfcfd;color:var(--ink)}
+  .composer input:focus{outline:none;border-color:var(--accent);background:#fff}
+  .agentline{font-size:11.5px;color:var(--muted);margin-top:6px}
+  .agentline.on{color:var(--green)}
+  .agentline.off{color:var(--amber)}
 </style>
 </head>
 <body>
@@ -87,7 +94,12 @@
   <div class="grid">
     <div class="panel">
       <h2>过程</h2>
-      <div class="msgs" id="msgs"><div class="empty">选一个案例，我会说明收到了什么、解析出什么、卡在哪。</div></div>
+      <div class="msgs" id="msgs"><div class="empty">选一个案例，或者直接问我：这单能报吗 / 第 16 行为什么没价。</div></div>
+      <div class="composer">
+        <input id="chat" placeholder="问点什么，例如：打开案例 A，哪些行需要我决定？" autocomplete="off" />
+        <button class="primary" id="send">发送</button>
+      </div>
+      <div class="agentline" id="agentline">检查模型中…</div>
     </div>
     <div class="panel">
       <h2>结构化结果</h2>
@@ -113,6 +125,8 @@
 <script>
 let S = null;
 let CASEKEY = null;
+let SID = null;
+let APPEND = true;
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -205,6 +219,9 @@ function render() {
   ].map(([k, v]) => `<div class="card"><div class="k">${k}</div><div class="v">${esc(v)}</div></div>`).join("");
 
   // 过程：只陈述真实发生的事
+  const open = s.review_items.filter(i => i.status === "open");
+  const done = s.review_items.filter(i => i.status !== "open");
+  if (APPEND) {
   say("我", `解析完成：${s.source_files.join("、")}，载体是 ${s.container}，共 ${m.lines} 行，客户 ${s.customer}，询价号 ${s.rfq_number}。`);
   if (m.priced_lines) {
     say("我", `有 ${m.priced_lines} 行在参考表里找到可用依据，合计 ¥${money(m.priced_subtotal_cny)}。其中内部库存 ${m.internal_lines} 行、供应商报价 ${m.supplier_lines} 行。`);
@@ -214,9 +231,6 @@ function render() {
       ? `还有 ${m.review_lines} 行没有满足全部硬约束的候选。这些行我不给价格，需要你决定怎么处理。`
       : `${m.lines} 行在价格资源表和内部成本表里都没有可用依据，这批我没有报价依据。`);
   }
-
-  const open = s.review_items.filter(i => i.status === "open");
-  const done = s.review_items.filter(i => i.status !== "open");
   done.forEach(i => say("你", `${i.id} → ${i.answer}`));
 
   open.forEach(item => {
@@ -231,6 +245,7 @@ function render() {
     $("msgs").appendChild(div);
   });
   $("msgs").scrollTop = $("msgs").scrollHeight;
+  }
 
   $("rows").innerHTML = s.results.map(r => {
     const ok = r.eligibility === "priced";
@@ -301,7 +316,58 @@ $("btnExport").onclick = async () => {
 
 function currentCase() { return CASEKEY || "B"; }
 
+// ---------- 对话：模型调工具，数字仍来自引擎 ----------
+
+async function agentStatus() {
+  try {
+    const a = await api("/api/agent");
+    $("agentline").className = "agentline " + (a.enabled ? "on" : "off");
+    $("agentline").textContent = a.enabled
+      ? `对话模型已接：${a.model} · 工具调用受限于业务接口，价格仍由确定性引擎给出`
+      : `对话模型未启用（缺 ${a.missing.join("、")}）· ${a.hint}，下方按钮流程仍可完整使用`;
+    $("chat").disabled = !a.enabled;
+    $("send").disabled = !a.enabled;
+    if (!a.enabled) $("chat").placeholder = "模型未配置：填写 .env 后重启服务";
+  } catch (e) {
+    $("agentline").textContent = "状态检查失败：" + e.message;
+  }
+}
+
+async function chatSend() {
+  const text = $("chat").value.trim();
+  if (!text) return;
+  $("chat").value = "";
+  say("你", text);
+  $("send").disabled = true;
+  try {
+    const r = await api("/api/chat", {session_id: SID, message: text});
+    SID = r.session_id || SID;
+    if (r.trace && r.trace.length) {
+      const names = r.trace.map(t => t.tool + (t.ok ? "" : "(失败)")).join(" → ");
+      const div = say("工具调用", names);
+      div.className = "msg";
+      div.style.background = "#f7f8fa";
+    }
+    if (r.reply) say("助手", r.reply);
+    if (r.state) {
+      S = r.state;
+      APPEND = false;
+      render();
+      APPEND = true;
+    }
+  } catch (e) {
+    say("系统", "出错了：" + e.message);
+  } finally {
+    $("send").disabled = false;
+    $("chat").focus();
+  }
+}
+
+$("send").onclick = chatSend;
+$("chat").addEventListener("keydown", (e) => { if (e.key === "Enter") chatSend(); });
+
 loadCases();
+agentStatus();
 </script>
 </body>
 </html>

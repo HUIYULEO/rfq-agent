@@ -9,7 +9,8 @@
 python -m rfq_agent.web --port 8765     # 浏览器打开 http://127.0.0.1:8765/
 ```
 
-页面里选任一案例，或把一封 `.eml` 拖进去，走的是同一个解析 + 定价 + 复核 + 导出流程。
+页面里选任一案例，或把一封 `.eml` 拖进去，走的是同一个解析 + 定价 + 复核 + 导出流程；
+上方输入框可以直接对话（模型可选，见下）。
 
 命令行等价入口：
 
@@ -69,12 +70,36 @@ cli.py         demo / case / agent 三个命令
 agent.py       Deep Agents + Genesis 适配（懒加载，可选）
 ```
 
+## 对话层（模型可选）
+
+`rfq_agent/genesis.py` 是 OpenAI 兼容的客户端 + 工具循环，纯标准库。配置放 `.env`（已 gitignore）：
+
+```text
+GENESIS_BASE_URL=https://token.moi.matrixorigin.cn/v1
+GENESIS_MODEL=deepseek-v4.1-flash
+GENESIS_ACCESS_TOKEN=<你的 token>
+```
+
+模型只能调工具，不能算数：`list_cases` / `start_case` / `get_task` / `get_lines` /
+`explain_line` / `resolve_review` / `export_draft`。每个工具返回的都是引擎的既有结果，
+且返回给模型的载荷做了压缩（不塞 122 行原始数据进去）。
+
+实测（同一句"打开案例C…"）：
+
+| 模型 | 耗时 | 工具调用 |
+|---|---|---|
+| `deepseek-v4.1-flash` | 8.7–12.5 s | 3 |
+| `glm-5.3-flash` | 9.9 s | 2 |
+| `qwen3.8-flash` | 18.1 s | 3 |
+| `qwen3.8-max` | >180 s（超时） | — |
+
+没配 token 时，页面上的按钮流程照常可用，对话框会提示缺哪两个值——降级不是白屏。
+
 ## 还没做
 
-1. **真正的对话层**：页面里的"过程"是按真实工具结果生成的叙述，不是 LLM。接 Genesis 后换成模型驱动，工具集已经就位（`analyze_rfq`/`build_quote_options`/`list_review_items`/`resolve_review`/`export_quote_draft`…）。
-2. **MOI 托管入口**：挑战赛允许自建 Web，但若评审偏好 MOI 原生 Agent，需要另做接入。
-3. 出口管制/合规的任务级确认项（只提示、不自动判定）。
-4. 多用户并发（当前存储只支持单进程顺序调用）。
+1. **MOI 托管入口**：挑战赛允许自建 Web，但若评审偏好 MOI 原生 Agent，需要另做接入。
+2. 出口管制/合规的任务级确认项（只提示、不自动判定）。
+3. 多用户并发（当前存储只支持单进程顺序调用；对话轮次已移出存储锁，避免长任务卡住其他请求）。
 
 ## 依赖
 

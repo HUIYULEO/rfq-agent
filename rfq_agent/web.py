@@ -211,31 +211,32 @@ class Handler(BaseHTTPRequestHandler):
             self._error("invalid JSON body")
             return
 
+        # Chat runs outside the store lock: a model turn can take seconds and must not
+        # block the deterministic endpoints. Each tool call does its own short I/O.
+        if parsed.path == "/api/chat":
+            session_id = body.get("session_id") or uuid4().hex
+            session = SESSIONS.get(session_id)
+            if session is None:
+                session = Session(_service(), ROOT, load_config(ROOT))
+                SESSIONS[session_id] = session
+            if not session.enabled:
+                self._json({"session_id": session_id, "enabled": False,
+                            "reply": "模型未配置：" + "、".join(missing_keys(load_config(ROOT))),
+                            "trace": [], "state": None}, 200)
+                return
+            try:
+                result = session.send(body.get("message") or "")
+            except GenesisError as exc:
+                self._json({"session_id": session_id, "enabled": True,
+                            "error": str(exc), "trace": []}, 502)
+                return
+            payload = {"session_id": session_id, "enabled": True}
+            payload.update(result)
+            self._json(payload)
+            return
+
         with LOCK:
             try:
-                if parsed.path == "/api/chat":
-                    body = self._body()
-                    session_id = body.get("session_id") or uuid4().hex
-                    session = SESSIONS.get(session_id)
-                    if session is None:
-                        session = Session(_service(), ROOT, load_config(ROOT))
-                        SESSIONS[session_id] = session
-                    if not session.enabled:
-                        self._json({"session_id": session_id, "enabled": False,
-                                    "reply": "模型未配置：" + "、".join(
-                                        missing_keys(load_config(ROOT))),
-                                    "trace": [], "state": None}, 200)
-                        return
-                    try:
-                        result = session.send(body.get("message") or "")
-                    except GenesisError as exc:
-                        self._json({"session_id": session_id, "enabled": True,
-                                    "error": str(exc), "trace": []}, 502)
-                        return
-                    payload = {"session_id": session_id, "enabled": True}
-                    payload.update(result)
-                    self._json(payload)
-                    return
                 if parsed.path == "/api/run":
                     state = self._run(body.get("case", "B"), body.get("autonomy") or "interactive")
                     self._json(_view(state))
