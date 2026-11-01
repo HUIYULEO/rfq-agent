@@ -14,6 +14,7 @@ from decimal import Decimal
 from pathlib import Path
 
 from .deps import require
+from . import quality
 from .policy import money, q2
 
 DIGITS = "零壹贰叁肆伍陆柒捌玖"
@@ -112,13 +113,22 @@ def _set_cell(cell, value):
 
 
 def _heading(document, text: str):
+    """The sample template has no Heading 1 style; never let add_heading half-create one.
+
+    add_paragraph(text, style) writes the text *before* setting the style, so a failed
+    style lookup leaves an orphan paragraph — calling add_heading in a try/except
+    therefore prints every heading twice.
+    """
     try:
-        return document.add_heading(text, level=1)
-    except KeyError:  # template lacks the style
+        style = document.styles["Heading 1"]
+    except KeyError:
         paragraph = document.add_paragraph()
         run = paragraph.add_run(text)
         run.bold = True
         return paragraph
+    paragraph = document.add_paragraph(text)
+    paragraph.style = style
+    return paragraph
 
 
 def _basis_text(row: dict) -> str:
@@ -243,6 +253,19 @@ def render_draft(*, template: Path, output: Path, rfq, results: list[dict], summ
         ]
         for position, value in enumerate(values):
             _set_cell(cells[position], value)
+
+    terms = list(getattr(rfq, "requirements", None) or [])
+    if terms:
+        _heading(document, "客户随附要求（原文）")
+        for position, item in enumerate(terms, start=1):
+            document.add_paragraph(f"{position}. {item.text}　（出处：{item.source}）")
+
+    findings = [item for item in quality.inspect(rfq) if item["severity"] == "warn"]
+    if findings:
+        _heading(document, "解析质量提示")
+        for item in findings:
+            document.add_paragraph(f"· {item['title']}：{item['detail']}")
+        document.add_paragraph("以上提示不改变任何价格，仅提醒复核时注意单据本身的不一致。")
 
     document.add_paragraph(
         "说明：1) 追溯信息与可售数量在供应商报价中未提供，需下单前书面确认；"

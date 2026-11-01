@@ -576,8 +576,7 @@ async function upload(file) {
     const data = JSON.parse(await res.text());
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     await refresh();
-    const added = CASES.find((c) => c.key.startsWith("UP-"));
-    if (added) select(added.key);
+    if (data.key) select(data.key);
   } catch (e) { chatSay("sys", "导入失败", e.message); }
   finally { $("drop").innerHTML = "<b>导入邮件</b>拖入 .eml 或点击"; }
 }

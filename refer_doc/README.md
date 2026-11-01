@@ -7,6 +7,7 @@
 | 文件 | 作用 | 读到它的时机 |
 |---|---|---|
 | [RFQ赛题解析.md](./RFQ赛题解析.md) | **事实基线**。赛事素材的可核对事实，不含方案主张 | 任何需要确认“素材到底有什么”的时候 |
+| [RFQ_ARCHITECTURE_DIAGRAMS.md](./RFQ_ARCHITECTURE_DIAGRAMS.md) | **架构图集**。架构 / 数据流 / 处理流 / Agent 工作流六张图，SVG+Mermaid 源码，另有离线单页 `architecture-diagrams.html` | 新人了解系统全貌、评审讲解、或架构变更后同步图示时 |
 | [RFQ_BASELINE_DESIGN.md](./RFQ_BASELINE_DESIGN.md) | **行业无关基准**。通用 Schema、规则协议、双状态机、知识边界和验收矩阵 | 开发核心模型、规则或新行业扩展之前 |
 | [RFQ_SOLUTION_DESIGN.md](./RFQ_SOLUTION_DESIGN.md) | **方案设计**。架构、数据模型、规则引擎、Agent 边界 | 决定怎么实现之前 |
 | [RFQ_REQUIREMENTS_BACKLOG.md](./RFQ_REQUIREMENTS_BACKLOG.md) | **需求清单**。需求编号、优先级、状态、验收标准 | 认领任务、判断做到哪一步时 |

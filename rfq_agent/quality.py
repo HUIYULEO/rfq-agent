@@ -31,9 +31,10 @@ def _counter_finding(kind: str, title: str, lines: list[dict], field: str,
             "examples": [], "lines": _ids(missing), "count": len(missing)}
 
 
-def inspect(rfq: dict) -> list[dict]:
+def inspect(rfq) -> list[dict]:
     """Findings for one RFQ, ordered by how much they should worry a reviewer."""
-    lines = rfq.get("lines") or []
+    data = rfq.to_dict() if hasattr(rfq, "to_dict") else rfq
+    lines = data.get("lines") or []
     if not lines:
         return []
     total = len(lines)
@@ -68,7 +69,7 @@ def inspect(rfq: dict) -> list[dict]:
         if finding:
             findings.append(finding)
 
-    evaluated = rfq.get("evaluation_date") or ""
+    evaluated = data.get("evaluation_date") or ""
     late = []
     for line in lines:
         due = (line.get("due_at") or "")[:10]

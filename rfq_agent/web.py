@@ -317,22 +317,6 @@ class Handler(BaseHTTPRequestHandler):
                                 "lines": case.lines, "received": case.received,
                                 "stage": "received"})
                     return
-                if parsed.path == "/api/parse":
-                    case = case_by_key(ROOT, body["key"])
-                    rfq, _ = load_case(ROOT, case.key)
-                    state = _service().create_task(rfq.to_dict(), autonomy="interactive")
-                    state = _service().analyze_rfq(state["task_id"])
-                    mark_stage(ROOT, case.key, "parsed", state["task_id"])
-                    self._json(_view(state))
-                    return
-                if parsed.path == "/api/price":
-                    state = _service().build_quote_options(body["task_id"], int(body["revision"]))
-                    for item in inbox(ROOT):
-                        if item["task_id"] == state["task_id"]:
-                            mark_stage(ROOT, item["case"].key, "priced", state["task_id"])
-                            break
-                    self._json(_view(state))
-                    return
                 if parsed.path == "/api/run":
                     state = self._run(body.get("case", "B"), body.get("autonomy") or "interactive")
                     self._json(_view(state))
