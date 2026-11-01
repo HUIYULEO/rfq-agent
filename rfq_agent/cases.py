@@ -214,6 +214,19 @@ def admit_case(root: Path, key: str) -> Case:
     return case
 
 
+def reset_inbox(root: Path) -> None:
+    """Back to first-run state: nothing admitted but the seeded example.
+
+    Uploaded files stay on disk (they are the user's own material); only the inbox
+    and its stage markers are cleared, so the next demo starts from the gate.
+    """
+    from .db import clear_inbox, connect
+
+    connection = connect(DB_PATH(root))
+    clear_inbox(connection)
+    inbox(root)
+
+
 def mark_stage(root: Path, key: str, stage: str, task_id: str | None = None) -> None:
     case = case_by_key(root, key)
     connection, _, _, _, _, set_stage = _inbox_db(root)

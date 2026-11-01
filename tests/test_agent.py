@@ -82,8 +82,10 @@ class ToolTests(unittest.TestCase):
 
     def test_list_cases_reads_the_material(self):
         result = dispatch(self.service, ROOT, "list_cases", {})
-        self.assertEqual([case["key"] for case in result["cases"]],
-                         ["A", "B", "C", "D", "E", "F"])
+        # A user may have uploaded extra mails (key prefix UP-); the six official ones
+        # must always be there, and nothing else may impersonate them.
+        keys = [case["key"] for case in result["cases"] if not case["key"].startswith("UP-")]
+        self.assertEqual(keys, ["A", "B", "C", "D", "E", "F"])
 
     def test_start_case_is_compact_and_actionable(self):
         result = dispatch(self.service, ROOT, "start_case", {"case_key": "B"})

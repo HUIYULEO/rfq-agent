@@ -23,7 +23,10 @@ class IngestTests(unittest.TestCase):
         cls.cases = {case.key: case for case in discover(ROOT)}
 
     def test_all_six_mails_are_discovered(self):
-        self.assertEqual(sorted(self.cases), sorted(EXPECTED))
+        # Uploaded mails (UP-*) may exist on a machine after a demo; they must not hide
+        # or rename the six official cases.
+        official = sorted(key for key in self.cases if not key.startswith("UP-"))
+        self.assertEqual(official, sorted(EXPECTED))
 
     def test_each_container_is_recognised(self):
         for key, (container, _) in EXPECTED.items():

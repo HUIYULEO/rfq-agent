@@ -236,3 +236,10 @@ def set_stage(connection: sqlite3.Connection, path: Path, stage: str,
 def forget(connection: sqlite3.Connection, path: Path) -> None:
     with connection:
         connection.execute("DELETE FROM inbox WHERE path = ?", (str(path),))
+
+
+def clear_inbox(connection: sqlite3.Connection) -> None:
+    """Empty the inbox and drop the seed flag, so the next read re-seeds the example."""
+    with connection:
+        connection.execute("DELETE FROM inbox")
+        connection.execute("DELETE FROM meta WHERE key = 'seeded'")

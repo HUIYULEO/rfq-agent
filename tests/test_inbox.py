@@ -80,6 +80,17 @@ class InboxTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             admit_case(self.root, "Z")
 
+    def test_reset_returns_to_the_first_run_state(self):
+        """Between two judges the demo must be able to go back to the sample only."""
+        admit_case(self.root, "C")
+        mark_stage(self.root, "C", "priced", "task-123")
+        cases.reset_inbox(self.root)
+        self.assertEqual(self.keys(), ["B"])
+        item = inbox(self.root)[0]
+        self.assertEqual(item["stage"], "received")
+        self.assertIsNone(item["task_id"])
+        self.assertEqual([case.key for case in available(self.root)], ["C"])
+
 
 if __name__ == "__main__":
     unittest.main()

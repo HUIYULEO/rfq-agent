@@ -19,7 +19,8 @@ from uuid import uuid4
 
 from . import quality
 from .cases import (admit_case, available, case_by_key, data_status, discover, inbox,
-                    load_case, mark_stage, provider_for, save_upload, template_for)
+                    load_case, mark_stage, provider_for, reset_inbox, save_upload,
+                    template_for)
 from .genesis import GenesisError, Session, load_config, missing_keys
 from .pricing import summarize
 from .service import RFQService
@@ -320,6 +321,10 @@ class Handler(BaseHTTPRequestHandler):
                 if parsed.path == "/api/run":
                     state = self._run(body.get("case", "B"), body.get("autonomy") or "interactive")
                     self._json(_view(state))
+                    return
+                if parsed.path == "/api/reset":
+                    reset_inbox(ROOT)
+                    self._json({"ok": True})
                     return
                 if parsed.path == "/api/resolve":
                     state = _service().resolve_review(
