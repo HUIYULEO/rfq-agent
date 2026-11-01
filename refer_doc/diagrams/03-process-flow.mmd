@@ -1,0 +1,43 @@
+flowchart TB
+    A0(["案例进入 · 官方六选一 / 拖入 .eml<br/>discover 扫素材 · admit 入收件箱"]) --> A1["解析 ingest.py<br/>四种载体依次识别 · 表头别名归一<br/>解不出即报错 · 不猜"]
+    A1 --> A2["create_task 域校验<br/>line_id 唯一 · 数量为正<br/>status=received"]
+    A2 --> A3["analyze_rfq<br/>status=analyzed"]
+    A3 --> A4["build_quote_options<br/>provider.evaluate + _settle"]
+
+    subgraph LINELOOP["每行定价 · pricing 纯函数"]
+        B1["内部库存候选<br/>硬约束: 库存不足 · 件状不符<br/>同任务共享账本扣减"]
+        B2["供应商候选<br/>硬约束: 状态无效 · 过期<br/>MOQ 超需求 · 件状问题"]
+        B3{"有合格候选?"}
+        B4["内部优先 · 成本=标准成本<br/>账本扣减可用量"]
+        B5["否则取最低统一CNY成本<br/>单价 × 汇率 → CNY"]
+        B6["成本 ×(1+0.20 加成)<br/>→ unit_price · line_total"]
+        B7["needs_review<br/>规则证据聚合去重"]
+        B1 --> B3
+        B2 --> B3
+        B3 -->|"内部库存合格 → 优先"| B4
+        B3 -->|"仅供应商合格 → 最低成本"| B5
+        B3 -->|"全部被拒"| B7
+        B4 --> B6
+        B5 --> B6
+    end
+
+    A4 --> LINELOOP
+    B6 --> C0["build_review_items<br/>全案无一行定价 → 只出 RI-TASK 整案问题<br/>否则逐行 RI-00XX · ID 由目标推导 · 不重编号"]
+    B7 --> C0
+    C0 --> C1{"存在 open 阻塞项?"}
+
+    C1 -->|"是 · status=awaiting_review"| D1{"autonomy 预设?"}
+    D1 -->|"interactive"| D2["页面出选择题 · 选项由引擎给出<br/>对话层只转述 · 不造选项"]
+    D2 --> D3["resolve_review<br/>decision_log=human · revision+1<br/>局部重定价"]
+    D3 --> C1
+    D1 -->|"auto_draft"| D4["按默认选项自动解算<br/>默认=转人工 · 不超额 · 不放宽件状<br/>decision_log=system:auto_draft"]
+    D4 --> C1
+    C1 -->|"否 · status=draft_ready"| E1["export_quote_draft<br/>draft-rN.json + quote-draft-rN.docx<br/>草案标注 · 税费运费未计入"]
+    E1 --> E2(["status=exported<br/>产物落盘 · 每个数字可溯源"])
+
+    F1["apply_review 修改数量<br/>evidence 记录 before/after · 回炉"] -.->|"status=received · 重跑"| A2
+
+    classDef gate fill:#fff2cc,stroke:#b8860b,stroke-width:1.5px
+    classDef good fill:#eaf7ea,stroke:#3e8e41,stroke-width:1.5px
+    class B3,C1,D1 gate
+    class D4,E2 good

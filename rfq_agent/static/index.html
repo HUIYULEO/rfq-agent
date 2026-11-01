@@ -112,6 +112,19 @@
   .bar .t{height:4px;background:var(--line2);border-radius:2px;overflow:hidden}
   .bar .f{height:100%;background:var(--ok);border-radius:2px}
   .bar .f.warn{background:var(--warn)}
+  .findings{display:flex;flex-direction:column;gap:5px;margin-top:11px;padding-top:10px;
+            border-top:1px dashed var(--line)}
+  .finding{display:flex;gap:8px;align-items:baseline;font-size:11.5px}
+  .finding .dot2{width:5px;height:5px;border-radius:50%;background:var(--faint);flex:none;margin-top:5px}
+  .finding.warn .dot2{background:var(--warn)}
+  .finding .t{color:var(--ink2);font-weight:600;white-space:nowrap}
+  .finding .d{color:var(--muted);min-width:0}
+  .finding .ex{color:var(--faint);font-family:var(--mono);font-size:10.5px;white-space:nowrap}
+  .reqs{margin-top:10px;padding-top:9px;border-top:1px dashed var(--line)}
+  .reqs .h{font-size:10.5px;color:var(--faint);margin-bottom:4px}
+  .reqs ol{margin:0;padding-left:16px;display:flex;flex-direction:column;gap:3px}
+  .reqs li{font-size:11.5px;color:var(--ink2)}
+  .reqs li em{font-style:normal;color:var(--faint);font-size:10px;font-family:var(--mono);margin-left:5px}
 
   .asks{display:flex;flex-direction:column;gap:9px}
   .ask{border:1px solid var(--warn-line);background:#fffdf7;border-radius:8px;padding:9px 11px}
@@ -405,23 +418,39 @@ function render() {
       <span class="num">${n}/${m.lines}</span></div>
       <div class="t"><div class="f ${n < m.lines ? "warn" : ""}" style="width:${pct(n)}%"></div></div></div>`;
 
+  const reqs = s.requirements || [];
+  const reqBlock = reqs.length ? `<div class="reqs">
+      <div class="h">客户随附要求（${reqs.length} 条，原文照录）</div>
+      <ol>${reqs.map((r) => `<li>${esc(r.text)}<em>${esc(r.source)}</em></li>`).join("")}</ol>
+    </div>` : "";
   const s1 = stageCard(1, "收到邮件", "ok", CONTAINER[s.container] || s.container, `<div class="kv">
       <div><div class="k">客户</div><div class="v">${esc(s.customer)}</div></div>
       <div><div class="k">询价号</div><div class="v mono">${esc(s.rfq_number)}</div></div>
       <div><div class="k">主题</div><div class="v" title="${esc(s.subject)}">${esc(s.subject)}</div></div>
-      <div><div class="k">行数</div><div class="v">${m.lines}</div></div></div>`,
+      <div><div class="k">行数</div><div class="v">${m.lines}</div></div></div>${reqBlock}`,
     `来源 <code>${esc(s.source_files.join("、"))}</code>`);
 
-  const s2 = stageCard(2, "结构化解析", "ok", `${m.lines} 行`, `<div class="bars">
+  const qs = s.quality_summary || { warn: 0, info: 0 };
+  const findings = (s.quality || []).map((item) => `<div class="finding ${item.severity}">
+      <span class="dot2"></span><span class="t">${esc(item.title)}</span>
+      <span class="d">${esc(item.detail)}</span>
+      ${item.examples && item.examples.length ? `<span class="ex">${esc(item.examples.join(" · "))}</span>` : ""}
+    </div>`).join("");
+  const s2 = stageCard(2, "结构化解析", qs.warn ? "warn" : "ok",
+    qs.warn ? `${qs.warn} 处需注意` : `${m.lines} 行`,
+    `<div class="bars">
       ${bar("料号", f.part_number)}${bar("数量", f.quantity)}${bar("单位", f.unit)}${bar("件状要求", f.condition)}
-    </div>`, `${f.with_evidence}/${m.lines} 行可回溯到原始单元格 · 表格已归一为统一列名`);
+    </div>${findings ? `<div class="findings">${findings}</div>` : ""}`,
+    `${f.with_evidence}/${m.lines} 行可回溯到原始单元格 · 表格已归一为统一列名` +
+    (qs.info ? ` · ${qs.info} 条载体说明` : ""));
 
   const s3 = stageCard(3, "定价", m.review_lines ? "warn" : "ok", `${m.priced_lines}/${m.lines} 有依据`,
     `<div class="kv">
       <div><div class="k">内部库存</div><div class="v big">${m.internal_lines}</div></div>
       <div><div class="k">供应商报价</div><div class="v big">${m.supplier_lines}</div></div>
       <div><div class="k">转人工</div><div class="v big" style="color:var(--warn)">${m.review_lines}</div></div>
-      <div><div class="k">已报价小计</div><div class="v big">¥${money(m.priced_subtotal_cny)}</div></div>
+      <div><div class="k">已报价小计</div><div class="v big">${
+        m.priced_lines ? "¥" + money(m.priced_subtotal_cny) : "—"}</div></div>
     </div>`,
     `<span>价格资源表 <code>${esc(d.price_rows ?? "—")}</code> 行 · 命中 <code>${esc(d.hit_price ?? "—")}</code></span>
      <span>内部成本表 <code>${esc(d.cost_rows ?? "—")}</code> 行 · 命中 <code>${esc(d.hit_cost ?? "—")}</code></span>

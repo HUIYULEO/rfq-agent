@@ -79,6 +79,25 @@ class IngestTests(unittest.TestCase):
         rfq, _ = load_case(ROOT, "C")
         self.assertTrue(all(line.condition_accept == [] for line in rfq.lines))
 
+    def test_english_cases_keep_the_quoting_terms(self):
+        """§9: C/F must yield the buyer's requirements, not just the table."""
+        for key in ("C", "F"):
+            with self.subTest(case=key):
+                rfq, _ = load_case(ROOT, key)
+                self.assertEqual(len(rfq.requirements), 7)
+                body = [item for item in rfq.requirements if item.source == "邮件正文"]
+                pdf = [item for item in rfq.requirements if item.source == "Quote.pdf"]
+                self.assertEqual(len(body), 3)
+                self.assertEqual(len(pdf), 4)
+                self.assertIn("Validity period of the quotation", body[1].text)
+                self.assertTrue(pdf[0].text.startswith("Use this form"))
+
+    def test_chinese_html_cases_add_no_invented_requirements(self):
+        for key in ("A", "B", "D", "E"):
+            with self.subTest(case=key):
+                rfq, _ = load_case(ROOT, key)
+                self.assertEqual(rfq.requirements, [])
+
 
 if __name__ == "__main__":
     unittest.main()

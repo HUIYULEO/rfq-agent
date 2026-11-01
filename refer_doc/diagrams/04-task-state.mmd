@@ -1,0 +1,18 @@
+stateDiagram-v2
+    direction LR
+    [*] --> received : admit · 上传 · create_task
+    received --> analyzed : analyze_rfq 域校验
+    analyzed --> awaiting_review : 定价后存在 open 复核项
+    analyzed --> draft_ready : 定价后无阻塞项
+    awaiting_review --> awaiting_review : resolve_review 一问一答 · revision+1 · 局部重定价
+    awaiting_review --> awaiting_review : export 可先落草案产物 · 状态不变
+    awaiting_review --> draft_ready : 全部复核项已有答案
+    draft_ready --> exported : export_quote_draft · JSON+DOCX 落盘
+    draft_ready --> received : apply_review 改数量 · 回炉
+    exported --> received : apply_review 改数量 · 回炉
+    exported --> [*] : 草案交付 · 人工复核定稿
+
+    note right of awaiting_review
+        auto_draft 预设: 到达此态时自动按默认选项解算
+        默认选项 = 转人工 · 不超额采购 · 不放宽件状
+    end note

@@ -1,0 +1,66 @@
+flowchart TB
+    subgraph L1["接口层 · 用户入口"]
+        direction LR
+        WEB["web.py 演示服务<br/>标准库 http.server<br/>JSON API + 静态单页"]
+        CLI["cli.py 命令行<br/>demo · case · agent"]
+        SESS["genesis.Session 对话<br/>工具循环 · 纯标准库<br/>OpenAI 兼容客户端"]
+        DPAG["agent.py 适配层<br/>Deep Agents + LangChain<br/>可选 · 懒加载"]
+    end
+
+    subgraph L2["服务层 · 业务动作与复核门"]
+        SVC["RFQService · service.py<br/>start_task 一触到底 · analyze · build_quote_options<br/>resolve_review · apply_review · export<br/>revision 与决策日志记账"]
+    end
+
+    subgraph L3["引擎层 · 确定性核心（数字唯一来源）"]
+        direction LR
+        PRICE["pricing.py 定价引擎<br/>候选 · 硬约束 · 加成<br/>复核项生成 · 汇总"]
+        POLICY["policy.py 策略<br/>加价率 · 汇率 · 预设"]
+        MDL["models.py 领域契约<br/>Line · RFQ · Task"]
+    end
+
+    subgraph L4["解析与导出层"]
+        direction LR
+        ING["ingest.py 载体归一"]
+        SRC["sources.py 行映射"]
+        PDF["pdf_text.py PDF 提取"]
+        EXP["export_docx.py 草案渲染"]
+    end
+
+    subgraph L5["数据层"]
+        direction LR
+        CASES["cases.py 案例发现 · 收件箱 · 上传"]
+        DBM["db.py SQLite 快照 · 索引 · 邮件缓存"]
+        STORE["storage.py TaskStore 任务 JSON"]
+    end
+
+    MAT[("素材 data/询价信息素材<br/>6 封 .eml · 价格资源表 .xlsx<br/>内部物料成本表 .xlsx<br/>报价单样例 .docx")]
+    RUN[("runtime/<br/>rfq.db · 任务目录<br/>draft-rN.json · quote-draft-rN.docx<br/>uploads/")]
+
+    WEB --> SVC
+    CLI --> SVC
+    SESS -->|"dispatch · 7 工具"| SVC
+    DPAG -->|"7 个业务动作"| SVC
+    WEB -->|"案例六选一 · 上传 · 收件箱记账"| CASES
+    SESS -->|"list_cases · start_case"| CASES
+    SVC --> PRICE
+    PRICE --> POLICY
+    SVC --> MDL
+    SVC --> STORE
+    SVC --> EXP
+    CASES --> ING
+    ING --> PDF
+    ING --> SRC
+    CASES -->|"provider_for · connect + sync"| DBM
+    DBM -->|"SQLiteQuoteProvider 注入"| PRICE
+    CASES -->|"inbox · mark_stage"| DBM
+    MAT -->|"扫描 .eml · 读参考表"| CASES
+    MAT -->|"sync 一次性入快照"| DBM
+    DBM -.- RUN
+    STORE -.- RUN
+
+    classDef entry fill:#e8f0fe,stroke:#3b6ea5,stroke-width:1.5px
+    classDef engine fill:#eaf7ea,stroke:#3e8e41,stroke-width:1.5px
+    classDef data fill:#fdf3e3,stroke:#b8860b,stroke-width:1.5px
+    class WEB,CLI,SESS,DPAG entry
+    class PRICE,POLICY,MDL engine
+    class CASES,DBM,STORE,MAT,RUN data

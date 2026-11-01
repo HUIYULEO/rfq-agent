@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 from html.parser import HTMLParser
 from pathlib import Path
 
-from .models import RFQ
+from .models import Requirement, RFQ
 from .pdf_text import extract_lines
 from .sources import build_rfq
 
@@ -170,7 +170,7 @@ PDF_QTY = re.compile(r"^(\d+(?:\.\d+)?) (Each|EA|PCS|SET)\s*$")
 def _rows_from_pdf(data: bytes) -> tuple[dict, list[dict]]:
     """The Quote.pdf layout is a flat form: item no | part no, then description, then qty."""
     lines = extract_lines(data)
-    meta = {}
+    meta = {"pdf_lines": lines}
     for line in lines:
         if "REQUEST FOR QUOTATION" in line and "RFQ" in line:
             match = re.search(r"RFQ\s*[-#]?\s*([A-Za-z0-9]+)", line)
@@ -223,6 +223,62 @@ def _parse_date(value: str) -> str | None:
     return None
 
 
+def _requirements_from_body(text: str) -> list[str]:
+    """Numbered items in the mail body — the buyer's own checklist.
+
+    The marker often sits alone on its line ("1.&nbsp;") with the wording below it,
+    so an item stays open until it ends with a terminator or prose starts.
+    """
+    cleaned = re.sub(r"&nbsp;|&amp;", " ", text or "").replace("\xa0", " ")
+    items: list[str] = []
+    pending: str | None = None
+
+    def flush():
+        nonlocal pending
+        if pending:
+            value = " ".join(pending.split()).strip().rstrip(";").strip()
+            if len(value) > 3:
+                items.append(value)
+        pending = None
+
+    for raw in cleaned.splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        match = re.match(r"^(\d+)[.)]\s*(.*)$", line)
+        if match:
+            flush()
+            pending = match.group(2).strip()
+            continue
+        if pending is None or pending.endswith((";", ".", "；", "。")):
+            if pending is not None:
+                flush()
+            continue
+        pending = f"{pending} {line}"
+    flush()
+    return items
+
+
+def _requirements_from_pdf(lines: list[str]) -> list[str]:
+    """The instruction block after the last item: 'Use this form as a quote response.'"""
+    start = None
+    for index, line in enumerate(lines):
+        if line.strip().lower().startswith("remarks") and index + 1 < len(lines):
+            start = index + 1
+    if start is None:
+        return []
+    collected = []
+    for line in lines[start:]:
+        text = line.strip()
+        if not text:
+            continue
+        if text.upper().startswith(("AUTHORIZED", "PAGE ")):
+            break
+        if text.endswith(".") and " " in text:
+            collected.append(text)
+    return collected[:8]
+
+
 def _mail_date(value: str) -> str | None:
     """The mail Date header is the cheapest defensible evaluation date."""
     try:
@@ -253,6 +309,7 @@ def ingest_eml(path: Path, *, evaluation_date: str | None = None) -> RFQ:
                 break
             if suffix == ".pdf":
                 meta, rows = _rows_from_pdf(payload)
+                meta["pdf_name"] = filename
                 break
     if not rows:
         raise ValueError(f"{path.name}: 正文和附件里都没有可识别的询价表")
@@ -266,6 +323,11 @@ def ingest_eml(path: Path, *, evaluation_date: str | None = None) -> RFQ:
     date = (evaluation_date or _parse_date(meta.get("report_date", ""))
             or _mail_date(mail.date))
 
+    requirements = [Requirement(text=text, source="邮件正文")
+                    for text in _requirements_from_body(mail.text or "")]
+    requirements += [Requirement(text=text, source=meta.get("pdf_name") or "PDF 附件")
+                     for text in _requirements_from_pdf(meta.get("pdf_lines") or [])]
+
     return build_rfq(
         rows,
         rfq_number=rfq_number,
@@ -274,4 +336,5 @@ def ingest_eml(path: Path, *, evaluation_date: str | None = None) -> RFQ:
         customer=customer,
         subject=mail.subject,
         urgency=urgency,
+        requirements=requirements,
     )

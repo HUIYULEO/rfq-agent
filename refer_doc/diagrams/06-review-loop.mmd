@@ -1,0 +1,35 @@
+sequenceDiagram
+    autonumber
+    actor U as 用户
+    participant W as web 页面
+    participant S as RFQService
+    participant P as pricing 引擎
+    participant M as 模型(可选对话)
+
+    U->>W: 选案例 B · 点运行 interactive
+    W->>S: start_task(rfq, interactive)
+    S->>P: evaluate(rfq, resolutions)
+    P-->>S: results · 大部分行定价 · 个别行待复核
+    S-->>W: awaiting_review + RI-00XX(选项由引擎给)
+    W-->>U: 行明细 + 阻塞问题 · 证据到行
+
+    par 按钮直答 · 走服务层
+        U->>W: 选「按供应商 MOQ 报价」
+        W->>S: resolve_review(task_id, rev, RI-00XX, quote_with_moq)
+    and 对话转答 · 走 dispatch 工具
+        U->>M: 这行怎么办?
+        M->>S: resolve_review 工具 · 只能用引擎给的选项
+    end
+
+    S->>P: evaluate · 该行忽略 moq_exceeds · 账本复用
+    P-->>S: 该行定价 · 汇总更新
+    S-->>W: revision+1 · draft_ready · decision_log 入账
+    W-->>U: 复核项关闭 · 可导出
+
+    U->>W: 点导出
+    W->>S: export_quote_draft(当前 revision)
+    S-->>W: draft-rN.json + quote-draft-rN.docx
+    W-->>U: 下载 · 草案声明 · 每个数字有来源
+
+    note over M: 模型不参与任何计算<br/>它转述选项 · 绝不生成数字
+    note over S,P: resolve 后重定价是纯函数重放<br/>未放松的行结果逐位一致

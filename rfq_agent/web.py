@@ -17,6 +17,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 from uuid import uuid4
 
+from . import quality
 from .cases import (admit_case, available, case_by_key, data_status, discover, inbox,
                     load_case, mark_stage, provider_for, save_upload, template_for)
 from .genesis import GenesisError, Session, load_config, missing_keys
@@ -92,6 +93,7 @@ def _view(task: dict) -> dict:
         })
     stage = ("draft" if task["artifacts"] else "priced" if task["results"]
              else "parsed" if task["status"] == "analyzed" else "received")
+    quality_findings = quality.inspect(rfq)
     return {
         "task_id": task["task_id"],
         "revision": task["revision"],
@@ -113,6 +115,9 @@ def _view(task: dict) -> dict:
         "decision_log": task["decision_log"],
         "artifacts": [Path(name).name for name in task["artifacts"]],
         "fields": _field_health(lines),
+        "quality": quality_findings,
+        "quality_summary": quality.summary(quality_findings),
+        "requirements": rfq.get("requirements", []),
         "data": _data_trace(),
     }
 

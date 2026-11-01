@@ -49,7 +49,7 @@ def _iso(value):
 
 def build_rfq(inquiry_rows: list[dict], *, rfq_number: str, evaluation_date: str,
               source_files: list[str], customer: str = "", subject: str = "",
-              urgency: str = "NORMAL") -> RFQ:
+              urgency: str = "NORMAL", requirements: list | None = None) -> RFQ:
     lines = []
     for number, item in enumerate(inquiry_rows, start=1):
         condition = str(item.get("件状条件") or "").strip()
@@ -73,7 +73,8 @@ def build_rfq(inquiry_rows: list[dict], *, rfq_number: str, evaluation_date: str
             },
         ))
     return RFQ(rfq_number=rfq_number, evaluation_date=evaluation_date, lines=lines,
-               source_files=source_files, customer=customer, subject=subject, urgency=urgency)
+               source_files=source_files, customer=customer, subject=subject, urgency=urgency,
+               requirements=list(requirements or []))
 
 
 def rfq_from_inquiry_xlsx(path: Path, **kwargs) -> RFQ:

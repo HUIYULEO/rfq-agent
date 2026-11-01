@@ -1,0 +1,70 @@
+flowchart TB
+    subgraph DEEPL["另一栈 · CLI agent 命令（可选）"]
+        direction LR
+        AG1["agent.py create_agent<br/>缺环境变量则明确报错<br/>deepagents 懒加载 · 不影响离线流程"]
+        AG2["Deep Agent · LangChain<br/>ChatOpenAI + 7 业务动作工具<br/>recursion_limit=20 · 系统提示 5 条铁律"]
+        AG1 --> AG2
+    end
+
+    subgraph USERL["用户 · 浏览器 / CLI"]
+        IN["页面输入框 · 或命令行提问"]
+        OUT["看到 reply · trace · 任务最新状态"]
+        BTN["按钮流程 · 纯确定性路径<br/>没配模型也照常可用"]
+    end
+
+    subgraph WEBS["web.py · POST /api/chat"]
+        EP["会话执行在存储锁之外<br/>工具调用各自短 I/O<br/>不阻塞确定性端点"]
+        POOL["SESSIONS 按 session_id 复用<br/>完整消息历史 · system 提示常驻"]
+    end
+
+    subgraph SESNL["genesis.Session 一轮对话"]
+        CFG{"模型配置齐全?<br/>.env 缺 MODEL/TOKEN → enabled=false"}
+        CTX["注入任务上下文<br/>当前 task_id · 免得重新 start_case"]
+        SYS["SYSTEM_PROMPT 八条铁律<br/>数字只准来自工具 · 选项只准用引擎给的"]
+        LOOP{"模型返回 tool_calls?"}
+        MAXR["每轮上限 MAX_ROUNDS=6<br/>超出 → 停止 · 提示换问法"]
+    end
+
+    subgraph MODELL["模型 · Genesis /chat/completions"]
+        LM["OpenAI 兼容端点<br/>temperature=0 · tool_choice=auto<br/>可选 deepseek · glm · qwen 等"]
+    end
+
+    subgraph DISPL["dispatch · 7 个业务工具（只读确定性结果）"]
+        direction LR
+        T1["list_cases<br/>列出素材案例"]
+        T2["start_case<br/>解析+定价一触到底"]
+        T3["get_task<br/>压缩摘要"]
+        T4["get_lines<br/>分页 20→50"]
+        T5["explain_line<br/>单行依据"]
+        T6["resolve_review<br/>记录裁决 · revision+1"]
+        T7["export_draft<br/>DOCX 草案"]
+    end
+
+    CORE["RFQService<br/>数字与任务状态的唯一权威"]
+
+    IN -->|"session_id · message · task_id"| EP
+    EP --> POOL
+    POOL --> CFG
+    CFG -->|"否 · 回复缺哪两个值"| OUT
+    CFG -->|"是"| CTX
+    CTX --> SYS
+    SYS --> LM
+    LM --> LOOP
+    LOOP -->|"有调用 ×N"| DISPL
+    DISPL -->|"每次调用即一个业务动作"| CORE
+    AG2 -->|"同一服务入口"| CORE
+    CORE --> PAY["工具结果转 JSON<br/>压缩截断 ≤ 6000 字节<br/>start_case 后记住 task_id"]
+    PAY --> LM
+    LOOP -->|"无调用"| RESULT["组织最终回答<br/>reply · trace · state 复用页面 _view"]
+    RESULT --> OUT
+    MAXR -.->|"防死循环"| LOOP
+    LM -.->|"接口/格式/超时 → GenesisError"| ERR["HTTP 502 · 降级提示"]
+    ERR --> OUT
+    BTN -.->|"按钮直连服务层"| CORE
+
+    classDef user fill:#e8f0fe,stroke:#3b6ea5,stroke-width:1.5px
+    classDef guard fill:#ffe9ec,stroke:#c0392b,stroke-width:1.5px
+    classDef core fill:#eaf7ea,stroke:#3e8e41,stroke-width:2px
+    class IN,OUT,BTN user
+    class SYS,MAXR,ERR guard
+    class CORE core

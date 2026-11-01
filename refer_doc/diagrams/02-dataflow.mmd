@@ -1,0 +1,48 @@
+flowchart LR
+    subgraph INM["官方素材"]
+        EML[".eml 询价邮件<br/>正文HTML表格 · 正文制表符<br/>.xlsx 附件 · .pdf 附件"]
+        PX["价格资源表.xlsx<br/>供应商价格 342 行"]
+        CX["内部物料成本表.xlsx<br/>库存与成本 163 行"]
+    end
+
+    ROWS["规范化行记录<br/>表头别名 → xlsx 统一列名<br/>逐行保留 _container 与 _source_row"]
+    RFQ["RFQ<br/>Line L001…<br/>evidence: file · container · row"]
+    SYNC["db.sync · sha256 指纹<br/>未变化则零工作"]
+    SNAP[("SQLite 快照 snap-xxx<br/>price_row · cost_row<br/>料号索引 · mail/inbox 缓存")]
+
+    subgraph ENGN["定价引擎 pricing.evaluate"]
+        LEDGER["库存账本<br/>同任务多行共享扣减"]
+        RESU["逐行结果 results<br/>priced: 单价 · 行合计 · basis<br/>needs_review: 规则证据 · 全量候选"]
+    end
+
+    RESO["resolutions<br/>line_id 或 __task__ → 选项"]
+    RIS["复核项 review_items<br/>RI-00XX 行级 · RI-TASK 任务级<br/>选项与证据由引擎生成"]
+
+    TJS[("task.json<br/>TaskStore 原子写<br/>结果 · 裁决 · 决策日志")]
+    DJ["draft-rN.json<br/>证据 + 决策日志"]
+    DD["quote-draft-rN.docx<br/>官方模板 + 条件摘要页<br/>大写金额 · 草案声明"]
+
+    BROW["浏览器 _view<br/>溯源: 载体 · 第 N 行"]
+    MPAY["模型载荷 _compact · _line_view<br/>分页 20→50 · 截断 ≤ 6000 字节"]
+
+    EML --> ROWS --> RFQ
+    PX --> SYNC
+    CX --> SYNC
+    SYNC --> SNAP
+    SNAP -->|"rows_for 按料号批量查询"| RESU
+    RFQ --> RESU
+    RESO -->|"放宽指定约束后重算"| RESU
+    RESU -.->|"占用候选库存"| LEDGER
+    LEDGER -.->|"影响后续行可用量"| RESU
+    RESU --> RIS
+    RIS -->|"人工 · auto_draft 预设作答"| RESO
+    RESU --> TJS
+    RESU --> DJ
+    RESU --> DD
+    RESU --> BROW
+    RESU --> MPAY
+
+    classDef store fill:#fdf3e3,stroke:#b8860b,stroke-width:1.5px
+    classDef out fill:#f3eafd,stroke:#7a4fbf,stroke-width:1.5px
+    class SNAP,TJS store
+    class DJ,DD,BROW,MPAY out

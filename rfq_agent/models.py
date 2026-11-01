@@ -42,6 +42,16 @@ class Line:
 
 
 @dataclass
+class Requirement:
+    """A quoting condition the buyer stated in prose — not a price input, but binding."""
+    text: str
+    source: str = ""          # "邮件正文" / "Quote.pdf" / ...
+
+    def to_dict(self):
+        return asdict(self)
+
+
+@dataclass
 class RFQ:
     rfq_number: str
     evaluation_date: str
@@ -51,6 +61,7 @@ class RFQ:
     subject: str = ""
     currency: str = "CNY"
     urgency: str = "NORMAL"
+    requirements: list[Requirement] = field(default_factory=list)
 
     @classmethod
     def from_dict(cls, data: dict):
@@ -60,6 +71,7 @@ class RFQ:
             raise ValueError("RFQ must have nonempty, unique line IDs")
         known = {f for f in cls.__dataclass_fields__ if f != "lines"}
         extra = {k: v for k, v in data.items() if k in known}
+        extra["requirements"] = [Requirement(**item) for item in data.get("requirements", [])]
         return cls(lines=lines, **extra)
 
     def to_dict(self):
