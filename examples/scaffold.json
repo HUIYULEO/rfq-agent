@@ -1,0 +1,9 @@
+{
+  "rfq_number": "SYNTHETIC-SCAFFOLD-001",
+  "evaluation_date": "2026-09-07",
+  "source_files": ["synthetic-example-not-official-data"],
+  "lines": [
+    {"line_id": "1", "part_number": "DEMO-PART-001", "quantity": "2", "unit": "EA", "evidence": {"quantity": {"source": "synthetic fixture", "raw": "2"}}},
+    {"line_id": "2", "part_number": "DEMO-PART-002", "quantity": "5", "unit": "EA", "evidence": {"quantity": {"source": "synthetic fixture", "raw": "5"}}}
+  ]
+}
