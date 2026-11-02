@@ -18,9 +18,9 @@ from urllib.parse import parse_qs, urlparse
 from uuid import uuid4
 
 from . import quality, terms
-from .cases import (admit_case, available, case_by_key, data_status, discover, inbox,
-                    load_case, mark_stage, provider_for, reset_inbox, save_upload,
-                    template_for)
+from .cases import (admit_case, available, case_by_key, confirm_pending, data_status,
+                    discover, inbox, load_case, mark_stage, provider_for, reset_inbox,
+                    stage_pending, sweep_pending, template_for)
 from .genesis import GenesisError, Session, load_config, missing_keys
 from .ledger import OperationalLedger
 from .pricing import summarize
@@ -43,6 +43,52 @@ def _service() -> RFQService:
                              template=template_for(ROOT),
                              ledger=OperationalLedger(ROOT / "runtime" / "operations.db"))
     return SERVICE
+
+
+def _lines_view(rfq: dict) -> list[dict]:
+    lines = []
+    for line in rfq.get("lines", []):
+        evidence = line.get("evidence") or {}
+        number = str(line.get("line_id", "")).lstrip("L")
+        lines.append({
+            "line_number": int(number) if number.isdigit() else None,
+            "part_number": line.get("part_number", ""),
+            "description": line.get("description", ""),
+            "quantity": line.get("quantity"),
+            "unit": line.get("unit"),
+            "condition_accept": line.get("condition_accept") or [],
+            "priority": line.get("priority") or "",
+            "due_at": line.get("due_at") or "",
+            "provenance": f"{evidence.get('container', '')} · 第 {evidence.get('row', '?')} 行",
+            "located": bool(evidence.get("row")),
+        })
+    return lines
+
+
+def _preview_view(rfq) -> dict:
+    """What an upload will become, shown before the user commits to it."""
+    data = rfq.to_dict() if hasattr(rfq, "to_dict") else rfq
+    lines = _lines_view(data)
+    container = ((data.get("lines") or [{}])[0].get("evidence") or {}).get("container", "")
+    findings = quality.inspect(data)
+    return {
+        "customer": data.get("customer", ""),
+        "subject": data.get("subject", ""),
+        "rfq_number": data.get("rfq_number", ""),
+        "evaluation_date": data.get("evaluation_date", ""),
+        "urgency": data.get("urgency", ""),
+        "container": container,
+        "source_files": data.get("source_files", []),
+        "lines": len(lines),
+        "fields": _field_health(lines),
+        "quality": findings,
+        "quality_summary": quality.summary(findings),
+        "requirements": data.get("requirements", []),
+        "sample": [{"line_number": line["line_number"], "part_number": line["part_number"],
+                    "description": line["description"], "quantity": line["quantity"],
+                    "unit": line["unit"]}
+                   for line in lines[:5]],
+    }
 
 
 def _view(task: dict) -> dict:
@@ -78,22 +124,7 @@ def _view(task: dict) -> dict:
     rfq = task["rfq"]
     container = (task["results"][0].get("evidence") or {}).get("container", "") if task["results"] else ""
     container = container or (rfq.get("lines") or [{}])[0].get("evidence", {}).get("container", "")
-    lines = []
-    for line in rfq.get("lines", []):
-        evidence = line.get("evidence") or {}
-        number = str(line.get("line_id", "")).lstrip("L")
-        lines.append({
-            "line_number": int(number) if number.isdigit() else None,
-            "part_number": line.get("part_number", ""),
-            "description": line.get("description", ""),
-            "quantity": line.get("quantity"),
-            "unit": line.get("unit"),
-            "condition_accept": line.get("condition_accept") or [],
-            "priority": line.get("priority") or "",
-            "due_at": line.get("due_at") or "",
-            "provenance": f"{evidence.get('container', '')} · 第 {evidence.get('row', '?')} 行",
-            "located": bool(evidence.get("row")),
-        })
+    lines = _lines_view(rfq)
     stage = ("draft" if task["artifacts"] else "priced" if task["results"]
              else "parsed" if task["status"] == "analyzed" else "received")
     quality_findings = quality.inspect(rfq)
@@ -217,6 +248,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(page)))
+            self.send_header("Cache-Control", "no-store")
             self.end_headers()
             self.wfile.write(page)
             return
@@ -318,30 +350,21 @@ class Handler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         query = parse_qs(parsed.query)
 
-        if parsed.path == "/api/upload":
+        if parsed.path == "/api/preview":
+            # Parse-only: nothing is admitted, saved or run until the user confirms.
             name = (query.get("name") or ["upload.eml"])[0]
             length = int(self.headers.get("Content-Length") or 0)
+            if length <= 0:
+                self._error("空文件")
+                return
             payload = self.rfile.read(length)
             with LOCK:
                 try:
-                    saved = save_upload(ROOT, Path(name).name, payload)
-                    uploaded = next((case for case in discover(ROOT) if case.path == saved), None)
-                    if uploaded is None:
-                        raise ValueError("上传的邮件里没有可识别的询价表")
-                    admit_case(ROOT, uploaded.key)
-                    case = case_by_key(ROOT, uploaded.key)
-                    state = self._run(uploaded.key, "interactive")
-                    self._json({"key": case.key, "customer": case.customer,
-                                "subject": case.subject, "container": case.container,
-                                "lines": case.lines, "received": case.received,
-                                "stage": "priced", "task_id": state["task_id"],
-                                "process_status": state.get("process_status", state["status"]),
-                                "evaluation_status": state.get("evaluation_status"),
-                                "commercial_disposition": state.get("commercial_disposition"),
-                                "pending_interruptions": len([
-                                    item for item in state.get("interruptions", [])
-                                    if item.get("status") == "pending"])})
-                except (ValueError, KeyError, OSError) as exc:
+                    token, _, rfq = stage_pending(ROOT, Path(name).name, payload)
+                    view = _preview_view(rfq)
+                    view["token"] = token
+                    self._json(view)
+                except (ValueError, OSError) as exc:
                     self._error(exc)
             return
 
@@ -377,6 +400,25 @@ class Handler(BaseHTTPRequestHandler):
 
         with LOCK:
             try:
+                if parsed.path == "/api/upload":
+                    saved = confirm_pending(ROOT, str(body.get("token") or ""))
+                    uploaded = next((case for case in discover(ROOT) if case.path == saved), None)
+                    if uploaded is None:
+                        raise ValueError("上传的邮件里没有可识别的询价表")
+                    admit_case(ROOT, uploaded.key)
+                    case = case_by_key(ROOT, uploaded.key)
+                    state = self._run(uploaded.key, "interactive")
+                    self._json({"key": case.key, "customer": case.customer,
+                                "subject": case.subject, "container": case.container,
+                                "lines": case.lines, "received": case.received,
+                                "stage": "priced", "task_id": state["task_id"],
+                                "process_status": state.get("process_status", state["status"]),
+                                "evaluation_status": state.get("evaluation_status"),
+                                "commercial_disposition": state.get("commercial_disposition"),
+                                "pending_interruptions": len([
+                                    item for item in state.get("interruptions", [])
+                                    if item.get("status") == "pending"])})
+                    return
                 if parsed.path == "/api/import":
                     case = admit_case(ROOT, body["key"])
                     self._json({"key": case.key, "customer": case.customer,
@@ -432,6 +474,7 @@ def _warm() -> None:
     try:
         import openpyxl  # noqa: F401
         import docx  # noqa: F401
+        sweep_pending(ROOT)
         _service()
         discover(ROOT, refresh=True)
     except Exception:  # a cold cache must never stop the server from starting

@@ -10,6 +10,7 @@ import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
+from uuid import uuid4
 
 from .ingest import ingest_eml, read_eml
 from .policy import POLICY_VERSION
@@ -125,6 +126,66 @@ def save_upload(root: Path, name: str, payload: bytes) -> Path:
     path.write_bytes(payload)
     discover(root, refresh=True)
     return path
+
+
+PENDING = Path("runtime") / "uploads" / ".pending"
+
+
+def stage_pending(root: Path, name: str, payload: bytes) -> tuple[str, Path, "RFQ"]:
+    """Park an upload for preview: parse it, but admit nothing yet.
+
+    The file lives outside the discover() scan path; only confirm_pending() turns it
+    into a case. A cancelled preview leaves nothing but a temp file swept at boot.
+    """
+    if not name.lower().endswith(".eml"):
+        raise ValueError("目前只接受 .eml 询价邮件")
+    target = root / PENDING
+    target.mkdir(parents=True, exist_ok=True)
+    token = uuid4().hex
+    staged = target / f"{token}.eml"
+    staged.write_bytes(payload)
+    try:
+        rfq = ingest_eml(staged)
+    except (ValueError, OSError):
+        staged.unlink(missing_ok=True)
+        raise
+    (target / f"{token}.name").write_text(Path(name).name, encoding="utf-8")
+    return token, staged, rfq
+
+
+def confirm_pending(root: Path, token: str) -> Path:
+    """Admit a staged preview into the material and rescan the inbox."""
+    if not re.fullmatch(r"[0-9a-f]{32}", token or ""):
+        raise ValueError("无效的预览令牌")
+    staged = root / PENDING / f"{token}.eml"
+    if not staged.exists():
+        raise ValueError("预览已失效，请重新选择文件")
+    name_file = root / PENDING / f"{token}.name"
+    name = name_file.read_text(encoding="utf-8").strip() if name_file.exists() else "upload.eml"
+    name = Path(name).name or "upload.eml"
+    if not name.lower().endswith(".eml"):
+        name += ".eml"
+    target_dir = root / UPLOADS
+    target_dir.mkdir(parents=True, exist_ok=True)
+    path = target_dir / name
+    if path.exists():
+        path = target_dir / f"{path.stem}-{token[:6]}{path.suffix}"
+    staged.replace(path)
+    name_file.unlink(missing_ok=True)
+    discover(root, refresh=True)
+    return path
+
+
+def sweep_pending(root: Path) -> int:
+    """Drop previews nobody confirmed (server restart, closed tab)."""
+    directory = root / PENDING
+    if not directory.is_dir():
+        return 0
+    removed = 0
+    for orphan in directory.iterdir():
+        orphan.unlink(missing_ok=True)
+        removed += 1
+    return removed
 
 
 def provider_for(root: Path) -> SQLiteQuoteProvider:

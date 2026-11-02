@@ -30,8 +30,6 @@
   .spacer{flex:1}
   .topmeta{display:flex;align-items:center;gap:16px;font-size:11.5px;color:var(--muted)}
   .topmeta b{font-weight:600;color:var(--ink2)}
-  .dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--ok);margin-right:5px;vertical-align:1px}
-  .dot.off{background:var(--warn)}
 
   .shell{display:grid;grid-template-columns:272px minmax(0,1fr);height:calc(100% - 50px)}
 
@@ -45,6 +43,7 @@
   li.item{border-radius:8px;padding:8px 9px;cursor:pointer;border:1px solid transparent}
   li.item:hover{background:var(--line2)}
   li.item.on{background:var(--accent-soft);border-color:#c7d7fe}
+  li.item.off{opacity:.55;cursor:default}
   li.item .r1{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
   li.item .who{font-weight:640;font-size:12.5px}
   li.item .cnt{font-size:10.5px;color:var(--faint)}
@@ -56,9 +55,6 @@
   .tag.new{background:var(--accent-soft);color:var(--accent)}
   li.pool-item{display:flex;align-items:center;gap:8px;padding:7px 9px}
   li.pool-item .who{flex:1;min-width:0}
-  li.pool-item button{border:1px solid #cbd5e1;background:#fff;border-radius:6px;font-size:11px;
-                      padding:3px 9px;color:var(--ink2);white-space:nowrap}
-  li.pool-item button:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
   .divider{border-top:1px solid var(--line2);margin:8px 0 2px}
   .drop{margin:8px 10px 12px;padding:11px 10px;border:1px dashed #cbd5e1;border-radius:8px;text-align:center;
         color:var(--muted);font-size:11.5px;background:#fcfdff}
@@ -175,6 +171,28 @@
   .resultbox>.inside{padding:0 12px 2px;border-top:1px solid var(--line2)}
   .resultbox .stage{margin-top:12px}
 
+  /* upload preview modal + full-page drop veil */
+  .veil{position:fixed;inset:0;background:#0f172a66;z-index:20;display:grid;place-items:center;padding:20px}
+  .veil[hidden]{display:none}
+  .modal{background:var(--card);border-radius:12px;box-shadow:0 24px 80px #0f172a40;
+         width:min(580px,100%);max-height:calc(100vh - 60px);display:flex;flex-direction:column;overflow:hidden}
+  .modal-head{display:flex;align-items:baseline;gap:10px;padding:13px 16px;border-bottom:1px solid var(--line)}
+  .modal-head h2{margin:0;font-size:13.5px;font-weight:650;flex:1;min-width:0;
+                 overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .modal-body{padding:13px 16px;overflow:auto}
+  .modal-foot{display:flex;gap:8px;justify-content:flex-end;align-items:center;
+              padding:11px 16px;border-top:1px solid var(--line);background:#fcfdff}
+  .modal-foot .l{margin-right:auto}
+  .dragveil{position:fixed;inset:0;z-index:30;background:#1d4ed812;display:grid;place-items:center}
+  .dragveil[hidden]{display:none}
+  .dragveil>div{border:2px dashed var(--accent);border-radius:14px;padding:26px 42px;
+                background:#fff;color:var(--accent);font-size:15px;font-weight:650;pointer-events:none}
+  table.sample{width:100%;border-collapse:collapse;font-size:11px;margin-top:12px}
+  table.sample th{text-align:left;color:var(--muted);font-weight:600;padding:4px 6px;border-bottom:1px solid var(--line)}
+  table.sample td{padding:4px 6px;border-bottom:1px solid var(--line2)}
+  .pverr{border:1px solid var(--warn-line);background:var(--bad-soft);color:var(--bad);
+         border-radius:8px;padding:10px 12px;font-size:12px}
+
   /* Optional question entry, outside the workbench layout. */
   .ask-launch{position:fixed;right:18px;bottom:16px;z-index:10;display:flex;align-items:center;gap:8px;
               padding:9px 14px;border:1px solid #c7d7fe;border-radius:999px;background:var(--card);
@@ -252,21 +270,21 @@
 
 <main class="shell">
   <aside class="side">
-    <div class="side-head">实时测试用例 <span id="count"></span></div>
-    <ul class="list" id="list"></ul>
+    <div class="side-head">收件箱 <span id="count"></span></div>
+    <ul class="list" id="tasks"></ul>
     <div class="divider"></div>
-    <div class="side-head current-head">当前查看 / 运行 <span id="poolcount"></span></div>
-    <ul class="list pool" id="pool"></ul>
-    <div class="drop" id="drop"><b>导入邮件</b>拖入 .eml 或点击</div>
-    <input type="file" id="file" accept=".eml" hidden />
-    <div class="side-foot"><button id="reset" title="只清空浏览器当前运行，不删除后端审计记录">清空当前运行</button></div>
+    <div class="side-head current-head">演示素材 <span id="poolcount"></span></div>
+    <ul class="list pool" id="list"></ul>
+    <div class="drop" id="drop"><b>导入询价邮件</b>拖入 .eml 或点击选择，可多选</div>
+    <input type="file" id="file" accept=".eml" multiple hidden />
+    <div class="side-foot"><button id="reset" title="只清空浏览器当前查看，不删除后端任务记录">清空当前查看</button></div>
   </aside>
 
   <section class="work">
     <div class="empty" id="empty">
-      <h2>选择一个测试输入</h2>
-      <div>左侧六个案例只是输入，不保存处理结果。每次运行都会创建新的任务，<br />
-        自动执行到需要人工决定的地方；浏览器只保留当前这一次运行。</div>
+      <h2>从收件箱选一个任务，或导入询价邮件</h2>
+      <div>收件箱里是已经处理过的任务，随时点回现场；<br />
+        演示素材只是输入，每次运行都会创建新任务并进入收件箱。</div>
     </div>
 
     <div id="docwrap" hidden>
@@ -306,6 +324,15 @@
       </div>
     </div>
   </section>
+
+  <div class="veil" id="veil" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-label="导入预览">
+      <div class="modal-head"><h2 id="pvtitle">导入预览</h2><span class="muted" id="pvqueue"></span></div>
+      <div class="modal-body" id="pvbody"></div>
+      <div class="modal-foot" id="pvfoot"></div>
+    </div>
+  </div>
+  <div class="dragveil" id="dragveil" hidden><div>松开以导入询价邮件（.eml，可多个）</div></div>
 
   <button class="ask-launch" id="askOpen" type="button" aria-controls="askPanel"
           aria-expanded="false">提问 / 调用助手</button>
@@ -360,6 +387,11 @@ function resetQuestionContext() {
     <div class="txt">可询问当前任务的报价依据或待确认项。</div></div>`;
 }
 
+function setUrl(taskId) {
+  const url = taskId ? `?task=${encodeURIComponent(taskId)}` : location.pathname;
+  history.replaceState(null, "", url);
+}
+
 async function api(path, body) {
   const opt = body === undefined ? {} : {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
@@ -371,11 +403,27 @@ async function api(path, body) {
   return data;
 }
 
-/* ---------- lists ---------- */
+/* ---------- lists: inbox (real tasks) + demo fixtures ---------- */
 async function refresh() {
-  CASES = await api("/api/fixtures");
-  $("count").textContent = CASES.length;
-  $("poolcount").textContent = S ? "1" : "0";
+  const [tasks, fixtures] = await Promise.all([api("/api/cases"), api("/api/fixtures")]);
+  CASES = fixtures;
+  $("count").textContent = tasks.length;
+  $("poolcount").textContent = fixtures.length;
+
+  $("tasks").innerHTML = tasks.length ? tasks.map((t) => {
+    const cls = t.stage === "draft" ? "ok" : t.stage === "priced" ? "warn" : "new";
+    return `<li class="item${S && t.task_id === S.task_id ? " on" : ""}${t.task_id ? "" : " off"}"
+      data-task="${esc(t.task_id || "")}">
+      <div class="r1"><span class="who">${esc(t.customer || t.key)}</span><span class="cnt">${t.lines} 行</span></div>
+      <div class="sub">${esc(t.subject || t.file)}</div>
+      <div class="meta"><span class="tag">${esc(CONTAINER[t.container] || t.container)}</span>
+        <span class="tag ${cls}">${esc(STAGE[t.stage] || t.stage)}</span></div>
+    </li>`;
+  }).join("") : `<li class="pool-item"><div class="who muted">收件箱为空：运行下方素材，或导入询价邮件</div></li>`;
+  $("tasks").querySelectorAll("li.item[data-task]").forEach((li) => {
+    if (li.dataset.task) li.onclick = () => openTask(li.dataset.task);
+  });
+
   $("list").innerHTML = CASES.map((c) => {
     return `<li class="item${c.key === CASEKEY ? " on" : ""}" data-key="${esc(c.key)}">
       <div class="r1"><span class="who">用例 ${esc(c.key)} · ${esc(c.customer)}</span><span class="cnt">${c.lines} 行</span></div>
@@ -385,31 +433,36 @@ async function refresh() {
     </li>`;
   }).join("");
   $("list").querySelectorAll("li.item").forEach((li) => { li.onclick = () => select(li.dataset.key); });
+}
 
-  $("pool").innerHTML = S ? `<li class="item on" id="currentRun">
-      <div class="r1"><span class="who">${esc(S.customer || ACTIVE_META?.customer || "当前 RFQ")}</span>
-        <span class="cnt">r${esc(S.revision)}</span></div>
-      <div class="sub mono">${esc(S.task_id)}</div>
-      <div class="meta"><span class="tag warn">${esc(S.process_status || S.status)}</span>
-        <span class="tag">${esc(S.commercial_disposition || "PENDING")}</span></div>
-    </li>` : `<li class="pool-item"><div class="who muted">尚未运行；选择上方用例或上传邮件</div></li>`;
-  const current = $("currentRun");
-  if (current) current.onclick = render;
+/* ---------- open a task that already exists (inbox / deep link) ---------- */
+async function openTask(taskId) {
+  let state;
+  try { state = await api(`/api/task?id=${encodeURIComponent(taskId)}`); }
+  catch (e) { notify(`任务加载失败：${e.message}`, true); return; }
+  S = state;
+  CASEKEY = null; ACTIVE_META = null; SHOW_ALL_REVIEWS = false;
+  resetQuestionContext();
+  setUrl(S.task_id);
+  $("empty").hidden = true; $("docwrap").hidden = false;
+  render(); refresh();
 }
 
 /* ---------- case view ---------- */
 async function resetDemo() {
   CASEKEY = null; S = null; SID = null; ACTIVE_META = null; SHOW_ALL_REVIEWS = false;
   resetQuestionContext();
+  setUrl(null);
   await refresh();
   $("docwrap").hidden = true; $("empty").hidden = false;
   $("cust").textContent = ""; $("subline").textContent = ""; $("status").textContent = "";
-  notify("当前查看已清空；任务记录仍保存在后台。");
+  notify("当前查看已清空；任务记录仍保存在收件箱。");
 }
 
 async function select(key) {
   CASEKEY = key; SID = null; S = null; SHOW_ALL_REVIEWS = false;
   resetQuestionContext();
+  setUrl(null);
   const meta = CASES.find((c) => c.key === key);
   ACTIVE_META = meta || null;
   $("empty").hidden = true; $("docwrap").hidden = false;
@@ -417,7 +470,7 @@ async function select(key) {
   $("subline").textContent = meta ? [CONTAINER[meta.container] || meta.container, `${meta.lines} 行`].join(" · ") : "";
   $("status").className = "pill"; $("status").textContent = "待处理";
   if (meta && meta.reference && meta.task_id) {
-    try { S = await api(`/api/task?id=${encodeURIComponent(meta.task_id)}`); }
+    try { S = await api(`/api/task?id=${encodeURIComponent(meta.task_id)}`); setUrl(S.task_id); }
     catch (e) { notify(`参考案例加载失败：${e.message}`, true); }
   }
   render();
@@ -426,7 +479,7 @@ async function select(key) {
 
 async function start() {
   if (BUSY) return;
-  if (!CASEKEY) { notify("请先选择一个测试用例，或重新上传邮件。", true); return; }
+  if (!CASEKEY) { notify("请先选择一个演示素材，或导入询价邮件。", true); return; }
   BUSY = true;
   resetQuestionContext();
   SHOW_ALL_REVIEWS = false;
@@ -435,7 +488,8 @@ async function start() {
     解析邮件 · 提取行项目 · 查参考表…（停在需要你决定的地方）</div>`;
   try {
     S = await api("/api/run", { case: CASEKEY, autonomy: "interactive" });
-    notify(`新任务已执行；${S.review_items.filter((i) => i.status === "open").length} 项待确认。`);
+    setUrl(S.task_id);
+    notify(`新任务已执行并进入收件箱；${S.review_items.filter((i) => i.status === "open").length} 项待确认。`);
   } catch (e) {
     $("stages").innerHTML = `<div class="muted" style="color:var(--bad)">${esc(e.message)}</div>`;
     notify(e.message, true);
@@ -684,44 +738,157 @@ async function send() {
   finally { $("send").disabled = false; box.focus(); }
 }
 
-/* ---------- upload ---------- */
-$("drop").onclick = () => $("file").click();
-$("reset").onclick = resetDemo;
-$("file").onchange = (e) => { if (e.target.files[0]) upload(e.target.files[0]); };
-["dragenter", "dragover"].forEach((ev) => $("drop").addEventListener(ev, (e) => {
-  e.preventDefault(); $("drop").style.borderColor = "var(--accent)";
-}));
-["dragleave", "drop"].forEach((ev) => $("drop").addEventListener(ev, (e) => {
-  e.preventDefault(); $("drop").style.borderColor = "";
-}));
-$("drop").addEventListener("drop", (e) => { if (e.dataTransfer.files[0]) upload(e.dataTransfer.files[0]); });
+/* ---------- upload: preview → confirm → inbox ---------- */
+let QUEUE = [], QINDEX = 0, CONFIRMED = 0, LAST_TASK = null, PV_BUSY = false;
 
-async function upload(file) {
-  $("drop").innerHTML = `<b><span class="spin"></span> ${esc(file.name)}</b>`;
+function openVeil(bodyHtml, footHtml, title, queueText) {
+  if (title !== undefined) $("pvtitle").textContent = title;
+  $("pvqueue").textContent = queueText || "";
+  $("pvbody").innerHTML = bodyHtml;
+  $("pvfoot").innerHTML = footHtml;
+  $("veil").hidden = false;
+}
+function closeVeil() { $("veil").hidden = true; }
+
+function uploadFiles(files) {
+  const picked = [...files].filter((f) => f.name.toLowerCase().endsWith(".eml"));
+  const skipped = files.length - picked.length;
+  if (skipped > 0) notify(`已跳过 ${skipped} 个非 .eml 文件`);
+  if (!picked.length) return;
+  QUEUE = picked; QINDEX = 0; CONFIRMED = 0; LAST_TASK = null;
+  previewCurrent();
+}
+
+async function previewCurrent() {
+  const file = QUEUE[QINDEX];
+  if (!file) {
+    closeVeil();
+    await refresh();
+    if (CONFIRMED) notify(`已导入 ${CONFIRMED} 封询价邮件，任务在收件箱中。`);
+    if (LAST_TASK) openTask(LAST_TASK);
+    return;
+  }
+  openVeil(`<div class="muted"><span class="spin"></span> 正在解析 ${esc(file.name)}…</div>`, "",
+           "导入预览", `第 ${QINDEX + 1} / ${QUEUE.length} 个文件`);
   try {
-    const res = await fetch("/api/upload?name=" + encodeURIComponent(file.name), { method: "POST", body: file });
+    const res = await fetch("/api/preview?name=" + encodeURIComponent(file.name),
+                            { method: "POST", body: file });
     const data = JSON.parse(await res.text());
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-    if (!data.task_id) throw new Error("上传成功但没有创建实时任务");
-    S = await api(`/api/task?id=${encodeURIComponent(data.task_id)}`);
-    CASEKEY = null;
-    resetQuestionContext();
-    SHOW_ALL_REVIEWS = false;
-    ACTIVE_META = data;
-    $("empty").hidden = true; $("docwrap").hidden = false;
-    render();
-    await refresh();
-    notify(`上传成功；新任务已执行到 ${data.process_status}。`);
-  } catch (e) { notify(`导入失败：${e.message}`, true); }
-  finally { $("drop").innerHTML = "<b>导入邮件</b>拖入 .eml 或点击"; }
+    showPreview(file, data);
+  } catch (e) {
+    showPreviewError(file, e.message);
+  }
 }
+
+function advanceQueue() { QINDEX += 1; previewCurrent(); }
+
+function previewBody(p) {
+  const f = p.fields || {};
+  const bar = (label, n) => {
+    const pct = p.lines ? Math.round((n || 0) / p.lines * 100) : 0;
+    return `<div class="bar"><div class="h"><span>${label}</span><span class="num">${n || 0}/${p.lines}</span></div>
+      <div class="t"><div class="f ${n < p.lines ? "warn" : ""}" style="width:${pct}%"></div></div></div>`;
+  };
+  const findings = (p.quality || []).map((item) => `<div class="finding ${item.severity}">
+      <span class="dot2"></span><span class="t">${esc(item.title)}</span>
+      <span class="d">${esc(item.detail)}</span></div>`).join("");
+  const reqs = (p.requirements || []).map((r) =>
+    `<li>${esc(r.text)}<em>${esc(r.source)}</em></li>`).join("");
+  const sample = (p.sample || []).map((r) => `<tr>
+      <td class="r num">${esc(r.line_number)}</td><td><span class="pn">${esc(r.part_number)}</span></td>
+      <td>${esc(r.description)}</td><td class="r num">${esc(r.quantity)}</td><td>${esc(r.unit)}</td></tr>`).join("");
+  return `<div class="kv">
+      <div><div class="k">客户</div><div class="v">${esc(p.customer || "未标注")}</div></div>
+      <div><div class="k">询价号</div><div class="v mono">${esc(p.rfq_number || "—")}</div></div>
+      <div><div class="k">评估日</div><div class="v">${esc(p.evaluation_date || "—")}</div></div>
+      <div><div class="k">紧急度</div><div class="v">${p.urgency && p.urgency !== "NORMAL" ? "紧急" : "普通"}</div></div>
+      <div><div class="k">载体</div><div class="v">${esc(CONTAINER[p.container] || p.container || "—")}</div></div>
+      <div><div class="k">行数</div><div class="v">${p.lines}</div></div></div>
+    <div class="bars" style="margin-top:11px">
+      ${bar("料号", f.part_number)}${bar("数量", f.quantity)}${bar("单位", f.unit)}${bar("件状要求", f.condition)}
+    </div>
+    <div class="muted" style="margin-top:6px">${f.with_evidence ?? 0}/${p.lines} 行可回溯到原始单元格 ·
+      来源 ${esc((p.source_files || []).join("、"))}</div>
+    ${findings ? `<div class="findings">${findings}</div>` : ""}
+    ${reqs ? `<div class="reqs"><div class="h">客户随附要求（${p.requirements.length} 条，原文照录）</div><ol>${reqs}</ol></div>` : ""}
+    ${sample ? `<table class="sample"><thead><tr><th class="r">#</th><th>料号</th><th>描述</th>
+      <th class="r">数量</th><th>单位</th></tr></thead><tbody>${sample}</tbody></table>
+      <div class="muted" style="margin-top:4px">仅预览前 ${p.sample.length} 行，共 ${p.lines} 行；确认后完整处理。</div>` : ""}`;
+}
+
+function showPreview(file, p) {
+  openVeil(previewBody(p),
+    `<button class="btn l" id="pvCancelAll">全部取消</button>
+     <button class="btn" id="pvSkip">不要这封</button>
+     <button class="btn primary" id="pvOk">确认导入并处理</button>`,
+    file.name, `第 ${QINDEX + 1} / ${QUEUE.length} 个文件`);
+  $("pvCancelAll").onclick = () => { if (!PV_BUSY) { QUEUE = []; QINDEX = 0; previewCurrent(); } };
+  $("pvSkip").onclick = () => { if (!PV_BUSY) advanceQueue(); };
+  $("pvOk").onclick = () => confirmUpload(p.token);
+}
+
+function showPreviewError(file, message) {
+  openVeil(`<div class="pverr">${esc(file.name)}：${esc(message)}</div>
+      <div class="muted" style="margin-top:8px">这封邮件不会被导入；其余文件不受影响。</div>`,
+    `<button class="btn l" id="pvCancelAll">全部取消</button>
+     <button class="btn primary" id="pvSkip">跳过这封</button>`,
+    file.name, `第 ${QINDEX + 1} / ${QUEUE.length} 个文件 · 解析失败`);
+  $("pvCancelAll").onclick = () => { QUEUE = []; QINDEX = 0; previewCurrent(); };
+  $("pvSkip").onclick = advanceQueue;
+}
+
+async function confirmUpload(token) {
+  if (PV_BUSY) return;
+  PV_BUSY = true;
+  $("pvOk").disabled = true;
+  try {
+    const data = await api("/api/upload", { token });
+    CONFIRMED += 1;
+    if (data.task_id) LAST_TASK = data.task_id;
+  } catch (e) {
+    notify(`导入失败：${e.message}`, true);
+  } finally {
+    PV_BUSY = false;
+    advanceQueue();
+  }
+}
+
+/* ---------- entries: click, sidebar zone, full-page drag ---------- */
+$("drop").onclick = () => $("file").click();
+$("reset").onclick = resetDemo;
+$("file").onchange = (e) => { if (e.target.files.length) uploadFiles(e.target.files); e.target.value = ""; };
+
+let dragDepth = 0;
+window.addEventListener("dragenter", (e) => {
+  if (e.dataTransfer && [...(e.dataTransfer.types || [])].includes("Files")) {
+    dragDepth += 1; $("dragveil").hidden = false; e.preventDefault();
+  }
+});
+window.addEventListener("dragover", (e) => {
+  if (e.dataTransfer && [...(e.dataTransfer.types || [])].includes("Files")) e.preventDefault();
+});
+window.addEventListener("dragleave", () => {
+  dragDepth = Math.max(0, dragDepth - 1);
+  if (!dragDepth) $("dragveil").hidden = true;
+});
+window.addEventListener("drop", (e) => {
+  if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
+    e.preventDefault();
+    dragDepth = 0; $("dragveil").hidden = true;
+    uploadFiles(e.dataTransfer.files);
+  }
+});
 
 /* ---------- boot ---------- */
 $("send").onclick = send;
 $("askOpen").onclick = () => setAskOpen(true);
 $("askClose").onclick = () => setAskOpen(false);
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && !$("askPanel").hidden) setAskOpen(false);
+  if (e.key === "Escape") {
+    if (!$("askPanel").hidden) setAskOpen(false);
+    else if (!$("veil").hidden && !PV_BUSY) { QUEUE = []; QINDEX = 0; closeVeil(); refresh(); }
+  }
 });
 $("chat").addEventListener("keydown", (e) => {
   if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
@@ -737,6 +904,8 @@ async function boot() {
     if (!a.enabled) $("chat").placeholder = `模型未配置（缺 ${a.missing.join("、")}）`;
   } catch (e) { /* deterministic flow stays usable */ }
   await refresh();
+  const deepTask = new URLSearchParams(location.search).get("task");
+  if (deepTask) openTask(deepTask);
 }
 boot();
 </script>
