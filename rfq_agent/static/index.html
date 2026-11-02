@@ -130,6 +130,19 @@
   .reqs ol{margin:0;padding-left:16px;display:flex;flex-direction:column;gap:3px}
   .reqs li{font-size:11.5px;color:var(--ink2)}
   .reqs li em{font-style:normal;color:var(--faint);font-size:10px;font-family:var(--mono);margin-left:5px}
+  .terms{margin-top:10px;padding-top:9px;border-top:1px dashed var(--line);display:flex;
+         flex-direction:column;gap:4px}
+  .terms .h{font-size:10.5px;color:var(--faint);margin-bottom:2px}
+  .terms .h span{color:var(--muted)}
+  .term{display:grid;grid-template-columns:14px 1fr auto;gap:6px;align-items:baseline;font-size:11.5px}
+  .term .ic{font-family:var(--mono);font-size:11px;text-align:center;color:var(--faint)}
+  .term.met .ic{color:var(--ok)}
+  .term.todo .ic{color:var(--warn)}
+  .term.manual .ic{color:var(--accent)}
+  .term .tx{color:var(--ink2);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .term .tx em{font-style:normal;color:var(--faint);font-size:10px;font-family:var(--mono);margin-left:5px}
+  .term .lb{font-size:10.5px;color:var(--muted);white-space:nowrap}
+  .term .dt{grid-column:2/-1;color:var(--faint);font-size:10.5px;margin-top:-2px}
 
   .asks{display:flex;flex-direction:column;gap:9px}
   .ask{border:1px solid var(--warn-line);background:#fffdf7;border-radius:8px;padding:9px 11px}
@@ -152,6 +165,15 @@
   .pipeline{display:flex;justify-content:center;gap:6px;margin:0 0 16px;flex-wrap:wrap}
   .pipeline span{font-size:11px;color:var(--muted);background:var(--line2);border-radius:999px;padding:3px 9px}
   .pipeline span.stop{background:var(--warn-soft);color:var(--warn)}
+  .runlog{display:flex;flex-direction:column;gap:7px}
+  .runstep{display:grid;grid-template-columns:9px minmax(0,1fr) auto;gap:8px;align-items:start;
+           font-size:11.5px;color:var(--ink2)}
+  .runstep .mark{width:7px;height:7px;border-radius:50%;background:var(--ok);margin-top:5px}
+  .runstep .at{font-family:var(--mono);font-size:10px;color:var(--faint)}
+  .resultbox{margin:12px 0;border:1px solid var(--line);border-radius:10px;background:var(--card)}
+  .resultbox>summary{cursor:pointer;padding:10px 13px;font-size:12px;font-weight:650;color:var(--ink2)}
+  .resultbox>.inside{padding:0 12px 2px;border-top:1px solid var(--line2)}
+  .resultbox .stage{margin-top:12px}
 
   /* chat */
   .rail{background:var(--card);border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
@@ -206,21 +228,21 @@
 
 <main class="shell">
   <aside class="side">
-    <div class="side-head">待处理 <span id="count"></span></div>
+    <div class="side-head">实时测试用例 <span id="count"></span></div>
     <ul class="list" id="list"></ul>
     <div class="divider"></div>
-    <div class="side-head">可导入素材 <span id="poolcount"></span></div>
+    <div class="side-head">当前运行 <span id="poolcount"></span></div>
     <ul class="list pool" id="pool"></ul>
     <div class="drop" id="drop"><b>导入邮件</b>拖入 .eml 或点击</div>
     <input type="file" id="file" accept=".eml" hidden />
-    <div class="side-foot"><button id="reset" title="清空收件箱，恢复到只有样例 B 的状态">重置演示数据</button></div>
+    <div class="side-foot"><button id="reset" title="只清空浏览器当前运行，不删除后端审计记录">清空当前运行</button></div>
   </aside>
 
   <section class="work">
     <div class="empty" id="empty">
-      <h2>等待一封询价</h2>
-      <div>左侧有一条预置样例；导入其余素材或自己的 <code>.eml</code> 后，<br />
-        点「开始处理」，它会解析、定价，然后停在需要你决定的地方。</div>
+      <h2>选择一个测试输入</h2>
+      <div>左侧六个案例只是输入，不保存处理结果。每次运行都会创建新的任务，<br />
+        自动执行到需要人工决定的地方；浏览器只保留当前这一次运行。</div>
     </div>
 
     <div id="docwrap" hidden>
@@ -487,11 +509,24 @@ function render() {
     answered.length ? answered.map((i) => `<span>${esc(i.id)} → ${esc(i.answer)}</span>`).join("") : "");
 
   const arts = s.artifacts || [];
+  const termItems = s.terms || [];
+  const ts = s.terms_summary || { total: 0, met: 0, todo: 0, manual: 0, na: 0 };
+  const termIcon = { met: "✓", todo: "!", manual: "?", na: "–" };
+  const termBlock = termItems.length ? `<div class="terms">
+      <div class="h">客户要求核对 <span>${ts.met}/${ts.total} 已满足${
+        ts.todo ? ` · ${ts.todo} 项待补齐` : ""}${ts.manual ? ` · ${ts.manual} 项需人工确认` : ""}</span></div>
+      ${termItems.map((i) => `<div class="term ${i.status}">
+        <span class="ic">${termIcon[i.status] || "·"}</span>
+        <span class="tx">${esc(i.text)}<em>${esc(i.source)}</em></span>
+        <span class="lb">${esc(i.label)}</span>
+        <span class="dt">${esc(i.detail)}</span>
+      </div>`).join("")}
+    </div>` : "";
   const s5 = stageCard(5, "报价草案", arts.length ? "ok" : "wait", arts.length ? "已生成" : "未生成",
-    arts.length ? `<div class="art">${arts.map((a) =>
+    (arts.length ? `<div class="art">${arts.map((a) =>
       `<a href="/api/download?id=${encodeURIComponent(s.task_id)}&file=${encodeURIComponent(a)}"
           target="_blank">${esc(a)}</a>`).join("")}</div>`
-      : waitBody(open.length ? "先处理完上面的待确认项，再生成草案。" : "点上方「生成报价草案」。"),
+      : waitBody(open.length ? "先处理完上面的待确认项，再生成草案。" : "点上方「生成报价草案」。")) + termBlock,
     `<span>产物永远是待复核草案：未计税费运费，不预留库存</span>`);
 
   $("stages").innerHTML = s1 + s2 + s3 + s4 + s5;

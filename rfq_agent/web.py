@@ -17,11 +17,12 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 from uuid import uuid4
 
-from . import quality
+from . import quality, terms
 from .cases import (admit_case, available, case_by_key, data_status, discover, inbox,
                     load_case, mark_stage, provider_for, reset_inbox, save_upload,
                     template_for)
 from .genesis import GenesisError, Session, load_config, missing_keys
+from .ledger import OperationalLedger
 from .pricing import summarize
 from .service import RFQService
 from .storage import TaskStore
@@ -39,7 +40,8 @@ def _service() -> RFQService:
     global SERVICE
     if SERVICE is None:
         SERVICE = RFQService(TaskStore(ROOT / "runtime"), provider=provider_for(ROOT),
-                             template=template_for(ROOT))
+                             template=template_for(ROOT),
+                             ledger=OperationalLedger(ROOT / "runtime" / "operations.db"))
     return SERVICE
 
 
@@ -95,10 +97,14 @@ def _view(task: dict) -> dict:
     stage = ("draft" if task["artifacts"] else "priced" if task["results"]
              else "parsed" if task["status"] == "analyzed" else "received")
     quality_findings = quality.inspect(rfq)
+    term_items = terms.check(rfq, task["results"])
     return {
         "task_id": task["task_id"],
         "revision": task["revision"],
         "status": task["status"],
+        "process_status": task.get("process_status", task["status"]),
+        "commercial_disposition": task.get("commercial_disposition", "PENDING"),
+        "evaluation_status": task.get("evaluation_status", "pending"),
         "autonomy": task["autonomy"],
         "policy_version": task["policy_version"],
         "data_snapshot_id": task["data_snapshot_id"],
@@ -114,11 +120,15 @@ def _view(task: dict) -> dict:
         "results": results,
         "review_items": task["review_items"],
         "decision_log": task["decision_log"],
+        "interruptions": task.get("interruptions", []),
+        "agent_trace": task.get("agent_trace", []),
         "artifacts": [Path(name).name for name in task["artifacts"]],
         "fields": _field_health(lines),
         "quality": quality_findings,
         "quality_summary": quality.summary(quality_findings),
         "requirements": rfq.get("requirements", []),
+        "terms": term_items,
+        "terms_summary": terms.summary(term_items),
         "data": _data_trace(),
     }
 
@@ -149,7 +159,7 @@ def _data_trace() -> dict:
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "RFQAgent/0.2"
+    server_version = "RFQAgent/0.3"
 
     def log_message(self, fmt, *args):
         print("%s - %s" % (self.address_string(), fmt % args), flush=True)
@@ -202,6 +212,16 @@ class Handler(BaseHTTPRequestHandler):
                          "imported_at": item["imported_at"]}
                         for item in inbox(ROOT)])
             return
+        if parsed.path == "/api/fixtures":
+            # Official cases are immutable test inputs, not remembered task results.
+            fixtures = [case for case in discover(ROOT)
+                        if len(case.key) == 1 and case.key in {"A", "B", "C", "D", "E", "F"}]
+            self._json([{"key": case.key, "label": case.label,
+                         "container": case.container, "file": case.path.name,
+                         "customer": case.customer, "subject": case.subject,
+                         "received": case.received, "lines": case.lines}
+                        for case in fixtures])
+            return
         if parsed.path == "/api/material":
             self._json([{"key": case.key, "customer": case.customer, "subject": case.subject,
                          "container": case.container, "lines": case.lines,
@@ -228,6 +248,17 @@ class Handler(BaseHTTPRequestHandler):
             except ValueError as exc:
                 self._error(exc, 404)
             return
+        if parsed.path == "/api/history":
+            query = parse_qs(parsed.query)
+            task_id = (query.get("id") or [""])[0]
+            event_type = (query.get("type") or [None])[0]
+            try:
+                with LOCK:
+                    self._json({"task_id": task_id,
+                                "events": _service().task_history(task_id, event_type)})
+            except ValueError as exc:
+                self._error(exc, 404)
+            return
         if parsed.path == "/api/download":
             query = parse_qs(parsed.query)
             task_id = (query.get("id") or [""])[0]
@@ -237,7 +268,13 @@ class Handler(BaseHTTPRequestHandler):
                 return
             try:
                 with LOCK:
-                    path = _service().store.directory(task_id) / name
+                    service = _service()
+                    task = service.get_task_result(task_id)
+                    current = {Path(item).name for item in task.get("artifacts", [])}
+                    if name not in current:
+                        self._error("artifact is stale or is not part of the current revision", 409)
+                        return
+                    path = service.store.directory(task_id) / name
                 if not path.exists():
                     self._error("file not found", 404)
                     return
@@ -272,9 +309,17 @@ class Handler(BaseHTTPRequestHandler):
                         raise ValueError("上传的邮件里没有可识别的询价表")
                     admit_case(ROOT, uploaded.key)
                     case = case_by_key(ROOT, uploaded.key)
+                    state = self._run(uploaded.key, "interactive")
                     self._json({"key": case.key, "customer": case.customer,
                                 "subject": case.subject, "container": case.container,
-                                "lines": case.lines, "received": case.received, "stage": "received"})
+                                "lines": case.lines, "received": case.received,
+                                "stage": "priced", "task_id": state["task_id"],
+                                "process_status": state.get("process_status", state["status"]),
+                                "evaluation_status": state.get("evaluation_status"),
+                                "commercial_disposition": state.get("commercial_disposition"),
+                                "pending_interruptions": len([
+                                    item for item in state.get("interruptions", [])
+                                    if item.get("status") == "pending"])})
                 except (ValueError, KeyError, OSError) as exc:
                     self._error(exc)
             return
@@ -343,6 +388,17 @@ class Handler(BaseHTTPRequestHandler):
                             mark_stage(ROOT, item["case"].key, "draft", body["task_id"])
                             break
                     self._json(payload)
+                    return
+                if parsed.path == "/api/activate":
+                    state = _service().activate_quote(
+                        body["task_id"], int(body["revision"]), body["approved_by"])
+                    self._json(_view(state))
+                    return
+                if parsed.path == "/api/feedback":
+                    event = _service().record_feedback(
+                        body["task_id"], int(body["revision"]), body["actor"],
+                        body.get("feedback") or {}, body.get("outcome"))
+                    self._json(event, 201)
                     return
             except (ValueError, KeyError) as exc:
                 self._error(exc)

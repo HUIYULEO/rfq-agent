@@ -10,6 +10,7 @@ import json
 from uuid import uuid4
 
 from .models import RFQ, Task, positive_decimal
+from .ledger import AGENT_TRACE, ARTIFACT, HUMAN_DECISION, OperationalLedger
 from .policy import POLICY_VERSION, AUTONOMY_PRESETS, DEFAULT_POLICY
 from .pricing import build_review_items, summarize
 from .ports import PendingQuoteProvider, QuoteProvider
@@ -18,11 +19,44 @@ from .storage import TaskStore
 
 class RFQService:
     def __init__(self, store: TaskStore, provider: QuoteProvider | None = None,
-                 policy: dict | None = None, template=None):
+                 policy: dict | None = None, template=None,
+                 ledger: OperationalLedger | None = None):
         self.store = store
         self.provider = provider or PendingQuoteProvider()
         self.policy = policy or DEFAULT_POLICY
         self.template = template
+        self.ledger = ledger
+
+    @staticmethod
+    def _now() -> str:
+        return dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
+
+    @staticmethod
+    def _set_status(task: Task, status: str, process_status: str | None = None) -> None:
+        """Update the legacy API status and the v2 execution status together."""
+        task.status = status
+        task.process_status = process_status or status
+
+    def _trace(self, task: Task, action: str, **details) -> None:
+        entry = {
+            "action": action,
+            "revision": task.revision,
+            "at": self._now(),
+            **details,
+        }
+        task.agent_trace.append(entry)
+        if self.ledger is not None:
+            self.ledger.append_event(
+                task_id=task.task_id, revision=task.revision,
+                event_type=AGENT_TRACE, payload=entry,
+                policy_version=task.policy_version,
+                data_snapshot_id=task.data_snapshot_id)
+
+    def _save(self, task: Task) -> None:
+        """Persist current state and append an immutable replay snapshot."""
+        self.store.save(task)
+        if self.ledger is not None:
+            self.ledger.record_task_snapshot(task)
 
     # ---------- task lifecycle ----------
 
@@ -33,7 +67,8 @@ class RFQService:
                     policy_version=self.policy.get("policy_version", POLICY_VERSION),
                     data_snapshot_id=getattr(self.provider, "snapshot_id", ""))
         task.events.append({"action": "created", "revision": 1, "autonomy": autonomy})
-        self.store.save(task)
+        self._trace(task, "task_created", outcome="continue")
+        self._save(task)
         return task.to_dict()
 
     def _current(self, task_id: str, revision: int) -> Task:
@@ -43,7 +78,7 @@ class RFQService:
         return task
 
     def start_task(self, data: dict, autonomy: str = "interactive") -> dict:
-        """Create, validate and price in one call — the agent's entry point."""
+        """Run automatically until draft-ready or a durable human interruption."""
         task = self.create_task(data, autonomy=autonomy)
         self.analyze_rfq(task["task_id"])
         return self.build_quote_options(task["task_id"], task["revision"], autonomy=autonomy)
@@ -52,16 +87,75 @@ class RFQService:
         task = self.store.get(task_id)
         RFQ.from_dict(task.to_dict()["rfq"])
         if task.status == "received":
-            task.status = "analyzed"
+            self._set_status(task, "analyzed", "validated")
+            task.evaluation_status = "in_progress"
             task.events.append({"action": "analyzed", "revision": task.revision})
-            self.store.save(task)
+            self._trace(task, "rfq_validated", outcome="continue")
+            self._save(task)
         return task.to_dict()
 
     # ---------- pricing gate ----------
 
+    @staticmethod
+    def _derive_disposition(task: Task) -> str:
+        """Derive the commercial outcome conservatively from settled results."""
+        if task.open_reviews() or not task.results:
+            return "PENDING"
+        task_choice = task.resolutions.get("__task__")
+        if task_choice == "reject_task":
+            return "NO_BID"
+        if task_choice == "request_quotation":
+            return "SUPPLIER_INQUIRY"
+        priced = sum(1 for row in task.results if row.get("eligibility") == "priced")
+        if priced == len(task.results):
+            return "QUOTE"
+        if priced:
+            return "PARTIAL_QUOTE"
+        if "request_quotation" in task.resolutions.values():
+            return "SUPPLIER_INQUIRY"
+        return "NO_BID"
+
+    def _sync_interruptions(self, task: Task) -> None:
+        """Persist blocking review items as resumable human interruptions."""
+        open_items = {item["id"]: item for item in task.open_reviews()}
+        for interruption in task.interruptions:
+            if (interruption.get("status") == "pending" and
+                    (interruption.get("review_item_id") not in open_items or
+                     interruption.get("revision") != task.revision)):
+                interruption["status"] = "superseded"
+                interruption["resolved_at"] = self._now()
+
+        pending_keys = {
+            (item.get("review_item_id"), item.get("revision"))
+            for item in task.interruptions if item.get("status") == "pending"
+        }
+        for item_id, item in open_items.items():
+            if (item_id, task.revision) in pending_keys:
+                continue
+            task.interruptions.append({
+                "id": f"INT-r{task.revision}-{item_id}",
+                "type": "human_review",
+                "gate": "pricing_exception",
+                "status": "pending",
+                "review_item_id": item_id,
+                "revision": task.revision,
+                "proposed_action": "resolve_review",
+                "question": item.get("question"),
+                "evidence": copy.deepcopy(item.get("evidence", [])),
+                "options": copy.deepcopy(item.get("options", [])),
+                "created_at": self._now(),
+            })
+
     def _settle(self, task: Task) -> None:
         task.review_items = build_review_items(task.rfq, task.results, task.resolutions)
-        task.status = "awaiting_review" if task.open_reviews() else "draft_ready"
+        if task.open_reviews():
+            self._set_status(task, "awaiting_review", "awaiting_human")
+            task.evaluation_status = "incomplete"
+        else:
+            self._set_status(task, "draft_ready")
+            task.evaluation_status = "complete"
+        task.commercial_disposition = self._derive_disposition(task)
+        self._sync_interruptions(task)
 
     def build_quote_options(self, task_id: str, revision: int, autonomy: str | None = None) -> dict:
         task = self._current(task_id, revision)
@@ -91,7 +185,11 @@ class RFQService:
         task.artifacts = []
         task.events.append({"action": "priced", "revision": task.revision,
                             "status": task.status, "open_reviews": len(task.open_reviews())})
-        self.store.save(task)
+        self._trace(task, "quote_evaluated",
+                    outcome="pause" if task.open_reviews() else "draft_ready",
+                    evaluation_status=task.evaluation_status,
+                    commercial_disposition=task.commercial_disposition)
+        self._save(task)
         return task.to_dict()
 
     def resolve_review(self, task_id: str, revision: int, item_id: str, option_id: str) -> dict:
@@ -103,6 +201,16 @@ class RFQService:
             raise ValueError("Review item already answered")
         if option_id not in {option["id"] for option in item["options"]}:
             raise ValueError("Option is not offered by this review item")
+
+        interruption = next((entry for entry in reversed(task.interruptions)
+                             if entry.get("review_item_id") == item_id and
+                             entry.get("revision") == revision and
+                             entry.get("status") == "pending"), None)
+        if interruption is not None:
+            interruption["status"] = "resolved"
+            interruption["decision"] = option_id
+            interruption["resolved_by"] = "human"
+            interruption["resolved_at"] = self._now()
 
         key = item["target"].get("line_id") or "__task__"
         task.resolutions[key] = option_id
@@ -117,7 +225,18 @@ class RFQService:
         })
         task.events.append({"action": "review_resolved", "revision": task.revision,
                             "item_id": item_id, "option": option_id, "status": task.status})
-        self.store.save(task)
+        self._trace(task, "human_decision_applied", outcome="resume",
+                    review_item_id=item_id, option=option_id,
+                    commercial_disposition=task.commercial_disposition)
+        if self.ledger is not None:
+            self.ledger.append_event(
+                task_id=task.task_id, revision=task.revision,
+                event_type=HUMAN_DECISION,
+                payload={"review_item_id": item_id, "option": option_id,
+                         "actor": "human", "resumed": True},
+                policy_version=task.policy_version,
+                data_snapshot_id=task.data_snapshot_id)
+        self._save(task)
         return task.to_dict()
 
     # ---------- legacy field edit ----------
@@ -134,12 +253,19 @@ class RFQService:
             {"field": "quantity", "before": before, "after": quantity})
         target.quantity = quantity
         task.revision += 1
-        task.status = "received"
+        self._set_status(task, "received")
+        task.evaluation_status = "pending"
+        task.commercial_disposition = "PENDING"
+        for interruption in task.interruptions:
+            if interruption.get("status") == "pending":
+                interruption["status"] = "superseded"
+                interruption["resolved_at"] = self._now()
         task.results = []
         task.review_items = []
         task.artifacts = []
         task.events.append({"action": "quantity_updated", "revision": task.revision, "line_id": line_id})
-        self.store.save(task)
+        self._trace(task, "rfq_field_updated", outcome="restart_evaluation", line_id=line_id)
+        self._save(task)
         return task.to_dict()
 
     # ---------- export ----------
@@ -157,6 +283,9 @@ class RFQService:
             "task_id": task_id,
             "revision": revision,
             "status": task.status,
+            "process_status": task.process_status,
+            "commercial_disposition": task.commercial_disposition,
+            "evaluation_status": task.evaluation_status,
             "autonomy": task.autonomy,
             "policy_version": task.policy_version,
             "data_snapshot_id": task.data_snapshot_id,
@@ -183,11 +312,85 @@ class RFQService:
 
         task.artifacts = artifacts
         if not task.open_reviews():
-            task.status = "exported"
+            self._set_status(task, "exported", "draft_exported")
         task.events.append({"action": "exported", "revision": revision, "artifacts": len(artifacts)})
-        self.store.save(task)
+        self._trace(task, "draft_exported", outcome="preview",
+                    blocking_reviews=len(task.open_reviews()))
+        if self.ledger is not None:
+            self.ledger.append_event(
+                task_id=task.task_id, revision=task.revision,
+                event_type=ARTIFACT,
+                payload={"kind": "quote_preview", "paths": list(artifacts),
+                         "commercial": False},
+                policy_version=task.policy_version,
+                data_snapshot_id=task.data_snapshot_id)
+        self._save(task)
         return {"task_id": task_id, "revision": revision, "status": task.status,
                 "artifact": artifacts[0], "artifacts": artifacts, "summary": summary}
+
+    def activate_quote(self, task_id: str, revision: int, approved_by: str) -> dict:
+        """Freeze a commercially quotable revision after explicit human approval.
+
+        Preview export remains intentionally permissive for compatibility. This
+        formal boundary is fail-closed and is the only transition that represents
+        an approved quote rather than a generated document.
+        """
+        task = self._current(task_id, revision)
+        if not approved_by or not approved_by.strip():
+            raise ValueError("approved_by is required")
+        if task.evaluation_status != "complete":
+            raise ValueError("Evaluation is incomplete; quote cannot be activated")
+        if task.open_reviews():
+            raise ValueError("Blocking human review is unresolved")
+        if task.commercial_disposition not in {"QUOTE", "PARTIAL_QUOTE"}:
+            raise ValueError("Commercial disposition is not quotable")
+        if not task.results:
+            raise ValueError("Quote has no evaluated lines")
+
+        self._set_status(task, "active", "quote_activated")
+        task.decision_log.append({
+            "actor": approved_by.strip(),
+            "action": "activate_quote",
+            "revision": revision,
+            "at": self._now(),
+        })
+        task.events.append({"action": "quote_activated", "revision": revision,
+                            "approved_by": approved_by.strip(),
+                            "commercial_disposition": task.commercial_disposition})
+        self._trace(task, "quote_activated", outcome="active",
+                    approved_by=approved_by.strip())
+        if self.ledger is not None:
+            self.ledger.append_event(
+                task_id=task.task_id, revision=task.revision,
+                event_type=HUMAN_DECISION,
+                payload={"action": "activate_quote", "actor": approved_by.strip(),
+                         "commercial_disposition": task.commercial_disposition},
+                policy_version=task.policy_version,
+                data_snapshot_id=task.data_snapshot_id)
+        self._save(task)
+        return task.to_dict()
+
+    def task_history(self, task_id: str, event_type: str | None = None) -> list[dict]:
+        if self.ledger is None:
+            return []
+        # Validate the identifier against the task store before querying the ledger.
+        self.store.directory(task_id)
+        return self.ledger.events_for_task(task_id, event_type=event_type)
+
+    def record_feedback(self, task_id: str, revision: int, actor: str,
+                        feedback: dict, outcome: str | None = None) -> dict:
+        task = self._current(task_id, revision)
+        if self.ledger is None:
+            raise ValueError("Operational ledger is not configured")
+        event = self.ledger.record_feedback(
+            task_id=task.task_id, revision=task.revision, actor=actor,
+            feedback=feedback, outcome=outcome,
+            policy_version=task.policy_version,
+            data_snapshot_id=task.data_snapshot_id)
+        self._trace(task, "feedback_recorded", outcome="evidence_only",
+                    feedback_event_id=event["event_id"])
+        self._save(task)
+        return event
 
     def get_task_result(self, task_id: str) -> dict:
         return self.store.get(task_id).to_dict()

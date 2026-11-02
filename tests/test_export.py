@@ -38,11 +38,23 @@ class DraftContentTest(unittest.TestCase):
     def tearDownClass(cls):
         shutil.rmtree(WORK, ignore_errors=True)
 
-    def test_english_case_carries_the_buyer_terms(self):
+    def test_english_case_carries_the_buyer_terms_and_their_verdicts(self):
         text = draft_text("C", WORK)
-        self.assertIn("客户随附要求（原文）", text)
+        self.assertIn("客户要求与响应", text)
         self.assertIn("Validity period of the quotation", text)
         self.assertIn("Quote.pdf", text)
+        self.assertIn("待补齐", text)          # 0 priced rows: not claimed as satisfied
+        self.assertIn("已满足", text)          # the template requirement is met
+
+    def test_english_case_gets_a_compliance_section_to_sign(self):
+        text = draft_text("C", WORK)
+        self.assertIn("合规声明", text)
+        self.assertIn("未经签署不得随报价对外发出", text)
+
+    def test_chinese_case_gets_no_compliance_section(self):
+        text = draft_text("B", WORK)
+        self.assertNotIn("合规声明", text)
+        self.assertNotIn("客户要求与响应", text)
 
     def test_chinese_case_carries_its_parse_warnings(self):
         text = draft_text("A", WORK)
@@ -53,7 +65,7 @@ class DraftContentTest(unittest.TestCase):
     def test_case_without_terms_but_with_warnings_shows_only_the_warnings(self):
         """No empty headings: a section only appears when it has something to say."""
         text = draft_text("B", WORK)
-        self.assertNotIn("客户随附要求（原文）", text)
+        self.assertNotIn("客户要求与响应", text)
         self.assertIn("解析质量提示", text)
         self.assertIn("PN-0001", text)
 

@@ -11,7 +11,8 @@ import datetime as dt
 from .policy import DEFAULT_POLICY, dec, money, q2
 
 MONEY_RULES = ("status_invalid", "date_expired", "moq_exceeds", "condition_mismatch",
-               "condition_unknown", "stock_insufficient", "no_price_record")
+               "condition_unknown", "stock_insufficient", "cost_missing", "price_missing",
+               "fx_missing", "no_price_record")
 
 
 def _s(value) -> str:
@@ -67,6 +68,13 @@ class PriceTableQuoteProvider:
                 elif not line.condition_accept and not condition:
                     reasons.append({"rule": "condition_unknown",
                                     "detail": "客户未指定件状，库存也未标注件状，报价单无法声明"})
+            standard_cost = _s(row.get("标准成本"))
+            try:
+                if not standard_cost or dec(standard_cost) <= 0:
+                    raise ValueError
+            except Exception:
+                reasons.append({"rule": "cost_missing",
+                                "detail": "内部库存记录缺少有效的正数标准成本"})
             candidate = {
                 "source_type": "internal",
                 "source_id": f"STOCK-{row['_source_row']:03d}",
@@ -74,7 +82,7 @@ class PriceTableQuoteProvider:
                 "condition": condition or None,
                 "stock_on_hand": str(on_hand),
                 "available_quantity": str(remaining),
-                "standard_cost": _s(row.get("标准成本")),
+                "standard_cost": standard_cost,
                 "average_cost": _s(row.get("平均成本")),
                 "last_purchase_price": _s(row.get("最近采购价")),
                 "currency": _s(row.get("币种")) or "CNY",
@@ -120,8 +128,25 @@ class PriceTableQuoteProvider:
                     reasons.append({"rule": "condition_unknown",
                                     "detail": "客户未指定件状，候选也未标注件状，报价单无法声明"})
             currency = _s(row.get("币种")) or "CNY"
-            rate = dec(row.get("汇率到CNY") or fx_table.get(currency, "1"))
-            unit_cny = q2(dec(row.get("单价") or 0) * rate)
+            raw_price = _s(row.get("单价"))
+            raw_rate = _s(row.get("汇率到CNY")) or _s(fx_table.get(currency))
+            price = rate = unit_cny = None
+            try:
+                price = dec(raw_price)
+                if price <= 0:
+                    raise ValueError
+            except Exception:
+                reasons.append({"rule": "price_missing",
+                                "detail": "供应商价格记录缺少有效的正数单价"})
+            try:
+                rate = dec(raw_rate)
+                if rate <= 0:
+                    raise ValueError
+            except Exception:
+                reasons.append({"rule": "fx_missing",
+                                "detail": f"币种 {currency} 缺少有效的到 CNY 汇率"})
+            if price is not None and rate is not None:
+                unit_cny = q2(price * rate)
             candidate = {
                 "source_type": "supplier",
                 "source_id": _s(row.get("价格资源编号")),
@@ -133,8 +158,8 @@ class PriceTableQuoteProvider:
                 "certificate": _s(row.get("证书类型")),
                 "unit_cost_original": _s(row.get("单价")),
                 "currency": currency,
-                "exchange_rate": str(rate),
-                "unit_cost_cny": str(unit_cny),
+                "exchange_rate": str(rate) if rate is not None else None,
+                "unit_cost_cny": str(unit_cny) if unit_cny is not None else None,
                 "moq": str(moq),
                 "lead_time_days": _s(row.get("交期天数")),
                 "in_stock": _s(row.get("是否现货")) == "是",

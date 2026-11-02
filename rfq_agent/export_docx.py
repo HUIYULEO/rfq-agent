@@ -14,7 +14,7 @@ from decimal import Decimal
 from pathlib import Path
 
 from .deps import require
-from . import quality
+from . import quality, terms as term_checks
 from .policy import money, q2
 
 DIGITS = "零壹贰叁肆伍陆柒捌玖"
@@ -256,9 +256,26 @@ def render_draft(*, template: Path, output: Path, rfq, results: list[dict], summ
 
     terms = list(getattr(rfq, "requirements", None) or [])
     if terms:
-        _heading(document, "客户随附要求（原文）")
-        for position, item in enumerate(terms, start=1):
-            document.add_paragraph(f"{position}. {item.text}　（出处：{item.source}）")
+        _heading(document, "客户要求与响应")
+        checks = term_checks.check(rfq, results)
+        table = document.add_table(rows=1, cols=4)
+        table.style = "Table Grid"
+        for position, title in enumerate(("客户要求（原文）", "出处", "状态", "说明")):
+            _set_cell(table.rows[0].cells[position], title)
+        for item in checks:
+            cells = table.add_row().cells
+            _set_cell(cells[0], item["text"])
+            _set_cell(cells[1], item["source"])
+            _set_cell(cells[2], item["label"])
+            _set_cell(cells[3], item["detail"])
+
+    if term_checks.needs_compliance(term_checks.check(rfq, results)):
+        _heading(document, "合规声明")
+        document.add_paragraph(
+            "本报价所涉物项用于民航维修用途，不含出口管制或限制扩散物项；"
+            "最终用户与最终用途以需方书面确认为准。")
+        document.add_paragraph("签署人：＿＿＿＿＿＿　　职务：＿＿＿＿＿＿　　日期：＿＿＿＿＿＿")
+        document.add_paragraph("（本节为待签署段落：未经签署不得随报价对外发出。）")
 
     findings = [item for item in quality.inspect(rfq) if item["severity"] == "warn"]
     if findings:

@@ -95,13 +95,29 @@ class Task:
     review_items: list[dict] = field(default_factory=list)
     resolutions: dict[str, str] = field(default_factory=dict)
     decision_log: list[dict] = field(default_factory=list)
+    # v2 separates execution progress from the commercial decision. ``status``
+    # remains as a compatibility mirror for the existing API and UI.
+    process_status: str = "received"
+    commercial_disposition: str = "PENDING"
+    evaluation_status: str = "pending"
+    # A blocking question is an interruption of one durable run, not a new chat.
+    interruptions: list[dict] = field(default_factory=list)
+    agent_trace: list[dict] = field(default_factory=list)
 
     def to_dict(self):
         return asdict(self)
 
     @classmethod
     def from_dict(cls, data):
-        return cls(**{**data, "rfq": RFQ.from_dict(data["rfq"])})
+        payload = {**data, "rfq": RFQ.from_dict(data["rfq"])}
+        # Old task.json files predate process_status. Preserve their real
+        # lifecycle position instead of silently resetting them to received.
+        payload.setdefault("process_status", payload.get("status", "received"))
+        payload.setdefault("commercial_disposition", "PENDING")
+        payload.setdefault("evaluation_status", "pending")
+        payload.setdefault("interruptions", [])
+        payload.setdefault("agent_trace", [])
+        return cls(**payload)
 
     def open_reviews(self) -> list[dict]:
         return [item for item in self.review_items
