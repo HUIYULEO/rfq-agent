@@ -141,11 +141,14 @@ class V2WorkflowTests(unittest.TestCase):
             "task_id": "0" * 32,
             "rfq": data,
             "status": "awaiting_review",
+            "mode": "offline_demo",
+            "rule_results": [{"obsolete": True}],
         }
         restored = Task.from_dict(old)
         self.assertEqual(restored.process_status, "awaiting_review")
         self.assertEqual(restored.commercial_disposition, "PENDING")
         self.assertEqual(restored.interruptions, [])
+        self.assertFalse(hasattr(restored, "rule_results"))
 
 
 if __name__ == "__main__":

@@ -13,16 +13,7 @@ DEFAULT_POLICY: dict = {
     # approved commercial price book. An explicit approved policy is required
     # before the service can activate a quote.
     "commercial_approval_enabled": False,
-    "cost_basis_priority": ["standard_cost", "supplier_price"],
-    "internal_inventory_priority": True,
     "default_markup_rate": "0.20",
-    "rounding_mode": "HALF_UP",
-    "price_decimals": 2,
-    "cost_rounding": {"round_cost_to_decimals": 2, "apply_markup_after_rounding": True},
-    "quote_validity_days": 30,
-    "allow_split_fulfillment": False,
-    "allow_moq_overbuy": False,
-    "allow_expired_price_reference": False,
     "fx_to_cny": {"CNY": "1", "EUR": "7.75", "USD": "7.1"},
 }
 

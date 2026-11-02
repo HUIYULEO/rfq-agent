@@ -148,7 +148,7 @@ class RFQService:
 
     def _settle(self, task: Task) -> None:
         from .evaluation import validate
-        task.rule_results, task.evaluation_issues = validate(task.rfq, task.results)
+        task.evaluation_issues = validate(task.rfq, task.results)
         task.review_items = build_review_items(task.rfq, task.results, task.resolutions)
         if task.open_reviews():
             self._set_status(task, "awaiting_review", "awaiting_human")
@@ -301,7 +301,6 @@ class RFQService:
             "resolutions": task.resolutions,
             "decision_log": task.decision_log,
             "results": task.results,
-            "rule_results": task.rule_results,
             "evaluation_issues": task.evaluation_issues,
         }
         artifacts = []

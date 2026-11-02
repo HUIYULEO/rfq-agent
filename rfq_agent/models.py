@@ -84,7 +84,6 @@ class Task:
     rfq: RFQ
     revision: int = 1
     status: str = "received"
-    mode: str = "offline_demo"
     results: list[dict] = field(default_factory=list)
     artifacts: list[str] = field(default_factory=list)
     events: list[dict] = field(default_factory=list)
@@ -100,7 +99,6 @@ class Task:
     process_status: str = "received"
     commercial_disposition: str = "PENDING"
     evaluation_status: str = "pending"
-    rule_results: list[dict] = field(default_factory=list)
     evaluation_issues: list[str] = field(default_factory=list)
     # A blocking question is an interruption of one durable run, not a new chat.
     interruptions: list[dict] = field(default_factory=list)
@@ -115,11 +113,12 @@ class Task:
         # Old task.json files predate process_status. Preserve their real
         # lifecycle position instead of silently resetting them to received.
         payload.setdefault("process_status", payload.get("status", "received"))
+        payload.pop("mode", None)  # Legacy value was never read by any workflow gate.
         payload.setdefault("commercial_disposition", "PENDING")
         payload.setdefault("evaluation_status", "pending")
         payload.setdefault("interruptions", [])
         payload.setdefault("agent_trace", [])
-        payload.setdefault("rule_results", [])
+        payload.pop("rule_results", None)  # Drop the redundant field from older task snapshots.
         payload.setdefault("evaluation_issues", [])
         return cls(**payload)
 
