@@ -33,7 +33,7 @@
   .dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--ok);margin-right:5px;vertical-align:1px}
   .dot.off{background:var(--warn)}
 
-  .shell{display:grid;grid-template-columns:272px minmax(0,1fr) 340px;height:calc(100% - 50px)}
+  .shell{display:grid;grid-template-columns:272px minmax(0,1fr);height:calc(100% - 50px)}
 
   /* left */
   .side{background:var(--card);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
@@ -175,11 +175,23 @@
   .resultbox>.inside{padding:0 12px 2px;border-top:1px solid var(--line2)}
   .resultbox .stage{margin-top:12px}
 
-  /* chat */
-  .rail{background:var(--card);border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
-  .rail-head{display:flex;align-items:center;gap:7px;padding:11px 13px;border-bottom:1px solid var(--line);
-             font-size:11.5px;font-weight:650;color:var(--ink2)}
-  .rail-head .model{margin-left:auto;font-weight:500;color:var(--faint);font-size:10.5px}
+  /* Optional question entry, outside the workbench layout. */
+  .ask-launch{position:fixed;right:18px;bottom:16px;z-index:10;display:flex;align-items:center;gap:8px;
+              padding:9px 14px;border:1px solid #c7d7fe;border-radius:999px;background:var(--card);
+              box-shadow:0 8px 30px #0f172a1c;color:var(--accent);font-weight:650}
+  .ask-launch:hover{background:var(--accent-soft)}
+  .ask-launch[aria-expanded="true"]{display:none}
+  .ask-panel{position:fixed;right:16px;bottom:16px;z-index:11;width:min(360px,calc(100vw - 32px));
+             height:min(440px,calc(100vh - 88px));background:var(--card);border:1px solid var(--line);
+             border-radius:12px;box-shadow:0 18px 60px #0f172a30;display:flex;flex-direction:column;overflow:hidden}
+  .ask-panel[hidden]{display:none}
+  .ask-head{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line);
+            color:var(--ink2);font-size:12px;font-weight:650}
+  .ask-head .model{margin-left:auto;font-weight:500;color:var(--faint);font-size:10.5px;
+                   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:135px}
+  .ask-close{border:0;background:transparent;color:var(--muted);font-size:19px;line-height:1;
+             padding:2px 5px;border-radius:5px}
+  .ask-close:hover{background:var(--line2);color:var(--ink)}
   .thread{flex:1;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:10px}
   .msg .who{font-size:10px;color:var(--faint);margin-bottom:3px}
   .msg .txt{background:#fbfcfe;border:1px solid var(--line);border-radius:9px;padding:8px 10px;
@@ -193,6 +205,19 @@
                      border-radius:7px;min-height:34px;max-height:96px;background:#fcfdff;color:var(--ink)}
   .composer textarea:focus{outline:none;border-color:var(--accent);background:#fff}
   .composer textarea:disabled{background:var(--line2);color:var(--faint)}
+  .notice{position:fixed;right:18px;bottom:67px;z-index:12;max-width:min(380px,calc(100vw - 36px));
+          padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);
+          box-shadow:0 8px 24px #0f172a1c;color:var(--ink2);font-size:12px}
+  .notice.error{border-color:var(--warn-line);color:var(--bad)}
+  .notice[hidden]{display:none}
+  @media(max-width:760px){.shell{grid-template-columns:190px minmax(0,1fr)}
+    .topmeta{gap:8px}.dochead{padding:12px 14px 0}.stages{padding:12px 14px 20px}}
+  @media(max-width:520px){.shell{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr)}
+    .side{max-height:220px;border-right:0;border-bottom:1px solid var(--line)}
+    .side .divider,.side .pool,.side .side-foot,.side .current-head{display:none}
+    .side .list{display:flex;overflow-x:auto;gap:4px}.side .item{min-width:150px}
+    .side .drop{margin:5px 10px 7px;padding:5px}
+    .topmeta #dataline{display:none}}
 
   .drawer{position:absolute;inset:0;background:var(--bg);display:flex;flex-direction:column;z-index:5}
   .drawer[hidden]{display:none}
@@ -220,7 +245,6 @@
   <div class="brand">报价台 <small>RFQ DESK</small></div>
   <div class="spacer"></div>
   <div class="topmeta">
-    <span id="agentline"><span class="dot off"></span>模型未配置</span>
     <span id="dataline">数据 —</span>
     <span id="policyline">策略 —</span>
   </div>
@@ -231,7 +255,7 @@
     <div class="side-head">实时测试用例 <span id="count"></span></div>
     <ul class="list" id="list"></ul>
     <div class="divider"></div>
-    <div class="side-head">当前运行 <span id="poolcount"></span></div>
+    <div class="side-head current-head">当前查看 / 运行 <span id="poolcount"></span></div>
     <ul class="list pool" id="pool"></ul>
     <div class="drop" id="drop"><b>导入邮件</b>拖入 .eml 或点击</div>
     <input type="file" id="file" accept=".eml" hidden />
@@ -283,16 +307,20 @@
     </div>
   </section>
 
-  <aside class="rail">
-    <div class="rail-head">报价助手 <span class="model" id="modelname"></span></div>
+  <button class="ask-launch" id="askOpen" type="button" aria-controls="askPanel"
+          aria-expanded="false">提问 / 调用助手</button>
+  <section class="ask-panel" id="askPanel" aria-label="提问助手" hidden>
+    <div class="ask-head">提问助手 <span class="model" id="modelname"></span>
+      <button class="ask-close" id="askClose" type="button" aria-label="收起提问助手">×</button></div>
     <div class="thread" id="thread">
-      <div class="msg"><div class="who">系统</div><div class="txt">也可以直接说话：帮我看看这条询价该怎么处理。</div></div>
+      <div class="msg"><div class="who">提示</div><div class="txt">可询问当前任务的报价依据或待确认项。</div></div>
     </div>
     <div class="composer">
       <textarea id="chat" rows="1" placeholder="例如：这单为什么停住了？"></textarea>
       <button class="btn primary" id="send">发送</button>
     </div>
-  </aside>
+  </section>
+  <div class="notice" id="notice" role="status" hidden></div>
 </main>
 
 <script>
@@ -306,7 +334,31 @@ const CONTAINER = { "body-html": "正文表格", "body-text": "正文表格", "a
 const SOURCE = { internal: "内部库存", supplier: "供应商报价", manual: "转人工" };
 const STAGE = { received: "待处理", parsed: "已解析", priced: "待确认", draft: "已出草案" };
 
-let CASES = [], POOL = [], CASEKEY = null, S = null, SID = null, DATA = null, BUSY = false;
+let CASES = [], CASEKEY = null, S = null, SID = null, DATA = null, BUSY = false,
+    ACTIVE_META = null, SHOW_ALL_REVIEWS = false;
+let noticeTimer = null;
+
+function notify(message, error = false) {
+  const notice = $("notice");
+  notice.textContent = message;
+  notice.className = "notice" + (error ? " error" : "");
+  notice.hidden = false;
+  clearTimeout(noticeTimer);
+  noticeTimer = setTimeout(() => { notice.hidden = true; }, 5000);
+}
+
+function setAskOpen(open) {
+  $("askPanel").hidden = !open;
+  $("askOpen").setAttribute("aria-expanded", String(open));
+  if (open) $("chat").focus();
+  else $("askOpen").focus();
+}
+
+function resetQuestionContext() {
+  SID = null;
+  $("thread").innerHTML = `<div class="msg"><div class="who">提示</div>
+    <div class="txt">可询问当前任务的报价依据或待确认项。</div></div>`;
+}
 
 async function api(path, body) {
   const opt = body === undefined ? {} : {
@@ -321,61 +373,52 @@ async function api(path, body) {
 
 /* ---------- lists ---------- */
 async function refresh() {
-  [CASES, POOL] = await Promise.all([api("/api/cases"), api("/api/material")]);
+  CASES = await api("/api/fixtures");
   $("count").textContent = CASES.length;
-  $("poolcount").textContent = POOL.length;
+  $("poolcount").textContent = S ? "1" : "0";
   $("list").innerHTML = CASES.map((c) => {
-    const stage = STAGE[c.stage] || c.stage;
-    const cls = c.stage === "received" ? "new" : c.stage === "priced" ? "warn" : "ok";
     return `<li class="item${c.key === CASEKEY ? " on" : ""}" data-key="${esc(c.key)}">
-      <div class="r1"><span class="who">${esc(c.customer)}</span><span class="cnt">${c.lines} 行</span></div>
+      <div class="r1"><span class="who">用例 ${esc(c.key)} · ${esc(c.customer)}</span><span class="cnt">${c.lines} 行</span></div>
       <div class="sub">${esc(c.subject || c.file)}</div>
       <div class="meta"><span class="tag">${esc(CONTAINER[c.container] || c.container)}</span>
-        <span class="tag ${cls}">${esc(stage)}</span></div>
+        <span class="tag ${c.reference ? "ok" : ""}">${c.reference ? "已执行参考案例" : "仅输入 · 每次新运行"}</span></div>
     </li>`;
   }).join("");
   $("list").querySelectorAll("li.item").forEach((li) => { li.onclick = () => select(li.dataset.key); });
 
-  $("pool").innerHTML = POOL.map((c) => `
-    <li class="pool-item" data-key="${esc(c.key)}">
-      <div class="who"><div class="r1"><span class="who">${esc(c.customer)}</span></div>
-        <div class="sub">${esc(CONTAINER[c.container] || c.container)} · ${c.lines} 行</div></div>
-      <button data-import="${esc(c.key)}">导入</button>
-    </li>`).join("") || `<li class="pool-item"><div class="who muted">素材已全部导入</div></li>`;
-  $("pool").querySelectorAll("button[data-import]").forEach((b) => {
-    b.onclick = () => admit(b.dataset.import);
-  });
-}
-
-async function admit(key) {
-  try {
-    await api("/api/import", { key });
-    await refresh();
-    select(key);
-  } catch (e) { chatSay("sys", "导入失败", e.message); }
+  $("pool").innerHTML = S ? `<li class="item on" id="currentRun">
+      <div class="r1"><span class="who">${esc(S.customer || ACTIVE_META?.customer || "当前 RFQ")}</span>
+        <span class="cnt">r${esc(S.revision)}</span></div>
+      <div class="sub mono">${esc(S.task_id)}</div>
+      <div class="meta"><span class="tag warn">${esc(S.process_status || S.status)}</span>
+        <span class="tag">${esc(S.commercial_disposition || "PENDING")}</span></div>
+    </li>` : `<li class="pool-item"><div class="who muted">尚未运行；选择上方用例或上传邮件</div></li>`;
+  const current = $("currentRun");
+  if (current) current.onclick = render;
 }
 
 /* ---------- case view ---------- */
 async function resetDemo() {
-  if (!confirm("清空收件箱，恢复到只有样例 B 的状态？已导入的邮件和已生成的草案都会从列表里消失。")) return;
-  try {
-    await api("/api/reset", {});
-    CASEKEY = null; S = null; SID = null;
-    await refresh();
-    $("docwrap").hidden = true; $("empty").hidden = false;
-    $("cust").textContent = ""; $("subline").textContent = ""; $("status").textContent = "";
-  } catch (e) { chatSay("sys", "重置失败", e.message); }
+  CASEKEY = null; S = null; SID = null; ACTIVE_META = null; SHOW_ALL_REVIEWS = false;
+  resetQuestionContext();
+  await refresh();
+  $("docwrap").hidden = true; $("empty").hidden = false;
+  $("cust").textContent = ""; $("subline").textContent = ""; $("status").textContent = "";
+  notify("当前查看已清空；任务记录仍保存在后台。");
 }
 
 async function select(key) {
-  CASEKEY = key; SID = null; S = null;
+  CASEKEY = key; SID = null; S = null; SHOW_ALL_REVIEWS = false;
+  resetQuestionContext();
   const meta = CASES.find((c) => c.key === key);
+  ACTIVE_META = meta || null;
   $("empty").hidden = true; $("docwrap").hidden = false;
   $("cust").textContent = meta ? meta.customer : key;
   $("subline").textContent = meta ? [CONTAINER[meta.container] || meta.container, `${meta.lines} 行`].join(" · ") : "";
   $("status").className = "pill"; $("status").textContent = "待处理";
-  if (meta && meta.task_id) {
-    try { S = await api(`/api/task?id=${encodeURIComponent(meta.task_id)}`); } catch (e) { S = null; }
+  if (meta && meta.reference && meta.task_id) {
+    try { S = await api(`/api/task?id=${encodeURIComponent(meta.task_id)}`); }
+    catch (e) { notify(`参考案例加载失败：${e.message}`, true); }
   }
   render();
   refresh();
@@ -383,16 +426,19 @@ async function select(key) {
 
 async function start() {
   if (BUSY) return;
+  if (!CASEKEY) { notify("请先选择一个测试用例，或重新上传邮件。", true); return; }
   BUSY = true;
+  resetQuestionContext();
+  SHOW_ALL_REVIEWS = false;
   $("start").disabled = true;
   $("stages").innerHTML = `<div class="muted" style="padding:8px 2px"><span class="spin"></span>
     解析邮件 · 提取行项目 · 查参考表…（停在需要你决定的地方）</div>`;
   try {
     S = await api("/api/run", { case: CASEKEY, autonomy: "interactive" });
-    chatSay("tool", "已处理", `${S.summary.lines} 行 · ${S.summary.priced_lines} 行有依据 · ` +
-      `${S.review_items.filter((i) => i.status === "open").length} 项待确认`);
+    notify(`新任务已执行；${S.review_items.filter((i) => i.status === "open").length} 项待确认。`);
   } catch (e) {
     $("stages").innerHTML = `<div class="muted" style="color:var(--bad)">${esc(e.message)}</div>`;
+    notify(e.message, true);
   } finally {
     BUSY = false; $("start").disabled = false;
     render(); refresh();
@@ -416,18 +462,19 @@ function render() {
     $("stepnote").textContent = "";
     $("status").className = "pill"; $("status").textContent = "待处理";
     $("stages").innerHTML = `<div class="gate">
-      <h2>这封邮件还没处理</h2>
-      <p>点「开始处理」后，系统会解析邮件正文或附件、提取行项目、查询内部成本与供应商价格，
-         然后停在需要你决定的项上——不会替你决定。</p>
+      <h2>测试输入尚未运行</h2>
+      <p>点「运行新任务」会创建全新的 task；不会读取这个案例以前的结果。系统自动执行到
+         HIL 门禁后停止，历史只进入后端审计账本。</p>
       <div class="pipeline"><span>解析</span><span>标准化</span><span>异常识别</span>
         <span>匹配价格</span><span>硬约束过滤</span><span class="stop">停在待确认</span></div>
-      <button class="btn primary lg" id="gateStart">开始处理</button>
+      <button class="btn primary lg" id="gateStart">运行新任务</button>
     </div>`;
     $("gateStart").onclick = start;
     return;
   }
   const s = S, m = s.summary, f = s.fields, d = s.data || {};
   const open = s.review_items.filter((i) => i.status === "open");
+  const visibleOpen = SHOW_ALL_REVIEWS ? open : open.slice(0, 3);
   const answered = s.review_items.filter((i) => i.status !== "open");
 
   $("cust").textContent = s.customer;
@@ -439,8 +486,8 @@ function render() {
   $("policyline").textContent = `策略 ${s.policy_version}`;
   if (DATA) $("dataline").innerHTML = `数据 <b>${esc(DATA.snapshot_id)}</b> · ${DATA.price_rows + DATA.cost_rows} 行`;
 
-  $("start").hidden = false;
-  $("start").textContent = "重新处理";
+  $("start").hidden = !CASEKEY;
+  $("start").textContent = "再次运行（新任务）";
   $("rowsbtn").hidden = false;
   $("rowsbtn").textContent = `查看 ${m.lines} 行明细`;
   $("rowsbtn").onclick = () => { $("drawer").hidden = false; renderRows(s); };
@@ -462,7 +509,7 @@ function render() {
       <div class="h">客户随附要求（${reqs.length} 条，原文照录）</div>
       <ol>${reqs.map((r) => `<li>${esc(r.text)}<em>${esc(r.source)}</em></li>`).join("")}</ol>
     </div>` : "";
-  const s1 = stageCard(1, "收到邮件", "ok", CONTAINER[s.container] || s.container, `<div class="kv">
+  const s1 = stageCard("A", "输入与要求", "ok", CONTAINER[s.container] || s.container, `<div class="kv">
       <div><div class="k">客户</div><div class="v">${esc(s.customer)}</div></div>
       <div><div class="k">询价号</div><div class="v mono">${esc(s.rfq_number)}</div></div>
       <div><div class="k">主题</div><div class="v" title="${esc(s.subject)}">${esc(s.subject)}</div></div>
@@ -475,7 +522,7 @@ function render() {
       <span class="d">${esc(item.detail)}</span>
       ${item.examples && item.examples.length ? `<span class="ex">${esc(item.examples.join(" · "))}</span>` : ""}
     </div>`).join("");
-  const s2 = stageCard(2, "结构化解析", qs.warn ? "warn" : "ok",
+  const s2 = stageCard("B", "结构化解析", qs.warn ? "warn" : "ok",
     qs.warn ? `${qs.warn} 处需注意` : `${m.lines} 行`,
     `<div class="bars">
       ${bar("料号", f.part_number)}${bar("数量", f.quantity)}${bar("单位", f.unit)}${bar("件状要求", f.condition)}
@@ -483,7 +530,7 @@ function render() {
     `${f.with_evidence}/${m.lines} 行可回溯到原始单元格 · 表格已归一为统一列名` +
     (qs.info ? ` · ${qs.info} 条载体说明` : ""));
 
-  const s3 = stageCard(3, "定价", m.review_lines ? "warn" : "ok", `${m.priced_lines}/${m.lines} 有依据`,
+  const s3 = stageCard("C", "定价结果", m.review_lines ? "warn" : "ok", `${m.priced_lines}/${m.lines} 有依据`,
     `<div class="kv">
       <div><div class="k">内部库存</div><div class="v big">${m.internal_lines}</div></div>
       <div><div class="k">供应商报价</div><div class="v big">${m.supplier_lines}</div></div>
@@ -495,9 +542,13 @@ function render() {
      <span>内部成本表 <code>${esc(d.cost_rows ?? "—")}</code> 行 · 命中 <code>${esc(d.hit_cost ?? "—")}</code></span>
      <span>快照 <code>${esc(d.snapshot_id || "—")}</code></span>`);
 
-  const s4 = stageCard(4, "需要你决定", open.length ? "warn" : "ok",
+  const settledText = s.commercial_disposition === "QUOTE" ? "全部行已有可用依据，可以进入草案阶段。"
+    : s.commercial_disposition === "PARTIAL_QUOTE" ? "已形成部分报价；未报价行保留人工处置记录。"
+    : s.commercial_disposition === "SUPPLIER_INQUIRY" ? "当前结论是转供应商询价，不会生成正式报价。"
+    : s.commercial_disposition === "NO_BID" ? "当前结论是不报价。" : "本轮自动执行已结束。";
+  const s4 = stageCard(2, open.length ? "当前门禁：需要人工决定" : "自动执行完成", open.length ? "warn" : "ok",
     open.length ? `${open.length} 项` : "无阻塞",
-    open.length ? `<div class="asks">${open.map((i) => `<div class="ask">
+    open.length ? `<div class="asks">${visibleOpen.map((i) => `<div class="ask">
         <div class="h"><b>${esc(i.id)}</b><span>${esc(i.target.part_number || "整案")}</span>
           <span>${esc(i.kinds.join(" · "))}</span></div>
         <div class="q">${esc(i.question)}</div>
@@ -505,7 +556,9 @@ function render() {
           `<button data-item="${esc(i.id)}" data-opt="${esc(o.id)}">${esc(o.label)}</button>`).join("")}</div>
         ${i.evidence.length ? `<details><summary>看依据（${i.evidence.length} 条）</summary><ul>${
           i.evidence.map((e) => `<li><code>${esc(e.rule)}</code> ${esc(e.detail)}</li>`).join("")}</ul></details>` : ""}
-      </div>`).join("")}</div>` : `<div class="muted">所有行都有可用依据，没有需要你决定的地方。</div>`,
+      </div>`).join("")}${!SHOW_ALL_REVIEWS && open.length > visibleOpen.length
+        ? `<button class="btn" id="showAllReviews">显示其余 ${open.length - visibleOpen.length} 项待办</button>` : ""}</div>`
+      : `<div class="muted">${esc(settledText)}</div>`,
     answered.length ? answered.map((i) => `<span>${esc(i.id)} → ${esc(i.answer)}</span>`).join("") : "");
 
   const arts = s.artifacts || [];
@@ -522,27 +575,48 @@ function render() {
         <span class="dt">${esc(i.detail)}</span>
       </div>`).join("")}
     </div>` : "";
-  const s5 = stageCard(5, "报价草案", arts.length ? "ok" : "wait", arts.length ? "已生成" : "未生成",
+  const s5 = stageCard(3, "报价草案", arts.length ? "ok" : "wait", arts.length ? "已生成" : "未生成",
     (arts.length ? `<div class="art">${arts.map((a) =>
       `<a href="/api/download?id=${encodeURIComponent(s.task_id)}&file=${encodeURIComponent(a)}"
           target="_blank">${esc(a)}</a>`).join("")}</div>`
       : waitBody(open.length ? "先处理完上面的待确认项，再生成草案。" : "点上方「生成报价草案」。")) + termBlock,
     `<span>产物永远是待复核草案：未计税费运费，不预留库存</span>`);
 
-  $("stages").innerHTML = s1 + s2 + s3 + s4 + s5;
+  const traceLabel = {
+    task_created: "建立任务并锁定输入版本",
+    rfq_validated: "校验 RFQ 结构与必填字段",
+    quote_evaluated: "查询数据快照、执行规则并形成商业处置",
+    human_decision_applied: "应用人工决定并恢复同一任务",
+    draft_exported: "生成待复核报价草案",
+    quote_activated: "人工批准并激活报价",
+    feedback_recorded: "记录反馈供后续评测"
+  };
+  const trace = (s.agent_trace || []).map((item) => `<div class="runstep">
+      <span class="mark"></span><span>${esc(traceLabel[item.action] || item.action)}</span>
+      <span class="at">r${esc(item.revision)} · ${esc((item.at || "").split("T")[1] || item.at || "")}</span>
+    </div>`).join("");
+  const live = stageCard(1, "本次实时执行", open.length ? "warn" : "ok",
+    open.length ? "暂停等待 HIL" : "本轮已完成",
+    `<div class="runlog">${trace || waitBody("任务执行轨迹尚未写入")}</div>`,
+    `<span>task <code>${esc(s.task_id)}</code></span><span>revision <code>${esc(s.revision)}</code></span>
+     <span>处置 <code>${esc(s.commercial_disposition || "PENDING")}</code></span>`);
+  const details = `<details class="resultbox"><summary>按需查看解析与定价证据（不会一次展开全部结果）</summary>
+      <div class="inside">${s1 + s2 + s3}</div></details>`;
+  $("stages").innerHTML = live + s4 + details + (open.length ? "" : s5);
   $("stages").querySelectorAll(".ask .opts button").forEach((b) => {
     b.onclick = () => resolve(b.dataset.item, b.dataset.opt);
   });
+  const showAll = $("showAllReviews");
+  if (showAll) showAll.onclick = () => { SHOW_ALL_REVIEWS = true; render(); };
 }
 
 async function resolve(itemId, optionId) {
   const rev = S.revision;
-  chatSay("me", "我", `${itemId} → ${optionId}`);
   try {
     S = await api("/api/resolve", { task_id: S.task_id, revision: rev, item_id: itemId, option_id: optionId });
     render(); refresh();
-    chatSay("tool", "重算", `revision ${rev} → ${S.revision} · ${S.status}`);
-  } catch (e) { chatSay("sys", "错误", e.message); }
+    notify(`已记录决定；任务继续执行至 revision ${S.revision}。`);
+  } catch (e) { notify(e.message, true); }
 }
 
 async function doExport() {
@@ -550,8 +624,8 @@ async function doExport() {
   try {
     const r = await api("/api/export", { task_id: S.task_id, revision: S.revision });
     S = r; render(); refresh();
-    chatSay("tool", "导出", `已生成 ${(r.export && r.export.artifacts || r.artifacts || []).join("、")}`);
-  } catch (e) { chatSay("sys", "错误", e.message); }
+    notify("报价草案已生成，可在当前任务下载。");
+  } catch (e) { notify(e.message, true); }
   finally { $("export").disabled = false; }
 }
 
@@ -628,14 +702,27 @@ async function upload(file) {
     const res = await fetch("/api/upload?name=" + encodeURIComponent(file.name), { method: "POST", body: file });
     const data = JSON.parse(await res.text());
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    if (!data.task_id) throw new Error("上传成功但没有创建实时任务");
+    S = await api(`/api/task?id=${encodeURIComponent(data.task_id)}`);
+    CASEKEY = null;
+    resetQuestionContext();
+    SHOW_ALL_REVIEWS = false;
+    ACTIVE_META = data;
+    $("empty").hidden = true; $("docwrap").hidden = false;
+    render();
     await refresh();
-    if (data.key) select(data.key);
-  } catch (e) { chatSay("sys", "导入失败", e.message); }
+    notify(`上传成功；新任务已执行到 ${data.process_status}。`);
+  } catch (e) { notify(`导入失败：${e.message}`, true); }
   finally { $("drop").innerHTML = "<b>导入邮件</b>拖入 .eml 或点击"; }
 }
 
 /* ---------- boot ---------- */
 $("send").onclick = send;
+$("askOpen").onclick = () => setAskOpen(true);
+$("askClose").onclick = () => setAskOpen(false);
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !$("askPanel").hidden) setAskOpen(false);
+});
 $("chat").addEventListener("keydown", (e) => {
   if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
 });
@@ -645,9 +732,7 @@ async function boot() {
   try { DATA = await api("/api/data"); } catch (e) { DATA = null; }
   try {
     const a = await api("/api/agent");
-    $("agentline").innerHTML = a.enabled ? `<span class="dot"></span>模型 <b>${esc(a.model)}</b>`
-      : `<span class="dot off"></span>模型未配置`;
-    $("modelname").textContent = a.enabled ? a.model : "";
+    $("modelname").textContent = a.enabled ? a.model : "模型未配置";
     $("chat").disabled = !a.enabled; $("send").disabled = !a.enabled;
     if (!a.enabled) $("chat").placeholder = `模型未配置（缺 ${a.missing.join("、")}）`;
   } catch (e) { /* deterministic flow stays usable */ }

@@ -158,6 +158,23 @@ def _data_trace() -> dict:
             "db": status.get("db", ""), "ingested_at": status.get("created_at", "")}
 
 
+def _reference_task_id() -> str:
+    """Return the one persisted example run; all other fixtures stay input-only."""
+    for item in inbox(ROOT):
+        if item["case"].key != "B" or not item.get("task_id"):
+            continue
+        try:
+            _service().get_task_result(item["task_id"])
+            return item["task_id"]
+        except ValueError:
+            break
+    rfq, _ = load_case(ROOT, "B")
+    state = _service().start_task(rfq.to_dict(), autonomy="interactive")
+    admit_case(ROOT, "B")
+    mark_stage(ROOT, "B", "priced", state["task_id"])
+    return state["task_id"]
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "RFQAgent/0.3"
 
@@ -214,12 +231,16 @@ class Handler(BaseHTTPRequestHandler):
             return
         if parsed.path == "/api/fixtures":
             # Official cases are immutable test inputs, not remembered task results.
+            with LOCK:
+                reference_task_id = _reference_task_id()
             fixtures = [case for case in discover(ROOT)
                         if len(case.key) == 1 and case.key in {"A", "B", "C", "D", "E", "F"}]
             self._json([{"key": case.key, "label": case.label,
                          "container": case.container, "file": case.path.name,
                          "customer": case.customer, "subject": case.subject,
-                         "received": case.received, "lines": case.lines}
+                         "received": case.received, "lines": case.lines,
+                         "reference": case.key == "B",
+                         "task_id": reference_task_id if case.key == "B" else None}
                         for case in fixtures])
             return
         if parsed.path == "/api/material":
