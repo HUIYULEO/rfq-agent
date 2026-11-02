@@ -63,8 +63,10 @@ def inspect(rfq) -> list[dict]:
             "count": total - units.most_common(1)[0][1],
         })
 
+    # The source column is 截止报价日期 / Due Date: it is the customer's
+    # response deadline, not a delivery date or a supplier lead time.
     for field, label, title in (("priority", "优先级", "缺少优先级"),
-                                ("due_at", "交期", "缺少交期")):
+                                ("due_at", "报价回复截止日期", "缺少报价回复截止日期")):
         finding = _counter_finding(f"missing_{field}", title, lines, field, label)
         if finding:
             findings.append(finding)
@@ -82,8 +84,8 @@ def inspect(rfq) -> list[dict]:
             late.append(line)          # unparseable is a finding too, not a silent skip
     if late:
         findings.append({
-            "kind": "date_anomaly", "severity": "warn", "title": "交期异常",
-            "detail": f"{len(late)} 行交期早于评估日 {evaluated} 或无法解析",
+            "kind": "date_anomaly", "severity": "warn", "title": "报价回复截止日期异常",
+            "detail": f"{len(late)} 行报价回复截止日期早于评估日 {evaluated} 或无法解析",
             "examples": [f"{line['line_id']} → {line.get('due_at')}" for line in late[:3]],
             "lines": _ids(late), "count": len(late),
         })
@@ -91,7 +93,7 @@ def inspect(rfq) -> list[dict]:
     if not any(line.get("condition_accept") for line in lines):
         findings.append({
             "kind": "missing_condition", "severity": "info", "title": "未声明件状要求",
-            "detail": f"{total} 行都没有件状要求 — 任何候选人明确标注的件状都接受，并在报价中提示",
+            "detail": f"{total} 行都没有件状要求 — 保留为未声明，候选件状需明确展示，是否接受由客户或企业政策确认",
             "examples": [], "lines": [], "count": total,
         })
 

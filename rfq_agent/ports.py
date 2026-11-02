@@ -24,5 +24,6 @@ class PendingQuoteProvider:
                               "recommended_source": "manual",
                               "decision_reasons": ["Official pricing-data adapter is not implemented"],
                               "review_evidence": [{"rule": "no_price_evidence",
-                                                   "detail": "未接价格数据适配器"}]}}
+                                                   "detail": "未接价格数据适配器"}]},
+                 "internal_candidates": [], "supplier_candidates": []}
                 for line in rfq.lines]

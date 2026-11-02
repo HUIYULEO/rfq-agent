@@ -27,7 +27,7 @@ class Line:
     # membership, never equality against a single code.
     condition_accept: list[str] = field(default_factory=list)
     priority: str | None = None
-    due_at: str | None = None
+    due_at: str | None = None  # Legacy field: customer's quote-response deadline.
     inquiry_no: str | None = None
     allow_alternates: bool = False
     trace_required: str | None = None
@@ -100,6 +100,8 @@ class Task:
     process_status: str = "received"
     commercial_disposition: str = "PENDING"
     evaluation_status: str = "pending"
+    rule_results: list[dict] = field(default_factory=list)
+    evaluation_issues: list[str] = field(default_factory=list)
     # A blocking question is an interruption of one durable run, not a new chat.
     interruptions: list[dict] = field(default_factory=list)
     agent_trace: list[dict] = field(default_factory=list)
@@ -117,6 +119,8 @@ class Task:
         payload.setdefault("evaluation_status", "pending")
         payload.setdefault("interruptions", [])
         payload.setdefault("agent_trace", [])
+        payload.setdefault("rule_results", [])
+        payload.setdefault("evaluation_issues", [])
         return cls(**payload)
 
     def open_reviews(self) -> list[dict]:

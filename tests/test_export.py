@@ -9,6 +9,8 @@ from docx import Document
 from rfq_agent.cases import load_case, template_for
 from rfq_agent.export_docx import render_draft
 from rfq_agent.pricing import summarize
+from rfq_agent.service import RFQService
+from rfq_agent.storage import TaskStore
 
 ROOT = Path(__file__).resolve().parents[1]
 WORK = ROOT / "runtime" / "test_export"
@@ -38,18 +40,26 @@ class DraftContentTest(unittest.TestCase):
     def tearDownClass(cls):
         shutil.rmtree(WORK, ignore_errors=True)
 
-    def test_english_case_carries_the_buyer_terms_and_their_verdicts(self):
-        text = draft_text("C", WORK)
-        self.assertIn("客户要求与响应", text)
-        self.assertIn("Validity period of the quotation", text)
-        self.assertIn("Quote.pdf", text)
-        self.assertIn("待补齐", text)          # 0 priced rows: not claimed as satisfied
-        self.assertIn("已满足", text)          # the template requirement is met
+    def test_unpriced_case_cannot_render_a_quotation(self):
+        with self.assertRaisesRegex(ValueError, "at least one priced line"):
+            draft_text("C", WORK)
 
-    def test_english_case_gets_a_compliance_section_to_sign(self):
-        text = draft_text("C", WORK)
-        self.assertIn("合规声明", text)
-        self.assertIn("未经签署不得随报价对外发出", text)
+    def test_supplier_inquiry_exports_analysis_only(self):
+        rfq, provider = load_case(ROOT, "C")
+        service = RFQService(TaskStore(WORK / "tasks"), provider=provider,
+                             template=template_for(ROOT))
+        state = service.start_task(rfq.to_dict())
+        state = service.resolve_review(state["task_id"], state["revision"],
+                                       "RI-TASK", "request_quotation")
+        exported = service.export_quote_draft(state["task_id"], state["revision"])
+        self.assertEqual(len(exported["artifacts"]), 1)
+        self.assertTrue(exported["artifact"].endswith(".json"))
+
+    def test_quote_draft_does_not_assert_unapproved_terms(self):
+        text = draft_text("B", WORK)
+        self.assertNotIn("按供应商标准质保", text)
+        self.assertNotIn("自报价日起 30 天", text)
+        self.assertNotIn("不含出口管制或限制扩散物项", text)
 
     def test_chinese_case_gets_no_compliance_section(self):
         text = draft_text("B", WORK)

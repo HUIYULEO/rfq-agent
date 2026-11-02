@@ -136,6 +136,8 @@ def _view(task: dict) -> dict:
         "process_status": task.get("process_status", task["status"]),
         "commercial_disposition": task.get("commercial_disposition", "PENDING"),
         "evaluation_status": task.get("evaluation_status", "pending"),
+        "evaluation_issues": task.get("evaluation_issues", []),
+        "rule_results": task.get("rule_results", []),
         "autonomy": task["autonomy"],
         "policy_version": task["policy_version"],
         "data_snapshot_id": task["data_snapshot_id"],

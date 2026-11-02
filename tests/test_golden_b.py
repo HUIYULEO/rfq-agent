@@ -145,6 +145,11 @@ class GoldenBuyerBTests(unittest.TestCase):
 
         service, task_id = self._service()
         state = service.build_quote_options(task_id, 1)
+        preview = service.export_quote_draft(task_id, state["revision"])
+        self.assertEqual(len(preview["artifacts"]), 1)
+        self.assertTrue(preview["artifact"].endswith(".json"))
+        state = service.resolve_review(task_id, state["revision"], "RI-0016", "request_quotation")
+        state = service.resolve_review(task_id, state["revision"], "RI-0019", "request_quotation")
         exported = service.export_quote_draft(task_id, state["revision"])
         path = Path(exported["artifacts"][1])
         self.assertTrue(path.exists())

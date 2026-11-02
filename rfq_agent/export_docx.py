@@ -8,7 +8,6 @@ Rules:
 """
 from __future__ import annotations
 
-import datetime as dt
 from copy import deepcopy
 from decimal import Decimal
 from pathlib import Path
@@ -164,10 +163,10 @@ def _remark(row: dict) -> str:
 
 def render_draft(*, template: Path, output: Path, rfq, results: list[dict], summary: dict,
                  policy_version: str, evaluation_date: str) -> Path:
+    if not any(row.get("eligibility") == "priced" for row in results):
+        raise ValueError("A quotation document requires at least one priced line")
     docx = require("docx", "rendering the .docx quote draft")
     document = docx.Document(str(template))
-
-    expiry = (dt.date.fromisoformat(evaluation_date) + dt.timedelta(days=30)).isoformat()
 
     for paragraph in document.paragraphs:
         text = paragraph.text
@@ -179,9 +178,9 @@ def render_draft(*, template: Path, output: Path, rfq, results: list[dict], summ
             _replace(paragraph, r"项目名称： +", f"项目名称：{rfq.rfq_number}")
         elif text.startswith("报价日期："):
             year, month, day = evaluation_date.split("-")
-            _replace(paragraph, r"报价日期：.*", f"报价日期：{year} 年 {month} 月 {day} 日")
+            _replace(paragraph, r"报价日期：.*", f"报价日期：待批准（资料评估基准日 {year} 年 {month} 月 {day} 日）")
         elif text.startswith("报价有效期："):
-            _replace(paragraph, r"报价有效期：.*", f"报价有效期：自报价日起 30 天（至 {expiry}）")
+            _replace(paragraph, r"报价有效期：.*", "报价有效期：待企业批准，不构成对外承诺")
 
     table = document.tables[0]
     detail_rows = len(table.rows) - 4  # 1 header + 3 totals rows
@@ -215,13 +214,13 @@ def render_draft(*, template: Path, output: Path, rfq, results: list[dict], summ
     totals_row = len(results) + 1
     _set_cell(table.rows[totals_row].cells[2], rmb_upper(total))
     _set_cell(table.rows[totals_row].cells[7], f"￥{total:,.2f} 元")
-    _set_cell(table.rows[totals_row + 1].cells[1], "随行交期，详见第 2 页条件摘要")
-    _set_cell(table.rows[totals_row + 1].cells[6], "按供应商标准质保，详见条件摘要")
+    _set_cell(table.rows[totals_row + 1].cells[1], "交期需逐行核实，详见条件摘要")
+    _set_cell(table.rows[totals_row + 1].cells[6], "质保条件待企业确认")
     _set_cell(table.rows[totals_row + 2].cells[1],
               "1) 本报价为待复核草案，须经人工确认后方可对外发送；"
-              "2) 税费、运费、包装费未计入；"
-              "3) 本报价不预留库存，以正式订单确认为准；"
-              f"4) 价格基准日 {evaluation_date}，策略版本 {policy_version}。")
+              "2) 税费、运费、包装费口径待企业确认；"
+              "3) 库存可售与预留状态待企业确认；"
+              f"4) 演示价格基准日 {evaluation_date}，策略版本 {policy_version}；不得直接对外发送。")
 
     # ---- summary page ----
     document.add_paragraph().add_run().add_break(docx.enum.text.WD_BREAK.PAGE)
@@ -270,12 +269,10 @@ def render_draft(*, template: Path, output: Path, rfq, results: list[dict], summ
             _set_cell(cells[3], item["detail"])
 
     if term_checks.needs_compliance(term_checks.check(rfq, results)):
-        _heading(document, "合规声明")
+        _heading(document, "合规要求待核实")
         document.add_paragraph(
-            "本报价所涉物项用于民航维修用途，不含出口管制或限制扩散物项；"
-            "最终用户与最终用途以需方书面确认为准。")
-        document.add_paragraph("签署人：＿＿＿＿＿＿　　职务：＿＿＿＿＿＿　　日期：＿＿＿＿＿＿")
-        document.add_paragraph("（本节为待签署段落：未经签署不得随报价对外发出。）")
+            "客户提出合规声明要求；物项分类、出口管制适用性、最终用户和最终用途均待授权人员核实。"
+            "本草案不作任何合规性声明，不得随报价对外发出。")
 
     findings = [item for item in quality.inspect(rfq) if item["severity"] == "warn"]
     if findings:

@@ -3,10 +3,12 @@ import json
 import os
 import shutil
 import unittest
+from decimal import Decimal
 from pathlib import Path
 from uuid import uuid4
 
 from rfq_agent.models import Task
+from rfq_agent.policy import DEFAULT_POLICY
 from rfq_agent.service import RFQService
 from rfq_agent.storage import TaskStore
 
@@ -39,16 +41,24 @@ class AllPricedProvider:
             "evidence": dict(line.evidence),
             "eligibility": "priced",
             "unit_price": "12.00",
-            "line_total": "12.00",
+            "priced_quantity": line.quantity,
+            "line_total": str(Decimal("12.00") * Decimal(line.quantity)),
             "unit_cost_cny": "10.00",
             "decision": {
                 "recommended_source": "internal",
                 "requires_human_review": False,
+                "selected_source_id": f"TEST-{line.line_id}",
                 "basis": {"source_type": "internal"},
             },
-            "internal_candidates": [],
+            "internal_candidates": [{"source_id": f"TEST-{line.line_id}",
+                                     "eligibility": "eligible"}],
             "supplier_candidates": [],
         } for index, line in enumerate(rfq.lines, start=1)]
+
+
+class MissingLineProvider(AllPricedProvider):
+    def evaluate(self, rfq, resolutions=None):
+        return super().evaluate(rfq, resolutions)[:-1]
 
 
 class V2WorkflowTests(unittest.TestCase):
@@ -94,7 +104,10 @@ class V2WorkflowTests(unittest.TestCase):
             service.activate_quote(state["task_id"], state["revision"], "sales-manager")
 
     def test_formal_activation_records_explicit_human_approval(self):
-        service = RFQService(TaskStore(self.tmp), provider=AllPricedProvider())
+        approved_policy = {**DEFAULT_POLICY, "policy_version": "approved-test-only",
+                           "commercial_approval_enabled": True}
+        service = RFQService(TaskStore(self.tmp), provider=AllPricedProvider(),
+                             policy=approved_policy)
         state = service.start_task(_scaffold())
         self.assertEqual(state["evaluation_status"], "complete")
         self.assertEqual(state["commercial_disposition"], "QUOTE")
@@ -105,6 +118,22 @@ class V2WorkflowTests(unittest.TestCase):
         self.assertEqual(active["process_status"], "quote_activated")
         self.assertEqual(active["decision_log"][-1]["action"], "activate_quote")
         self.assertEqual(active["decision_log"][-1]["actor"], "sales-manager")
+
+    def test_demo_policy_cannot_activate_a_complete_quote(self):
+        service = RFQService(TaskStore(self.tmp), provider=AllPricedProvider())
+        state = service.start_task(_scaffold())
+        self.assertEqual(state["evaluation_status"], "complete")
+        with self.assertRaisesRegex(ValueError, "Demo pricing policy"):
+            service.activate_quote(state["task_id"], state["revision"], "sales-manager")
+
+    def test_missing_provider_line_blocks_activation_even_without_reviews(self):
+        service = RFQService(TaskStore(self.tmp), provider=MissingLineProvider())
+        state = service.start_task(_scaffold())
+        self.assertEqual(state["evaluation_status"], "incomplete")
+        self.assertEqual(state["commercial_disposition"], "PENDING")
+        self.assertTrue(any("result_present:2" in issue for issue in state["evaluation_issues"]))
+        with self.assertRaisesRegex(ValueError, "incomplete"):
+            service.activate_quote(state["task_id"], state["revision"], "sales-manager")
 
     def test_old_task_json_uses_legacy_status_as_process_status(self):
         data = _scaffold()

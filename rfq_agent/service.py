@@ -147,14 +147,20 @@ class RFQService:
             })
 
     def _settle(self, task: Task) -> None:
+        from .evaluation import validate
+        task.rule_results, task.evaluation_issues = validate(task.rfq, task.results)
         task.review_items = build_review_items(task.rfq, task.results, task.resolutions)
         if task.open_reviews():
             self._set_status(task, "awaiting_review", "awaiting_human")
             task.evaluation_status = "incomplete"
+        elif task.evaluation_issues:
+            self._set_status(task, "evaluation_incomplete", "evaluation_incomplete")
+            task.evaluation_status = "incomplete"
         else:
             self._set_status(task, "draft_ready")
             task.evaluation_status = "complete"
-        task.commercial_disposition = self._derive_disposition(task)
+        task.commercial_disposition = ("PENDING" if task.evaluation_issues else
+                                       self._derive_disposition(task))
         self._sync_interruptions(task)
 
     def build_quote_options(self, task_id: str, revision: int, autonomy: str | None = None) -> dict:
@@ -295,13 +301,20 @@ class RFQService:
             "resolutions": task.resolutions,
             "decision_log": task.decision_log,
             "results": task.results,
+            "rule_results": task.rule_results,
+            "evaluation_issues": task.evaluation_issues,
         }
         artifacts = []
         json_path = directory / f"draft-r{revision}.json"
         json_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
         artifacts.append(str(json_path))
 
-        if render_docx and self.template is not None:
+        # A supplier inquiry or no-bid result can have an analysis record, but
+        # it must not be packaged as a quotation document.
+        quote_draft_allowed = (task.evaluation_status == "complete" and
+                               not task.open_reviews() and
+                               task.commercial_disposition in {"QUOTE", "PARTIAL_QUOTE"})
+        if render_docx and self.template is not None and quote_draft_allowed:
             from .export_docx import render_draft
             docx_path = directory / f"quote-draft-r{revision}.docx"
             render_draft(template=self.template, output=docx_path, rfq=task.rfq,
@@ -346,6 +359,12 @@ class RFQService:
             raise ValueError("Commercial disposition is not quotable")
         if not task.results:
             raise ValueError("Quote has no evaluated lines")
+        if not self.policy.get("commercial_approval_enabled", False):
+            raise ValueError("Demo pricing policy is not approved for commercial activation")
+        if task.policy_version != self.policy.get("policy_version"):
+            raise ValueError("Pricing policy changed; re-evaluate before activation")
+        if any(item.get("actor") == "system:auto_draft" for item in task.decision_log):
+            raise ValueError("Automatic review defaults cannot approve a commercial quote")
 
         self._set_status(task, "active", "quote_activated")
         task.decision_log.append({

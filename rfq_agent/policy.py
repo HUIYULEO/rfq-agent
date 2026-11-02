@@ -9,6 +9,10 @@ POLICY_VERSION = "demo-2026-11-01"
 
 DEFAULT_POLICY: dict = {
     "policy_version": POLICY_VERSION,
+    # The supplied reference tables and formula are for demonstration, not an
+    # approved commercial price book. An explicit approved policy is required
+    # before the service can activate a quote.
+    "commercial_approval_enabled": False,
     "cost_basis_priority": ["standard_cost", "supplier_price"],
     "internal_inventory_priority": True,
     "default_markup_rate": "0.20",
