@@ -7,6 +7,8 @@ It does not certify business eligibility or commercial policy.
 
 from decimal import Decimal, InvalidOperation
 
+from .policy import line_amount
+
 
 def _money(value):
     try:
@@ -71,7 +73,7 @@ def validate(rfq, results: list[dict]) -> list[str]:
             total = _money(row.get("line_total"))
             amount_ok = (unit_price is not None and quantity is not None and
                          total is not None and unit_price > 0 and quantity > 0 and
-                         total == unit_price * quantity)
+                         total == line_amount(unit_price, quantity))
             if not amount_ok:
                 issues.append(f"amount_consistency:{line.line_id}")
         else:

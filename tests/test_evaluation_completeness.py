@@ -45,6 +45,22 @@ class CompletenessTests(unittest.TestCase):
         self.assertIn("amount_consistency:L1", issues)
         self.assertNotIn("candidate_evidence:L1", issues)
 
+    def test_fractional_quantity_amount_uses_the_shared_rounding_helper(self):
+        """2.5 FT x 13.33 = 33.325 -> 33.33: validate() must agree with pricing."""
+        from rfq_agent.policy import line_amount
+
+        rfq = RFQ.from_dict({
+            "rfq_number": "CHECK-2", "evaluation_date": "2026-11-02",
+            "source_files": ["fixture.eml"],
+            "lines": [{"line_id": "L1", "part_number": "PN-1", "quantity": "2.5", "unit": "FT"}],
+        })
+        row = {**_result(), "quantity": "2.5", "unit": "FT", "unit_price": "13.33",
+               "priced_quantity": "2.5", "line_total": str(line_amount("13.33", "2.5"))}
+        self.assertEqual(row["line_total"], "33.33")
+        self.assertEqual(validate(rfq, [row]), [])
+        row["line_total"] = "33.325"          # unrounded product is not what pricing writes
+        self.assertIn("amount_consistency:L1", validate(rfq, [row]))
+
     def test_selected_rejected_candidate_fails(self):
         row = _result()
         row["internal_candidates"][0]["eligibility"] = "rejected"

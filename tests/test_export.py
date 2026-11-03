@@ -52,8 +52,11 @@ class DraftContentTest(unittest.TestCase):
         state = service.resolve_review(state["task_id"], state["revision"],
                                        "RI-TASK", "request_quotation")
         exported = service.export_quote_draft(state["task_id"], state["revision"])
-        self.assertEqual(len(exported["artifacts"]), 1)
-        self.assertTrue(exported["artifact"].endswith(".json"))
+        names = [Path(item).name for item in exported["artifacts"]]
+        # JSON record + readable analysis report; never a quotation document.
+        self.assertEqual(names, [f"draft-r{state['revision']}.json",
+                                 f"analysis-r{state['revision']}.docx"])
+        self.assertFalse(any(name.startswith("quote") for name in names))
 
     def test_quote_draft_does_not_assert_unapproved_terms(self):
         text = draft_text("B", WORK)

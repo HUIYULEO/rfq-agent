@@ -20,12 +20,15 @@ from .storage import TaskStore
 class RFQService:
     def __init__(self, store: TaskStore, provider: QuoteProvider | None = None,
                  policy: dict | None = None, template=None,
-                 ledger: OperationalLedger | None = None):
+                 ledger: OperationalLedger | None = None, history_db=None):
         self.store = store
         self.provider = provider or PendingQuoteProvider()
         self.policy = policy or DEFAULT_POLICY
         self.template = template
         self.ledger = ledger
+        # Approved-quote history (quote_header / quote_line). Defaults next to the
+        # task store, which is runtime/rfq.db for the web app.
+        self.history_db = history_db or (store.root / "rfq.db")
 
     @staticmethod
     def _now() -> str:
@@ -147,8 +150,11 @@ class RFQService:
             })
 
     def _settle(self, task: Task) -> None:
+        from .business_rules import check_business
         from .evaluation import validate
         task.evaluation_issues = validate(task.rfq, task.results)
+        task.business_checks, business_issues = check_business(task.rfq, task.results)
+        task.evaluation_issues = sorted(set(task.evaluation_issues) | set(business_issues))
         task.review_items = build_review_items(task.rfq, task.results, task.resolutions)
         if task.open_reviews():
             self._set_status(task, "awaiting_review", "awaiting_human")
@@ -177,7 +183,7 @@ class RFQService:
 
         if task.autonomy == "auto_draft" and task.open_reviews():
             for item in task.open_reviews():
-                key = item["target"].get("line_id") or "__task__"
+                key = item.get("resolution_key") or item["target"].get("line_id") or "__task__"
                 task.resolutions[key] = item["default_option"]
                 task.decision_log.append({
                     "actor": "system:auto_draft", "item_id": item["id"],
@@ -218,7 +224,7 @@ class RFQService:
             interruption["resolved_by"] = "human"
             interruption["resolved_at"] = self._now()
 
-        key = item["target"].get("line_id") or "__task__"
+        key = item.get("resolution_key") or item["target"].get("line_id") or "__task__"
         task.resolutions[key] = option_id
         task.results = self.provider.evaluate(task.rfq, task.resolutions)
         task.revision += 1
@@ -303,10 +309,24 @@ class RFQService:
             "results": task.results,
             "evaluation_issues": task.evaluation_issues,
         }
+        from .analysis import build as build_analysis
+
+        analysis = build_analysis(task)
+        payload["business_checks"] = task.business_checks
+        payload["analysis"] = analysis
         artifacts = []
         json_path = directory / f"draft-r{revision}.json"
         json_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
         artifacts.append(str(json_path))
+
+        # Every task gets a human-readable analysis report, quotable or not.
+        if render_docx:
+            from .analysis import render_docx as render_analysis
+            try:
+                analysis_path = render_analysis(analysis, directory / f"analysis-r{revision}.docx")
+                artifacts.append(str(analysis_path))
+            except ImportError:
+                pass   # python-docx unavailable: the JSON record still carries the analysis
 
         # A supplier inquiry or no-bid result can have an analysis record, but
         # it must not be packaged as a quotation document.
@@ -338,18 +358,32 @@ class RFQService:
                 data_snapshot_id=task.data_snapshot_id)
         self._save(task)
         return {"task_id": task_id, "revision": revision, "status": task.status,
-                "artifact": artifacts[0], "artifacts": artifacts, "summary": summary}
+                "artifact": artifacts[0], "artifacts": artifacts, "summary": summary,
+                "analysis_summary": analysis["summary"]}
+
+    def analysis(self, task_id: str) -> dict:
+        """Structured inquiry analysis for the current revision (web panel / API)."""
+        from .analysis import build as build_analysis
+
+        return build_analysis(self.store.get(task_id))
 
     def activate_quote(self, task_id: str, revision: int, approved_by: str) -> dict:
         """Freeze a commercially quotable revision after explicit human approval.
 
-        Preview export remains intentionally permissive for compatibility. This
-        formal boundary is fail-closed and is the only transition that represents
-        an approved quote rather than a generated document.
+        Fail-closed: only a named human may approve, automatic review defaults never
+        count, and the policy must allow activation (the default demo policy does not;
+        ``policy.DEMO_APPROVED_POLICY`` / RFQ_DEMO_APPROVAL=1 does, and stamps 演示批准).
+        Approval writes quote_header/quote_line and renders ``quote-r{rev}.docx`` in one
+        SQLite transaction: if rendering fails nothing is recorded.
         """
         task = self._current(task_id, revision)
-        if not approved_by or not approved_by.strip():
+        approver = (approved_by or "").strip()
+        if not approver:
             raise ValueError("approved_by is required")
+        if approver.lower().startswith("system:"):
+            raise ValueError("A system actor cannot approve a commercial quote")
+        if task.status == "active":
+            raise ValueError("This revision is already activated")
         if task.evaluation_status != "complete":
             raise ValueError("Evaluation is incomplete; quote cannot be activated")
         if task.open_reviews():
@@ -365,26 +399,105 @@ class RFQService:
         if any(item.get("actor") == "system:auto_draft" for item in task.decision_log):
             raise ValueError("Automatic review defaults cannot approve a commercial quote")
 
+        from .db import connect, insert_quote
+
+        mode = self.policy.get("approval_mode", "commercial")  # demo policy sets "demo"
+        approval = {
+            "approved_by": approver,
+            "approved_at": self._now(),
+            "mode": mode,
+            "label": self.policy.get("approval_label") or ("演示批准" if mode == "demo" else "人工批准"),
+            "revision": revision,
+            "policy_version": task.policy_version,
+        }
+        summary = summarize(task.results)
+        quote_id = f"Q-{task.task_id[:12]}-r{revision}"
+        directory = self.store.directory(task_id)
+        directory.mkdir(parents=True, exist_ok=True)
+        docx_path = directory / f"quote-r{revision}.docx"
+        header = {
+            "quote_id": quote_id, "task_id": task.task_id, "revision": revision,
+            "rfq_number": task.rfq.rfq_number, "customer": task.rfq.customer or "",
+            "currency": task.rfq.currency, "disposition": task.commercial_disposition,
+            "total_lines": summary["lines"], "priced_lines": summary["priced_lines"],
+            "subtotal_cny": summary["priced_subtotal_cny"], "approved_by": approver,
+            "approved_at": approval["approved_at"], "approval_mode": mode,
+            "policy_version": task.policy_version, "data_snapshot_id": task.data_snapshot_id,
+            "document": docx_path.name if self.template is not None else None,
+        }
+        lines = []
+        for row in task.results:
+            if row.get("eligibility") != "priced":
+                continue
+            decision = row.get("decision") or {}
+            basis = decision.get("basis") or {}
+            lines.append({
+                "quote_id": quote_id, "line_id": row["line_id"],
+                "line_number": row.get("line_number"), "part_number": row["part_number"],
+                "description": row.get("description") or "",
+                "quantity": str(row.get("priced_quantity") or row["quantity"]),
+                "unit": row["unit"], "unit_price": row["unit_price"],
+                "line_total": row["line_total"],
+                "source_type": decision.get("recommended_source") or "",
+                "source_id": decision.get("selected_source_id") or "",
+                "certificate": basis.get("certificate"), "condition": basis.get("condition"),
+                "match_type": decision.get("match_type") or basis.get("match_type"),
+            })
+
+        connection = connect(self.history_db)
+        try:
+            with connection:   # one transaction: history rows + final document, or neither
+                insert_quote(connection, header, lines)
+                if self.template is not None:
+                    from .export_docx import render_draft
+                    try:
+                        render_draft(template=self.template, output=docx_path, rfq=task.rfq,
+                                     results=task.results, summary=summary,
+                                     policy_version=task.policy_version,
+                                     evaluation_date=task.rfq.evaluation_date,
+                                     approval=approval)
+                    except Exception:
+                        docx_path.unlink(missing_ok=True)
+                        raise
+        finally:
+            connection.close()
+
+        approval["quote_id"] = quote_id
+        approval["document"] = header["document"]
+        task.approval = approval
+        if self.template is not None:
+            task.artifacts = [*task.artifacts, str(docx_path)]
         self._set_status(task, "active", "quote_activated")
         task.decision_log.append({
-            "actor": approved_by.strip(),
+            "actor": approver,
             "action": "activate_quote",
             "revision": revision,
-            "at": self._now(),
+            "approval_mode": mode,
+            "quote_id": quote_id,
+            "at": approval["approved_at"],
         })
         task.events.append({"action": "quote_activated", "revision": revision,
-                            "approved_by": approved_by.strip(),
+                            "approved_by": approver, "quote_id": quote_id,
+                            "approval_mode": mode,
                             "commercial_disposition": task.commercial_disposition})
         self._trace(task, "quote_activated", outcome="active",
-                    approved_by=approved_by.strip())
+                    approved_by=approver, approval_mode=mode, quote_id=quote_id)
         if self.ledger is not None:
             self.ledger.append_event(
                 task_id=task.task_id, revision=task.revision,
                 event_type=HUMAN_DECISION,
-                payload={"action": "activate_quote", "actor": approved_by.strip(),
+                payload={"action": "activate_quote", "actor": approver,
+                         "approval_mode": mode, "quote_id": quote_id,
                          "commercial_disposition": task.commercial_disposition},
                 policy_version=task.policy_version,
                 data_snapshot_id=task.data_snapshot_id)
+            if self.template is not None:
+                self.ledger.append_event(
+                    task_id=task.task_id, revision=task.revision, event_type=ARTIFACT,
+                    payload={"kind": "approved_quote", "paths": [str(docx_path)],
+                             "commercial": mode != "demo", "approval_mode": mode},
+                    policy_version=task.policy_version,
+                    data_snapshot_id=task.data_snapshot_id)
         self._save(task)
         return task.to_dict()
 

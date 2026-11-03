@@ -17,19 +17,20 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 from uuid import uuid4
 
-from . import quality, terms
+from . import analysis as analysis_report, quality, terms
 from .cases import (admit_case, available, case_by_key, confirm_pending, data_status,
                     discover, inbox, load_case, mark_stage, provider_for, reset_inbox,
                     stage_pending, sweep_pending, template_for)
 from .genesis import GenesisError, Session, load_config, missing_keys
 from .ledger import OperationalLedger
+from .policy import active_policy
 from .pricing import summarize
 from .service import RFQService
 from .storage import TaskStore
 
 ROOT = Path(__file__).resolve().parents[1]
 STATIC = Path(__file__).resolve().parent / "static"
-FILE_PATTERN = re.compile(r"^(draft|quote-draft)-r\d+\.(json|docx)$")
+FILE_PATTERN = re.compile(r"^(draft|quote-draft|analysis|quote)-r\d+\.(json|docx)$")
 
 LOCK = threading.Lock()
 SERVICE: RFQService | None = None
@@ -39,8 +40,9 @@ SESSIONS: dict[str, Session] = {}
 def _service() -> RFQService:
     global SERVICE
     if SERVICE is None:
+        policy = active_policy()
         SERVICE = RFQService(TaskStore(ROOT / "runtime"), provider=provider_for(ROOT),
-                             template=template_for(ROOT),
+                             policy=policy, template=template_for(ROOT),
                              ledger=OperationalLedger(ROOT / "runtime" / "operations.db"))
     return SERVICE
 
@@ -162,6 +164,10 @@ def _view(task: dict) -> dict:
         "terms": term_items,
         "terms_summary": terms.summary(term_items),
         "data": _data_trace(),
+        "analysis": analysis_report.build(task),
+        "approval": task.get("approval") or {},
+        "approval_enabled": bool(_service().policy.get("commercial_approval_enabled")),
+        "approval_mode": _service().policy.get("approval_mode") or "none",
     }
 
 
@@ -299,6 +305,14 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 with LOCK:
                     self._json(_view(_service().get_task_result(task_id)))
+            except ValueError as exc:
+                self._error(exc, 404)
+            return
+        if parsed.path == "/api/analysis":
+            task_id = (parse_qs(parsed.query).get("id") or [""])[0]
+            try:
+                with LOCK:
+                    self._json(_service().analysis(task_id))
             except ValueError as exc:
                 self._error(exc, 404)
             return

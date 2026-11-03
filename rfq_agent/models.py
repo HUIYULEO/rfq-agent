@@ -32,6 +32,12 @@ class Line:
     allow_alternates: bool = False
     trace_required: str | None = None
     ships_from: str | None = None
+    # Per-line customer fields carried from the inquiry table (see ingest.HEADER_ALIASES).
+    product_requirement: str | None = None   # 询价产品要求, e.g. SPECIAL REQUIREMENT / CERT REQUIRED
+    mpn: str | None = None                   # 询价MPN
+    manual_pn: str | None = None             # 手册件号
+    product_scope: str | None = None         # 产品范围
+    required_certificates: list[str] = field(default_factory=list)
 
     def __post_init__(self):
         if not self.line_id or not self.part_number or not self.unit:
@@ -39,6 +45,8 @@ class Line:
         positive_decimal(self.quantity)
         if isinstance(self.condition_accept, str):
             self.condition_accept = [self.condition_accept]
+        if isinstance(self.required_certificates, str):
+            self.required_certificates = [self.required_certificates]
 
 
 @dataclass
@@ -100,6 +108,11 @@ class Task:
     commercial_disposition: str = "PENDING"
     evaluation_status: str = "pending"
     evaluation_issues: list[str] = field(default_factory=list)
+    # Business-rule checks (match type, certificate, unit, condition, quote deadline):
+    # one entry per (line, rule), passes included, each with a locator back to the
+    # source cell. Separate from evaluation_issues (contract defects); never a price input.
+    business_checks: list[dict] = field(default_factory=list)
+    approval: dict = field(default_factory=dict)
     # A blocking question is an interruption of one durable run, not a new chat.
     interruptions: list[dict] = field(default_factory=list)
     agent_trace: list[dict] = field(default_factory=list)
@@ -120,6 +133,8 @@ class Task:
         payload.setdefault("agent_trace", [])
         payload.pop("rule_results", None)  # Drop the redundant field from older task snapshots.
         payload.setdefault("evaluation_issues", [])
+        payload.setdefault("business_checks", [])
+        payload.setdefault("approval", {})
         return cls(**payload)
 
     def open_reviews(self) -> list[dict]:

@@ -39,7 +39,9 @@ HEADER_ALIASES = {
     "询价mpn": "询价MPN", "mpn": "询价MPN",
     "手册件号": "手册件号",
     "产品范围": "产品范围",
-    "询价产品要求": "询价产品要求",
+    "询价产品要求": "询价产品要求", "product requirement": "询价产品要求",
+    "part no": "Part Number", "part no.": "Part Number", "p/n": "Part Number",
+    "qty": "Quantity", "uom": "Unit Of Measure",
 }
 REQUIRED = ("Part Number", "Quantity", "Unit Of Measure")
 
@@ -94,11 +96,24 @@ def _normalise_header(cell: str) -> str | None:
     return HEADER_ALIASES.get(re.sub(r"\s+", " ", cell).strip().lower())
 
 
-def _to_records(header: list[str], rows: list[list[str]], container: str) -> list[dict]:
+def _column_letter(index: int) -> str:
+    """1 -> A, 27 -> AA: the cell address a reviewer types into Excel."""
+    letters = ""
+    while index > 0:
+        index, rest = divmod(index - 1, 26)
+        letters = chr(65 + rest) + letters
+    return letters
+
+
+def _to_records(header: list[str], rows: list[list[str]], container: str,
+                location: dict | None = None) -> list[dict]:
     keys = [_normalise_header(cell) for cell in header]
     if not all(name in keys for name in REQUIRED):
         raise ValueError(
             f"{container} 表头无法识别：需要 {list(REQUIRED)}，实际 {header}")
+    # Column provenance: canonical name -> where it physically sits in the source.
+    columns = {key: {"index": i + 1, "letter": _column_letter(i + 1), "header": str(header[i])}
+               for i, key in enumerate(keys) if key}
     records = []
     for offset, row in enumerate(rows, start=2):
         if all(not str(cell).strip() for cell in row):
@@ -106,6 +121,8 @@ def _to_records(header: list[str], rows: list[list[str]], container: str) -> lis
         record = {key: (row[i] if i < len(row) else "") for i, key in enumerate(keys) if key}
         record["_container"] = container
         record["_source_row"] = offset
+        record["_columns"] = columns
+        record.update({f"_{name}": value for name, value in (location or {}).items()})
         records.append(record)
     return records
 
@@ -133,7 +150,7 @@ def _rows_from_html(markup: str) -> list[dict]:
     parser.feed(markup)
     if len(parser.rows) < 2:
         raise ValueError("HTML 正文里没有可用的表格")
-    return _to_records(parser.rows[0], parser.rows[1:], "body-html")
+    return _to_records(parser.rows[0], parser.rows[1:], "body-html", {"sheet": "正文表格 1"})
 
 
 def _rows_from_text(text: str) -> list[dict]:
@@ -144,15 +161,16 @@ def _rows_from_text(text: str) -> list[dict]:
     if header_at is None:
         raise ValueError("纯文本正文里找不到表头行")
     rows = [line.split("\t") for line in lines[header_at + 1:]]
-    return _to_records(lines[header_at].split("\t"), rows, "body-text")
+    return _to_records(lines[header_at].split("\t"), rows, "body-text", {"sheet": "正文文本"})
 
 
-def _rows_from_xlsx(data: bytes) -> list[dict]:
+def _rows_from_xlsx(data: bytes, filename: str = "") -> list[dict]:
     from .deps import require
 
     openpyxl = require("openpyxl", "reading the .xlsx attachment")
     workbook = openpyxl.load_workbook(io.BytesIO(data), read_only=True, data_only=True)
     sheet = workbook.worksheets[0]
+    sheet_name = sheet.title
     rows = [[("" if cell is None else str(cell)) for cell in row]
             for row in sheet.iter_rows(values_only=True)]
     workbook.close()
@@ -160,14 +178,15 @@ def _rows_from_xlsx(data: bytes) -> list[dict]:
         rows.pop()
     if len(rows) < 2:
         raise ValueError("附件表格为空")
-    return _to_records(rows[0], rows[1:], "attachment-xlsx")
+    return _to_records(rows[0], rows[1:], "attachment-xlsx",
+                       {"attachment": filename, "sheet": sheet_name})
 
 
 PDF_ITEM = re.compile(r"^(\d{4}) \| ([A-Z0-9-]+)\s*$")
 PDF_QTY = re.compile(r"^(\d+(?:\.\d+)?) (Each|EA|PCS|SET)\s*$")
 
 
-def _rows_from_pdf(data: bytes) -> tuple[dict, list[dict]]:
+def _rows_from_pdf(data: bytes, filename: str = "") -> tuple[dict, list[dict]]:
     """The Quote.pdf layout is a flat form: item no | part no, then description, then qty."""
     lines = extract_lines(data)
     meta = {"pdf_lines": lines}
@@ -188,11 +207,13 @@ def _rows_from_pdf(data: bytes) -> tuple[dict, list[dict]]:
     records: list[dict] = []
     current: dict | None = None
     stage = 0
-    for line in lines:
+    for number, line in enumerate(lines, start=1):
         item = PDF_ITEM.match(line)
         if item:
             current = {"询价单号": item.group(1), "Part Number": item.group(2),
-                       "_container": "attachment-pdf", "_source_row": len(records) + 2}
+                       "_container": "attachment-pdf", "_source_row": len(records) + 2,
+                       "_attachment": filename, "_sheet": "PDF 文本",
+                       "_pdf_line": number, "_raw_line": line}
             records.append(current)
             stage = 1
             continue
@@ -201,8 +222,10 @@ def _rows_from_pdf(data: bytes) -> tuple[dict, list[dict]]:
         qty = PDF_QTY.match(line)
         if qty and stage == 2:
             current["Quantity"] = qty.group(1)
-            current["Unit Of Measure"] = "EA"
+            # Keep the unit as printed (Each / PCS / SET): no silent mapping to EA.
+            current["Unit Of Measure"] = qty.group(2)
             current["_unit_raw"] = qty.group(2)
+            current["_qty_line"] = number
             current["件状条件"] = ""
             stage = 3
         elif stage == 1:
@@ -305,10 +328,10 @@ def ingest_eml(path: Path, *, evaluation_date: str | None = None) -> RFQ:
         for filename, payload in mail.attachments:
             suffix = Path(filename).suffix.lower()
             if suffix == ".xlsx":
-                rows = _rows_from_xlsx(payload)
+                rows = _rows_from_xlsx(payload, filename)
                 break
             if suffix == ".pdf":
-                meta, rows = _rows_from_pdf(payload)
+                meta, rows = _rows_from_pdf(payload, filename)
                 meta["pdf_name"] = filename
                 break
     if not rows:

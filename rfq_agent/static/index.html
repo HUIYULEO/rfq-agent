@@ -256,6 +256,17 @@
   .spin{display:inline-block;width:9px;height:9px;border:2px solid var(--line);border-top-color:var(--accent);
         border-radius:50%;animation:sp .7s linear infinite;vertical-align:0}
   @keyframes sp{to{transform:rotate(360deg)}}
+  /* inquiry analysis report */
+  .ana{display:flex;flex-direction:column;gap:9px}
+  .ana table{width:100%;border-collapse:collapse;font-size:11.5px}
+  .ana th,.ana td{border-bottom:1px solid var(--line);padding:4px 6px;text-align:left;vertical-align:top}
+  .ana th{font-size:10.5px;color:var(--faint);font-weight:600}
+  .ana .st{white-space:nowrap;font-weight:600}
+  .ana .st.pending,.ana .st.inquiry{color:var(--warn)}
+  .ana .st.priced{color:var(--ok)}
+  .ana .loc{font-family:var(--mono);font-size:10.5px;color:var(--faint)}
+  .ana .why{color:var(--muted)}
+  .ana .stamp{font-size:11px;color:var(--accent);font-weight:600}
 </style>
 </head>
 <body>
@@ -358,11 +369,12 @@ const money = (v) => (v === null || v === undefined || v === "")
   ? "—" : Number(v).toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const CONTAINER = { "body-html": "正文表格", "body-text": "正文表格", "attachment-xlsx": "Excel 附件",
                     "attachment-pdf": "PDF 附件" };
+const RULE_LABEL = { pn_match: "件号匹配", certificate: "证书/适航", uom: "计量单位", condition: "件状", quote_due: "报价截止" };
 const SOURCE = { internal: "内部库存", supplier: "供应商报价", manual: "转人工" };
 const STAGE = { received: "待处理", parsed: "已解析", priced: "待确认", draft: "已出草案" };
 
 let CASES = [], CASEKEY = null, S = null, SID = null, DATA = null, BUSY = false,
-    ACTIVE_META = null, SHOW_ALL_REVIEWS = false;
+    ACTIVE_META = null, SHOW_ALL_REVIEWS = false, SHOW_ALL_ANALYSIS = false;
 let noticeTimer = null;
 
 function notify(message, error = false) {
@@ -441,7 +453,7 @@ async function openTask(taskId) {
   try { state = await api(`/api/task?id=${encodeURIComponent(taskId)}`); }
   catch (e) { notify(`任务加载失败：${e.message}`, true); return; }
   S = state;
-  CASEKEY = null; ACTIVE_META = null; SHOW_ALL_REVIEWS = false;
+  CASEKEY = null; ACTIVE_META = null; SHOW_ALL_REVIEWS = false; SHOW_ALL_ANALYSIS = false;
   resetQuestionContext();
   setUrl(S.task_id);
   $("empty").hidden = true; $("docwrap").hidden = false;
@@ -450,7 +462,7 @@ async function openTask(taskId) {
 
 /* ---------- case view ---------- */
 async function resetDemo() {
-  CASEKEY = null; S = null; SID = null; ACTIVE_META = null; SHOW_ALL_REVIEWS = false;
+  CASEKEY = null; S = null; SID = null; ACTIVE_META = null; SHOW_ALL_REVIEWS = false; SHOW_ALL_ANALYSIS = false;
   resetQuestionContext();
   setUrl(null);
   await refresh();
@@ -460,7 +472,7 @@ async function resetDemo() {
 }
 
 async function select(key) {
-  CASEKEY = key; SID = null; S = null; SHOW_ALL_REVIEWS = false;
+  CASEKEY = key; SID = null; S = null; SHOW_ALL_REVIEWS = false; SHOW_ALL_ANALYSIS = false;
   resetQuestionContext();
   setUrl(null);
   const meta = CASES.find((c) => c.key === key);
@@ -482,7 +494,7 @@ async function start() {
   if (!CASEKEY) { notify("请先选择一个演示素材，或导入询价邮件。", true); return; }
   BUSY = true;
   resetQuestionContext();
-  SHOW_ALL_REVIEWS = false;
+  SHOW_ALL_REVIEWS = false; SHOW_ALL_ANALYSIS = false;
   $("start").disabled = true;
   $("stages").innerHTML = `<div class="muted" style="padding:8px 2px"><span class="spin"></span>
     解析邮件 · 提取行项目 · 查参考表…（停在需要你决定的地方）</div>`;
@@ -546,12 +558,15 @@ function render() {
   $("rowsbtn").textContent = `查看 ${m.lines} 行明细`;
   $("rowsbtn").onclick = () => { $("drawer").hidden = false; renderRows(s); };
   $("back").onclick = () => { $("drawer").hidden = true; };
-  $("export").hidden = !(open.length === 0 || s.artifacts.length);
-  $("export").textContent = s.artifacts.length ? "重新生成草案" : "生成报价草案";
+  const quotable = !open.length && s.evaluation_status === "complete"
+    && ["QUOTE", "PARTIAL_QUOTE"].includes(s.commercial_disposition);
+  $("export").hidden = !s.results.length;
+  $("export").textContent = quotable ? (s.artifacts.length ? "重新生成草案与分析报告" : "生成报价草案与分析报告")
+    : (s.artifacts.length ? "重新导出询价分析报告" : "导出询价分析报告");
   $("export").onclick = doExport;
   $("stepnote").textContent = open.length
     ? `停在 ${open.length} 项需要你决定的地方`
-    : s.artifacts.length ? "草案已生成，可下载" : "全部行都有依据，可以生成草案";
+    : s.artifacts.length ? "文件已生成，可下载" : quotable ? "全部行都有依据，可以生成草案" : "可导出询价分析报告";
 
   const pct = (n) => m.lines ? Math.round(n / m.lines * 100) : 0;
   const bar = (label, n) => `<div class="bar"><div class="h"><span>${label}</span>
@@ -606,6 +621,7 @@ function render() {
         <div class="h"><b>${esc(i.id)}</b><span>${esc(i.target.part_number || "整案")}</span>
           <span>${esc(i.kinds.join(" · "))}</span></div>
         <div class="q">${esc(i.question)}</div>
+        ${i.locator ? `<div class="muted" style="font-size:10.5px;font-family:var(--mono)">定位：${esc(i.locator.text)}</div>` : ""}
         <div class="opts">${i.options.map((o) =>
           `<button data-item="${esc(i.id)}" data-opt="${esc(o.id)}">${esc(o.label)}</button>`).join("")}</div>
         ${i.evidence.length ? `<details><summary>看依据（${i.evidence.length} 条）</summary><ul>${
@@ -629,11 +645,51 @@ function render() {
         <span class="dt">${esc(i.detail)}</span>
       </div>`).join("")}
     </div>` : "";
+  const a = s.analysis || { summary: {}, lines: [], open_questions: [], findings: [] };
+  const asum = a.summary || {};
+  const ORDER = { pending: 0, inquiry: 1, no_bid: 2, priced: 3 };
+  const problemLines = (a.lines || []).filter((r) => r.status !== "priced" || (r.findings || []).length)
+    .sort((x, y) => (ORDER[x.status] - ORDER[y.status]) || ((x.line_number || 0) - (y.line_number || 0)));
+  const shownLines = SHOW_ALL_ANALYSIS ? problemLines : problemLines.slice(0, 12);
+  const locText = (l) => (l && l.text) || "—";
+  const anaRows = shownLines.map((r) => `<tr>
+      <td class="num">${esc(r.line_number ?? r.line_id)}</td>
+      <td><span class="pn">${esc(r.part_number)}</span></td>
+      <td class="st ${esc(r.status)}">${esc(r.status_label)}</td>
+      <td class="why">${esc([...(r.reasons || []).map((x) => x.detail), ...(r.findings || []).map((x) => x.detail)].join("；") || "—")}</td>
+      <td>${esc(r.suggested_action)}</td>
+      <td class="loc">${esc(locText(r.locator))}</td></tr>`).join("");
+  const approved = s.approval && s.approval.approved_by;
+  const anaBody = `<div class="ana">
+      <div class="kv">
+        <div><div class="k">已报价</div><div class="v big">${esc(asum.priced ?? 0)}</div></div>
+        <div><div class="k">待确认</div><div class="v big" style="color:var(--warn)">${esc(asum.pending ?? 0)}</div></div>
+        <div><div class="k">转询价</div><div class="v big">${esc(asum.inquiry ?? 0)}</div></div>
+        <div><div class="k">不报价</div><div class="v big">${esc(asum.no_bid ?? 0)}</div></div>
+        <div><div class="k">规则需关注 / 违规</div><div class="v big">${esc(asum.findings_warn ?? 0)} / ${esc(asum.findings_fail ?? 0)}</div></div>
+      </div>
+      <div class="muted" style="font-size:11px">规则核查覆盖：${Object.entries(asum.checks || {}).map(([rule, c]) =>
+        `${esc(RULE_LABEL[rule] || rule)} 通过 ${c.pass} · 需关注 ${c.warn} · 违规 ${c.fail} · 不适用 ${c.not_applicable}`).join("；")}</div>
+      ${problemLines.length ? `<table><thead><tr><th>行</th><th>料号</th><th>状态</th><th>原因</th><th>建议动作</th><th>定位（邮件 / 附件 / 表 / 行 / 列 / 原值）</th></tr></thead>
+        <tbody>${anaRows}</tbody></table>
+        ${!SHOW_ALL_ANALYSIS && problemLines.length > shownLines.length
+          ? `<button class="btn" id="showAllAnalysis">显示其余 ${problemLines.length - shownLines.length} 行</button>` : ""}`
+        : `<div class="muted">全部行已报价，规则核查无需关注项。</div>`}
+      ${approved ? `<div class="stamp">${esc(s.approval.label)}：${esc(s.approval.approved_by)} · ${esc(s.approval.approved_at)} · ${esc(s.approval.quote_id || "")}（已写入历史报价表）</div>` : ""}
+    </div>`;
+  const s6 = stageCard(4, "询价分析报告", (asum.pending || asum.findings_fail) ? "warn" : "ok",
+    `${asum.lines ?? 0} 行 · ${problemLines.length} 行需关注`, anaBody,
+    `<span>成功和失败的单子都会生成；导出为 analysis-r${esc(s.revision)}.docx（标题「询价分析报告」）</span>`);
+
+  const canApprove = quotable && s.approval_enabled && s.status !== "active";
+  const approveBtn = canApprove ? `<button class="btn primary" id="approve">${
+    s.approval_mode === "demo" ? "演示批准并写入历史" : "批准并写入历史"}</button>` : "";
   const s5 = stageCard(3, "报价草案", arts.length ? "ok" : "wait", arts.length ? "已生成" : "未生成",
     (arts.length ? `<div class="art">${arts.map((a) =>
       `<a href="/api/download?id=${encodeURIComponent(s.task_id)}&file=${encodeURIComponent(a)}"
           target="_blank">${esc(a)}</a>`).join("")}</div>`
-      : waitBody(open.length ? "先处理完上面的待确认项，再生成草案。" : "点上方「生成报价草案」。")) + termBlock,
+      : waitBody(open.length ? "先处理完上面的待确认项，再生成草案。" : "点上方「生成报价草案」。")) + termBlock
+      + (approveBtn ? `<div style="margin-top:8px">${approveBtn}</div>` : ""),
     `<span>产物永远是待复核草案：未计税费运费，不预留库存</span>`);
 
   const traceLabel = {
@@ -656,7 +712,11 @@ function render() {
      <span>处置 <code>${esc(s.commercial_disposition || "PENDING")}</code></span>`);
   const details = `<details class="resultbox"><summary>按需查看解析与定价证据（不会一次展开全部结果）</summary>
       <div class="inside">${s1 + s2 + s3}</div></details>`;
-  $("stages").innerHTML = live + s4 + details + (open.length ? "" : s5);
+  $("stages").innerHTML = live + s4 + s6 + details + (open.length ? "" : s5);
+  const showAna = $("showAllAnalysis");
+  if (showAna) showAna.onclick = () => { SHOW_ALL_ANALYSIS = true; render(); };
+  const approve = $("approve");
+  if (approve) approve.onclick = doApprove;
   $("stages").querySelectorAll(".ask .opts button").forEach((b) => {
     b.onclick = () => resolve(b.dataset.item, b.dataset.opt);
   });
@@ -673,12 +733,22 @@ async function resolve(itemId, optionId) {
   } catch (e) { notify(e.message, true); }
 }
 
+async function doApprove() {
+  const who = (window.prompt("批准人姓名（将写入历史报价表与报价文件）") || "").trim();
+  if (!who) return;
+  try {
+    S = await api("/api/activate", { task_id: S.task_id, revision: S.revision, approved_by: who });
+    render(); refresh();
+    notify("已批准：历史报价已写入，正式文件可在当前任务下载。");
+  } catch (e) { notify(e.message, true); }
+}
+
 async function doExport() {
   $("export").disabled = true;
   try {
     const r = await api("/api/export", { task_id: S.task_id, revision: S.revision });
     S = r; render(); refresh();
-    notify("报价草案已生成，可在当前任务下载。");
+    notify("文件已生成（询价分析报告必出；可报价时另附报价草案），可在当前任务下载。");
   } catch (e) { notify(e.message, true); }
   finally { $("export").disabled = false; }
 }

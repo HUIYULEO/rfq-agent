@@ -161,12 +161,30 @@ def _remark(row: dict) -> str:
     return "；".join(bits)
 
 
+def _stamp(document, text: str) -> None:
+    """Put the approval stamp in every page header and above the body."""
+    for section in document.sections:
+        header = section.header
+        paragraph = header.paragraphs[0] if header.paragraphs else header.add_paragraph()
+        paragraph.text = (paragraph.text + "　" if paragraph.text.strip() else "") + text
+    if document.paragraphs:
+        first = document.paragraphs[0].insert_paragraph_before()
+        run = first.add_run(text)
+        run.bold = True
+
+
 def render_draft(*, template: Path, output: Path, rfq, results: list[dict], summary: dict,
-                 policy_version: str, evaluation_date: str) -> Path:
+                 policy_version: str, evaluation_date: str, approval: dict | None = None) -> Path:
+    """Draft by default; with ``approval`` the approved (or 演示批准) final version."""
     if not any(row.get("eligibility") == "priced" for row in results):
         raise ValueError("A quotation document requires at least one priced line")
     docx = require("docx", "rendering the .docx quote draft")
     document = docx.Document(str(template))
+    demo = bool(approval) and approval.get("mode") == "demo"
+    if approval:
+        label = approval.get("label") or ("演示批准" if demo else "人工批准")
+        _stamp(document, f"【{label}】" + ("演示数据与演示策略，非真实商业报价 · " if demo else "")
+               + f"批准人 {approval.get('approved_by')} · {approval.get('approved_at')} · r{approval.get('revision')}")
 
     for paragraph in document.paragraphs:
         text = paragraph.text
@@ -216,15 +234,22 @@ def render_draft(*, template: Path, output: Path, rfq, results: list[dict], summ
     _set_cell(table.rows[totals_row].cells[7], f"￥{total:,.2f} 元")
     _set_cell(table.rows[totals_row + 1].cells[1], "交期需逐行核实，详见条件摘要")
     _set_cell(table.rows[totals_row + 1].cells[6], "质保条件待企业确认")
+    if approval:
+        first = (f"1) 本报价已由 {approval.get('approved_by')} {approval.get('label') or '批准'}"
+                 + ("（演示批准：演示数据与演示策略，不构成真实商业承诺）；" if demo else "；"))
+    else:
+        first = "1) 本报价为待复核草案，须经人工确认后方可对外发送；"
     _set_cell(table.rows[totals_row + 2].cells[1],
-              "1) 本报价为待复核草案，须经人工确认后方可对外发送；"
+              first +
               "2) 税费、运费、包装费口径待企业确认；"
               "3) 库存可售与预留状态待企业确认；"
-              f"4) 演示价格基准日 {evaluation_date}，策略版本 {policy_version}；不得直接对外发送。")
+              f"4) 演示价格基准日 {evaluation_date}，策略版本 {policy_version}"
+              + ("。" if approval and not demo else "；不得直接对外发送。"))
 
     # ---- summary page ----
     document.add_paragraph().add_run().add_break(docx.enum.text.WD_BREAK.PAGE)
-    _heading(document, "报价依据与条件摘要（草案）")
+    _heading(document, "报价依据与条件摘要（" + ((approval or {}).get("label") or "草案") + "）"
+             if approval else "报价依据与条件摘要（草案）")
     note = document.add_paragraph(
         f"报价单号：{rfq.rfq_number}　客户：{rfq.customer or '（未提供）'}　"
         f"行数：{summary['lines']}（已报价 {summary['priced_lines']}，"

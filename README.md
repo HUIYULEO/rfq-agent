@@ -1,7 +1,7 @@
 # MatrixNEXT RFQ Agent
 
 输入是**素材本身**：六封官方询价邮件，正文表格或附件（xlsx / pdf）都走同一条链路。
-输出是官方模板 DOCX 草案，每个数字都带来源。61 个测试通过。
+输出是官方模板 DOCX 草案，每个数字都带来源；每单（无论能否报价）都附一份「询价分析报告」。121 个测试通过（1 个依赖 `.deps` 的用例默认跳过）。
 
 ## 跑起来
 
@@ -25,7 +25,25 @@ python -m rfq_agent.cli case --case B --autonomy auto_draft --export
 python -m unittest discover -s tests -v
 ```
 
-产物在 `runtime/<task_id>/`：`draft-r<rev>.json`（证据 + 决策日志）和 `quote-draft-r<rev>.docx`。
+产物在 `runtime/<task_id>/`：`draft-r<rev>.json`（证据 + 决策日志 + 分析结构）、
+`analysis-r<rev>.docx`（询价分析报告，每单必出，标题从不是“报价单”）、可报价时另有
+`quote-draft-r<rev>.docx`，人工批准后生成 `quote-r<rev>.docx`。
+
+**合规门**：客户的「询价产品要求」逐行进入定价——`CERT REQUIRED` 类要求只接受
+EASA Form 1 / FAA 8130-3（PMA、CoC 判 `cert_mismatch`）；库存表没有证书记录，不能自证满足；
+`SPECIAL REQUIREMENT` 内容未说明，单独出待确认项；按最低价选中 PMA 件时也要人决定。
+单位按原文比较（PDF 的 `Each/PCS/SET` 不再改写成 EA），不一致进复核、不换算；
+件号先精确匹配，再按大小写/空格/横杠归一或 MPN/手册件号匹配，非精确匹配必须人工确认。
+每条发现都带定位：邮件 → 附件 → 表/页 → 行 → 列 → 原值。
+
+**两层核查**：`evaluation.validate(rfq, results) -> list[str]` 只做契约自检（每行有结果、
+来源可追、金额 = `policy.line_amount()` 四舍五入到分）；`business_rules.check_business`
+逐行逐规则（件号匹配 / 证书 / 单位 / 件状 / 报价截止）记录 pass / warn / fail / not_applicable，
+存在 `Task.business_checks`，分析报告据此列出“核查了什么”，不只列问题。
+
+**批准入库**：`activate_quote` 只接受具名的人（拒绝 `system:*` 与自动默认答案），
+在一个 SQLite 事务里写 `quote_header/quote_line` 并渲染 `quote-r<rev>.docx`。默认策略
+仍然拒绝激活；演示时显式打开 `RFQ_DEMO_APPROVAL=1`，产物统一标注「演示批准」。
 
 ## 六个案例
 
