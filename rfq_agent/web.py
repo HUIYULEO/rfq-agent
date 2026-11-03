@@ -41,7 +41,13 @@ def _service() -> RFQService:
     global SERVICE
     if SERVICE is None:
         policy = active_policy()
-        SERVICE = RFQService(TaskStore(ROOT / "runtime"), provider=provider_for(ROOT),
+        try:
+            provider = provider_for(ROOT)
+        except (OSError, ValueError):
+            # Missing workbooks must not drop the socket (ERR_EMPTY_RESPONSE).
+            # Pricing endpoints still fail closed inside the service.
+            provider = None
+        SERVICE = RFQService(TaskStore(ROOT / "runtime"), provider=provider,
                              policy=policy, template=template_for(ROOT),
                              ledger=OperationalLedger(ROOT / "runtime" / "operations.db"))
     return SERVICE
@@ -93,44 +99,177 @@ def _preview_view(rfq) -> dict:
     }
 
 
-def _view(task: dict) -> dict:
-    """Trim the task for the browser: full candidate arrays stay server-side."""
-    results = []
-    for row in task["results"]:
+PAGE_DEFAULT = 40
+PAGE_MAX = 80
+OUTCOME_LABEL = {"grounded": "有依据", "pending": "待预审"}
+
+
+def _page_window(query: dict) -> tuple[int, int]:
+    def one(name: str, default: int) -> int:
+        raw = (query.get(name) or [str(default)])[0]
+        try:
+            return int(raw)
+        except (TypeError, ValueError):
+            return default
+
+    offset = max(0, one("offset", 0))
+    limit = one("limit", PAGE_DEFAULT)
+    if limit < 1:
+        limit = PAGE_DEFAULT
+    return offset, min(limit, PAGE_MAX)
+
+
+def _open_review_index(task: dict) -> tuple[set, bool, int, int]:
+    open_lines: set[str] = set()
+    task_open = False
+    open_count = answered = 0
+    for item in task.get("review_items") or []:
+        if item.get("status") == "open":
+            open_count += 1
+            if item.get("scope") == "task":
+                task_open = True
+            line_id = (item.get("target") or {}).get("line_id")
+            if line_id:
+                open_lines.add(line_id)
+        elif item.get("status") == "answered":
+            answered += 1
+    return open_lines, task_open, open_count, answered
+
+
+def _reason_text(row: dict) -> str:
+    bits = []
+    for item in (row.get("decision") or {}).get("review_evidence") or []:
+        if isinstance(item, dict) and item.get("detail"):
+            bits.append(str(item["detail"]))
+    return "；".join(bits)
+
+
+def _outcome(row: dict, open_lines: set, task_open: bool) -> tuple[str, str]:
+    """Step 3 is locate-only: 有依据 / 待预审 / the block reason. It does not decide."""
+    reason = _reason_text(row)
+    if row.get("line_id") in open_lines or (task_open and row.get("eligibility") != "priced"):
+        return "pending", reason
+    if row.get("eligibility") == "priced":
+        return "grounded", reason
+    return "blocked", reason or "无可用依据"
+
+
+def _inquiry_summary(task: dict) -> dict:
+    results = task.get("results") or []
+    open_lines, task_open, open_count, answered = _open_review_index(task)
+    counts = {"grounded": 0, "pending": 0, "blocked": 0}
+    for row in results:
+        kind, _reason = _outcome(row, open_lines, task_open)
+        counts[kind] += 1
+    money = summarize(results) if results else {
+        "lines": 0, "priced_lines": 0, "review_lines": 0, "internal_lines": 0,
+        "supplier_lines": 0, "priced_subtotal_cny": "0.00"}
+    return {**money, **counts, "open_reviews": open_count, "answered_reviews": answered}
+
+
+def _citation(source) -> dict:
+    from .business_rules import locate
+
+    located = locate(source, "Part Number") if source else {}
+    raw = located.get("raw_value")
+    return {
+        "email": located.get("file") or "",
+        "attachment": located.get("attachment") or "",
+        "sheet": located.get("sheet") or "",
+        "row": located.get("row"),
+        "column": located.get("column_letter") or "",
+        "column_header": located.get("column_header") or "",
+        "raw": "" if raw is None else str(raw),
+        "text": located.get("text") or "",
+    }
+
+
+def _line_page(task: dict, offset: int, limit: int) -> dict:
+    results = task.get("results") or []
+    lines_by_id = {line["line_id"]: line for line in (task.get("rfq") or {}).get("lines") or []}
+    open_lines, task_open, _open_count, _answered = _open_review_index(task)
+    rows = []
+    for row in results[offset:offset + limit]:
+        kind, reason = _outcome(row, open_lines, task_open)
         decision = row.get("decision") or {}
         basis = decision.get("basis") or {}
-        evidence = row.get("evidence") or {}
-        results.append({
+        rows.append({
             "line_number": row.get("line_number"),
-            "part_number": row["part_number"],
+            "line_id": row.get("line_id"),
+            "part_number": row.get("part_number") or "",
             "description": row.get("description") or "",
-            "quantity": row.get("priced_quantity") or row["quantity"],
-            "requested_quantity": row["quantity"],
-            "unit": row["unit"],
-            "eligibility": row["eligibility"],
+            "quantity": row.get("priced_quantity") or row.get("quantity"),
+            "unit": row.get("unit"),
+            "kind": kind,
+            "outcome": reason if kind == "blocked" else OUTCOME_LABEL[kind],
+            "reason": reason,
             "unit_price": row.get("unit_price"),
             "line_total": row.get("line_total"),
             "source": decision.get("recommended_source"),
             "condition": basis.get("condition"),
             "certificate": basis.get("certificate"),
-            "lead_time_days": basis.get("lead_time_days"),
-            "moq": basis.get("moq"),
-            "ships_from": basis.get("ships_from"),
-            "valid_until": basis.get("valid_until"),
-            "supplier_name": basis.get("supplier_name"),
-            "quantity_basis": row.get("quantity_basis"),
-            "provenance": f"{evidence.get('container', '')} · 第 {evidence.get('row', '?')} 行",
-            "reasons": [item["detail"] for item in decision.get("review_evidence", [])],
-            "warnings": decision.get("warnings", []),
+            "citation": _citation(lines_by_id.get(row.get("line_id")) or row),
         })
-    rfq = task["rfq"]
-    container = (task["results"][0].get("evidence") or {}).get("container", "") if task["results"] else ""
-    container = container or (rfq.get("lines") or [{}])[0].get("evidence", {}).get("container", "")
+    return {"total": len(results), "offset": offset, "limit": limit,
+            "summary": _inquiry_summary(task), "lines": rows}
+
+
+def _review_page(task: dict, bucket: str, offset: int, limit: int) -> dict:
+    items = task.get("review_items") or []
+    passed = bucket == "passed"
+    chosen = [item for item in items if (item.get("status") != "open") == passed]
+    return {"bucket": "passed" if passed else "open", "total": len(chosen),
+            "offset": offset, "limit": limit, "items": chosen[offset:offset + limit]}
+
+
+def _report_page(task: dict, offset: int, limit: int) -> dict:
+    data = analysis_report.page(task, offset, limit)
+    lines = []
+    for row in data["lines"]:
+        locator = row.get("locator") or {}
+        reason = "；".join(item.get("detail") for item in row.get("reasons") or []
+                           if isinstance(item, dict) and item.get("detail"))
+        lines.append({
+            "line_number": row.get("line_number"),
+            "part_number": row.get("part_number") or "",
+            "quantity": row.get("quantity"),
+            "unit": row.get("unit"),
+            "status": row.get("status"),
+            "status_label": row.get("status_label"),
+            "reason": reason or "—",
+            "suggested_action": row.get("suggested_action") or "",
+            "locator": locator.get("text") or "",
+        })
+    return {"total": data["total"], "offset": data["offset"], "limit": limit,
+            "summary": data["summary"], "lines": lines,
+            "evaluation_status": data.get("evaluation_status"),
+            "commercial_disposition": data.get("commercial_disposition"),
+            "title": data.get("title")}
+
+
+def _view(task: dict) -> dict:
+    """Desk summary only. Line grids, reviews and the report are paged separately.
+
+    Candidate arrays are not read here: callers pass ``TaskStore.get_desk``.
+    """
+    rfq = task.get("rfq") or {}
+    results = task.get("results") or []
     lines = _lines_view(rfq)
-    stage = ("draft" if task["artifacts"] else "priced" if task["results"]
-             else "parsed" if task["status"] == "analyzed" else "received")
+    inquiry = _inquiry_summary(task)
+    container = ""
+    if results:
+        container = (results[0].get("evidence") or {}).get("container") or ""
+    if not container:
+        container = ((rfq.get("lines") or [{}])[0].get("evidence") or {}).get("container", "")
+    artifacts = [Path(name).name for name in task.get("artifacts") or []]
+    stage = ("draft" if artifacts else "priced" if results
+             else "parsed" if task.get("status") == "analyzed" else "received")
     quality_findings = quality.inspect(rfq)
-    term_items = terms.check(rfq, task["results"])
+    term_items = terms.check(rfq, results)
+    quote_allowed = (inquiry["open_reviews"] == 0
+                     and task.get("evaluation_status") == "complete"
+                     and task.get("commercial_disposition") in {"QUOTE", "PARTIAL_QUOTE"})
+    policy = _service().policy
     return {
         "task_id": task["task_id"],
         "revision": task["revision"],
@@ -139,24 +278,26 @@ def _view(task: dict) -> dict:
         "commercial_disposition": task.get("commercial_disposition", "PENDING"),
         "evaluation_status": task.get("evaluation_status", "pending"),
         "evaluation_issues": task.get("evaluation_issues", []),
-        "autonomy": task["autonomy"],
-        "policy_version": task["policy_version"],
-        "data_snapshot_id": task["data_snapshot_id"],
+        "autonomy": task.get("autonomy"),
+        "policy_version": task.get("policy_version"),
+        "data_snapshot_id": task.get("data_snapshot_id"),
         "customer": rfq.get("customer", ""),
         "rfq_number": rfq.get("rfq_number", ""),
         "subject": rfq.get("subject", ""),
         "evaluation_date": rfq.get("evaluation_date", ""),
         "source_files": rfq.get("source_files", []),
         "container": container,
-        "summary": summarize(task["results"]),
+        "summary": {key: inquiry[key] for key in (
+            "lines", "priced_lines", "review_lines", "internal_lines", "supplier_lines",
+            "priced_subtotal_cny")},
+        "inquiry": inquiry,
         "stage": stage,
-        "lines": lines,
-        "results": results,
-        "review_items": task["review_items"],
-        "decision_log": task["decision_log"],
-        "interruptions": task.get("interruptions", []),
-        "agent_trace": task.get("agent_trace", []),
-        "artifacts": [Path(name).name for name in task["artifacts"]],
+        "open_reviews": inquiry["open_reviews"],
+        "answered_reviews": inquiry["answered_reviews"],
+        "dock_step": 4 if inquiry["open_reviews"] else (6 if quote_allowed else 5),
+        "quote_allowed": quote_allowed,
+        "agent_trace": (task.get("agent_trace") or [])[-30:],
+        "artifacts": artifacts,
         "fields": _field_health(lines),
         "quality": quality_findings,
         "quality_summary": quality.summary(quality_findings),
@@ -164,11 +305,16 @@ def _view(task: dict) -> dict:
         "terms": term_items,
         "terms_summary": terms.summary(term_items),
         "data": _data_trace(),
-        "analysis": analysis_report.build(task),
         "approval": task.get("approval") or {},
-        "approval_enabled": bool(_service().policy.get("commercial_approval_enabled")),
-        "approval_mode": _service().policy.get("approval_mode") or "none",
+        "approval_enabled": bool(policy.get("commercial_approval_enabled")),
+        "approval_mode": policy.get("approval_mode") or "none",
     }
+
+
+def _load_desk(task_id: str) -> dict:
+    if not task_id:
+        raise ValueError("Task not found")
+    return _service().store.get_desk(task_id)
 
 
 def _field_health(lines: list[dict]) -> dict:
@@ -196,7 +342,7 @@ def _data_trace() -> dict:
             "db": status.get("db", ""), "ingested_at": status.get("created_at", "")}
 
 
-def _reference_task_id() -> str:
+def _reference_task_id() -> str | None:
     """Return the one persisted example run; all other fixtures stay input-only."""
     for item in inbox(ROOT):
         if item["case"].key != "B" or not item.get("task_id"):
@@ -206,7 +352,10 @@ def _reference_task_id() -> str:
             return item["task_id"]
         except ValueError:
             break
-    rfq, _ = load_case(ROOT, "B")
+    try:
+        rfq, _ = load_case(ROOT, "B")
+    except (OSError, ValueError):
+        return None
     state = _service().start_task(rfq.to_dict(), autonomy="interactive")
     admit_case(ROOT, "B")
     mark_stage(ROOT, "B", "priced", state["task_id"])
@@ -222,13 +371,21 @@ class Handler(BaseHTTPRequestHandler):
     # ---------- helpers ----------
 
     def _json(self, payload, status=200):
-        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        # Compact JSON: the old pretty payload, plus candidate arrays, was large
+        # enough that a single write under the process lock stalled the browser.
+        body = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
-        self.wfile.write(body)
+        view = memoryview(body)
+        sent = 0
+        while sent < len(view):
+            written = self.wfile.write(view[sent:sent + 65536])
+            if not written:
+                break
+            sent += written
 
     def _error(self, message, status=400):
         self._json({"error": str(message)}, status)
@@ -249,6 +406,18 @@ class Handler(BaseHTTPRequestHandler):
     # ---------- routes ----------
 
     def do_GET(self):
+        try:
+            self._do_GET()
+        except (BrokenPipeError, ConnectionResetError):
+            return
+        except Exception as exc:  # a dropped socket is what the browser calls ERR_EMPTY_RESPONSE
+            self.log_error("GET failed: %s", exc)
+            try:
+                self._error(exc, 500)
+            except Exception:
+                return
+
+    def _do_GET(self):
         parsed = urlparse(self.path)
         if parsed.path in ("/", "/index.html"):
             page = (STATIC / "index.html").read_bytes()
@@ -298,21 +467,47 @@ class Handler(BaseHTTPRequestHandler):
                                 "在 rfq-agent/.env 里填 GENESIS_MODEL 和 GENESIS_ACCESS_TOKEN 后重启"})
             return
         if parsed.path == "/api/data":
-            self._json(data_status(ROOT))
+            try:
+                self._json(data_status(ROOT))
+            except (OSError, ValueError) as exc:
+                self._json({"snapshot_id": "", "price_rows": 0, "cost_rows": 0,
+                            "sources": [], "error": str(exc)})
             return
         if parsed.path == "/api/task":
             task_id = (parse_qs(parsed.query).get("id") or [""])[0]
             try:
                 with LOCK:
-                    self._json(_view(_service().get_task_result(task_id)))
+                    desk = _load_desk(task_id)
+                self._json(_view(desk))
+            except ValueError as exc:
+                self._error(exc, 404)
+            return
+        if parsed.path in ("/api/lines", "/api/reviews", "/api/report"):
+            query = parse_qs(parsed.query)
+            task_id = (query.get("id") or [""])[0]
+            offset, limit = _page_window(query)
+            try:
+                with LOCK:
+                    desk = _load_desk(task_id)
+                if parsed.path == "/api/lines":
+                    payload = _line_page(desk, offset, limit)
+                elif parsed.path == "/api/reviews":
+                    bucket = (query.get("bucket") or ["open"])[0]
+                    payload = _review_page(desk, bucket, offset, limit)
+                else:
+                    payload = _report_page(desk, offset, limit)
+                self._json(payload)
             except ValueError as exc:
                 self._error(exc, 404)
             return
         if parsed.path == "/api/analysis":
-            task_id = (parse_qs(parsed.query).get("id") or [""])[0]
+            query = parse_qs(parsed.query)
+            task_id = (query.get("id") or [""])[0]
+            offset, limit = _page_window(query)
             try:
                 with LOCK:
-                    self._json(_service().analysis(task_id))
+                    desk = _load_desk(task_id)
+                self._json(_report_page(desk, offset, limit))
             except ValueError as exc:
                 self._error(exc, 404)
             return
@@ -337,7 +532,7 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 with LOCK:
                     service = _service()
-                    task = service.get_task_result(task_id)
+                    task = service.store.get_desk(task_id)
                     current = {Path(item).name for item in task.get("artifacts", [])}
                     if name not in current:
                         self._error("artifact is stale or is not part of the current revision", 409)
@@ -362,6 +557,18 @@ class Handler(BaseHTTPRequestHandler):
         self._error("not found", 404)
 
     def do_POST(self):
+        try:
+            self._do_POST()
+        except (BrokenPipeError, ConnectionResetError):
+            return
+        except Exception as exc:
+            self.log_error("POST failed: %s", exc)
+            try:
+                self._error(exc, 500)
+            except Exception:
+                return
+
+    def _do_POST(self):
         parsed = urlparse(self.path)
         query = parse_qs(parsed.query)
 
@@ -413,8 +620,9 @@ class Handler(BaseHTTPRequestHandler):
             self._json(payload)
             return
 
-        with LOCK:
-            try:
+        status = 200
+        try:
+            with LOCK:
                 if parsed.path == "/api/upload":
                     saved = confirm_pending(ROOT, str(body.get("token") or ""))
                     uploaded = next((case for case in discover(ROOT) if case.path == saved), None)
@@ -423,41 +631,36 @@ class Handler(BaseHTTPRequestHandler):
                     admit_case(ROOT, uploaded.key)
                     case = case_by_key(ROOT, uploaded.key)
                     state = self._run(uploaded.key, "interactive")
-                    self._json({"key": case.key, "customer": case.customer,
-                                "subject": case.subject, "container": case.container,
-                                "lines": case.lines, "received": case.received,
-                                "stage": "priced", "task_id": state["task_id"],
-                                "process_status": state.get("process_status", state["status"]),
-                                "evaluation_status": state.get("evaluation_status"),
-                                "commercial_disposition": state.get("commercial_disposition"),
-                                "pending_interruptions": len([
-                                    item for item in state.get("interruptions", [])
-                                    if item.get("status") == "pending"])})
-                    return
-                if parsed.path == "/api/import":
+                    payload = {"key": case.key, "customer": case.customer,
+                               "subject": case.subject, "container": case.container,
+                               "lines": case.lines, "received": case.received,
+                               "stage": "priced", "task_id": state["task_id"],
+                               "process_status": state.get("process_status", state["status"]),
+                               "evaluation_status": state.get("evaluation_status"),
+                               "commercial_disposition": state.get("commercial_disposition"),
+                               "pending_interruptions": len([
+                                   item for item in state.get("interruptions", [])
+                                   if item.get("status") == "pending"])}
+                elif parsed.path == "/api/import":
                     case = admit_case(ROOT, body["key"])
-                    self._json({"key": case.key, "customer": case.customer,
-                                "subject": case.subject, "container": case.container,
-                                "lines": case.lines, "received": case.received,
-                                "stage": "received"})
-                    return
-                if parsed.path == "/api/run":
+                    payload = {"key": case.key, "customer": case.customer,
+                               "subject": case.subject, "container": case.container,
+                               "lines": case.lines, "received": case.received,
+                               "stage": "received"}
+                elif parsed.path == "/api/run":
                     state = self._run(body.get("case", "B"), body.get("autonomy") or "interactive")
-                    self._json(_view(state))
-                    return
-                if parsed.path == "/api/reset":
+                    payload = _view(_load_desk(state["task_id"]))
+                elif parsed.path == "/api/reset":
                     reset_inbox(ROOT)
-                    self._json({"ok": True})
-                    return
-                if parsed.path == "/api/resolve":
+                    payload = {"ok": True}
+                elif parsed.path == "/api/resolve":
                     state = _service().resolve_review(
                         body["task_id"], int(body["revision"]),
                         body["item_id"], body["option_id"])
-                    self._json(_view(state))
-                    return
-                if parsed.path == "/api/export":
+                    payload = _view(_load_desk(state["task_id"]))
+                elif parsed.path == "/api/export":
                     result = _service().export_quote_draft(body["task_id"], int(body["revision"]))
-                    payload = _view(_service().get_task_result(body["task_id"]))
+                    payload = _view(_load_desk(body["task_id"]))
                     if isinstance(result, dict) and "artifacts" in result:
                         result["artifacts"] = [Path(name).name for name in result["artifacts"]]
                     payload["export"] = result
@@ -465,23 +668,24 @@ class Handler(BaseHTTPRequestHandler):
                         if item["task_id"] == body["task_id"]:
                             mark_stage(ROOT, item["case"].key, "draft", body["task_id"])
                             break
-                    self._json(payload)
-                    return
-                if parsed.path == "/api/activate":
+                elif parsed.path == "/api/activate":
                     state = _service().activate_quote(
                         body["task_id"], int(body["revision"]), body["approved_by"])
-                    self._json(_view(state))
-                    return
-                if parsed.path == "/api/feedback":
-                    event = _service().record_feedback(
+                    payload = _view(_load_desk(state["task_id"]))
+                elif parsed.path == "/api/feedback":
+                    payload = _service().record_feedback(
                         body["task_id"], int(body["revision"]), body["actor"],
                         body.get("feedback") or {}, body.get("outcome"))
-                    self._json(event, 201)
-                    return
-            except (ValueError, KeyError) as exc:
-                self._error(exc)
-                return
-        self._error("not found", 404)
+                    status = 201
+                else:
+                    payload = None
+        except (ValueError, KeyError) as exc:
+            self._error(exc)
+            return
+        if payload is None:
+            self._error("not found", 404)
+            return
+        self._json(payload, status)
 
 
 def _warm() -> None:
