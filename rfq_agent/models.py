@@ -116,6 +116,8 @@ class Task:
     # A blocking question is an interruption of one durable run, not a new chat.
     interruptions: list[dict] = field(default_factory=list)
     agent_trace: list[dict] = field(default_factory=list)
+    # How the input was read (perception.py): blocks, confidence, refusals.
+    extraction: dict = field(default_factory=dict)
 
     def to_dict(self):
         return asdict(self)
@@ -135,6 +137,7 @@ class Task:
         payload.setdefault("evaluation_issues", [])
         payload.setdefault("business_checks", [])
         payload.setdefault("approval", {})
+        payload.setdefault("extraction", {})
         return cls(**payload)
 
     def open_reviews(self) -> list[dict]:
