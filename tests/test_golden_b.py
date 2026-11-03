@@ -146,12 +146,13 @@ class GoldenBuyerBTests(unittest.TestCase):
         service, task_id = self._service()
         state = service.build_quote_options(task_id, 1)
         preview = service.export_quote_draft(task_id, state["revision"])
-        self.assertEqual(len(preview["artifacts"]), 1)
-        self.assertTrue(preview["artifact"].endswith(".json"))
+        # Open reviews: analysis record + analysis report only, no quotation document.
+        self.assertEqual([Path(a).name for a in preview["artifacts"]],
+                         [f"draft-r{state['revision']}.json", f"analysis-r{state['revision']}.docx"])
         state = service.resolve_review(task_id, state["revision"], "RI-0016", "request_quotation")
         state = service.resolve_review(task_id, state["revision"], "RI-0019", "request_quotation")
         exported = service.export_quote_draft(task_id, state["revision"])
-        path = Path(exported["artifacts"][1])
+        path = next(Path(a) for a in exported["artifacts"] if Path(a).name.startswith("quote-draft"))
         self.assertTrue(path.exists())
         document = docx.Document(str(path))
         table = document.tables[0]

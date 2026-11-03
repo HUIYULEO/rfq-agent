@@ -47,12 +47,25 @@ def _iso(value):
     return None
 
 
+RAW_FIELDS = ("Part Number", "Quantity", "Unit Of Measure", "件状条件", "询价产品要求",
+              "询价MPN", "手册件号", "产品范围", "截止报价日期", "Description")
+
+
+def _text(value) -> str | None:
+    text = "" if value is None else str(value).strip()
+    return text or None
+
+
 def build_rfq(inquiry_rows: list[dict], *, rfq_number: str, evaluation_date: str,
               source_files: list[str], customer: str = "", subject: str = "",
               urgency: str = "NORMAL", requirements: list | None = None) -> RFQ:
+    from .compliance import required_certificates
+
     lines = []
     for number, item in enumerate(inquiry_rows, start=1):
         condition = str(item.get("件状条件") or "").strip()
+        requirement = _text(item.get("询价产品要求"))
+        columns = item.get("_columns") or {}
         lines.append(Line(
             line_id=f"L{number:03d}",
             part_number=str(item["Part Number"]).strip(),
@@ -63,6 +76,11 @@ def build_rfq(inquiry_rows: list[dict], *, rfq_number: str, evaluation_date: str
             priority=item.get("优先级"),
             due_at=_iso(item.get("截止报价日期")),
             inquiry_no=str(item.get("询价单号") or "") or None,
+            product_requirement=requirement,
+            mpn=_text(item.get("询价MPN")),
+            manual_pn=_text(item.get("手册件号")),
+            product_scope=_text(item.get("产品范围")),
+            required_certificates=required_certificates(requirement),
             evidence={
                 "file": source_files[0] if source_files else "",
                 "container": item.get("_container") or "attachment-xlsx",
@@ -70,6 +88,16 @@ def build_rfq(inquiry_rows: list[dict], *, rfq_number: str, evaluation_date: str
                 "condition_raw": condition,
                 "quantity_raw": str(item["Quantity"]),
                 **({"unit_raw": item["_unit_raw"]} if item.get("_unit_raw") else {}),
+                # Where each field physically came from, so any finding can point back
+                # to email -> attachment -> sheet/page -> row -> column -> raw value.
+                **({"attachment": item["_attachment"]} if item.get("_attachment") else {}),
+                **({"sheet": item["_sheet"]} if item.get("_sheet") else {}),
+                **({"pdf_line": item["_pdf_line"]} if item.get("_pdf_line") else {}),
+                **({"qty_line": item["_qty_line"]} if item.get("_qty_line") else {}),
+                **({"columns": {key: dict(value) for key, value in columns.items()}}
+                   if columns else {}),
+                "raw": {key: ("" if item.get(key) is None else str(item.get(key)))
+                        for key in RAW_FIELDS if key in item},
             },
         ))
     return RFQ(rfq_number=rfq_number, evaluation_date=evaluation_date, lines=lines,

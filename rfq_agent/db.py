@@ -67,6 +67,45 @@ CREATE TABLE IF NOT EXISTS meta (
     key   TEXT PRIMARY KEY,
     value TEXT NOT NULL
 );
+-- Approved quote history: written only by RFQService.activate_quote, after a named
+-- human approved the revision. Drafts and supplier inquiries never land here.
+CREATE TABLE IF NOT EXISTS quote_header (
+    quote_id         TEXT PRIMARY KEY,
+    task_id          TEXT NOT NULL,
+    revision         INTEGER NOT NULL,
+    rfq_number       TEXT NOT NULL,
+    customer         TEXT NOT NULL,
+    currency         TEXT NOT NULL,
+    disposition      TEXT NOT NULL,
+    total_lines      INTEGER NOT NULL,
+    priced_lines     INTEGER NOT NULL,
+    subtotal_cny     TEXT NOT NULL,
+    approved_by      TEXT NOT NULL,
+    approved_at      TEXT NOT NULL,
+    approval_mode    TEXT NOT NULL,
+    policy_version   TEXT NOT NULL,
+    data_snapshot_id TEXT NOT NULL,
+    document         TEXT,
+    UNIQUE (task_id, revision)
+);
+CREATE TABLE IF NOT EXISTS quote_line (
+    quote_id      TEXT NOT NULL REFERENCES quote_header(quote_id),
+    line_id       TEXT NOT NULL,
+    line_number   INTEGER,
+    part_number   TEXT NOT NULL,
+    description   TEXT NOT NULL,
+    quantity      TEXT NOT NULL,
+    unit          TEXT NOT NULL,
+    unit_price    TEXT NOT NULL,
+    line_total    TEXT NOT NULL,
+    source_type   TEXT NOT NULL,
+    source_id     TEXT NOT NULL,
+    certificate   TEXT,
+    condition     TEXT,
+    match_type    TEXT,
+    PRIMARY KEY (quote_id, line_id)
+);
+CREATE INDEX IF NOT EXISTS idx_quote_line_pn ON quote_line(part_number);
 """
 
 DATE_FIELDS = ("有效期至", "成本更新日期", "价格更新日期", "最近采购日期")
@@ -162,18 +201,34 @@ def sync(connection: sqlite3.Connection, root: Path, *, force: bool = False) -> 
             "policy_version": POLICY_VERSION}
 
 
-def rows_for(connection: sqlite3.Connection, snapshot_id: str, parts: set[str]) -> tuple[list, list]:
-    """Only the rows this RFQ can possibly use — one indexed query per table."""
-    if not parts:
+# Same normalisation as compliance.normalize_pn, expressed in SQL (case/space/hyphen).
+_NORMALIZED_PN = "REPLACE(REPLACE(UPPER(part_number), ' ', ''), '-', '')"
+
+
+def rows_for(connection: sqlite3.Connection, snapshot_id: str, parts: set[str],
+             normalized: set[str] | None = None) -> tuple[list, list]:
+    """Only the rows this RFQ can possibly use — one query per table.
+
+    ``parts`` are matched exactly (indexed); ``normalized`` keys additionally pick up
+    rows whose part number differs only in case/space/hyphen, or that carry the
+    line's MPN / manual part number. The pricing engine labels how each row matched.
+    """
+    if not parts and not normalized:
         return [], []
-    placeholders = ",".join("?" for _ in parts)
-    args = [snapshot_id, *sorted(parts)]
+    exact = sorted(parts or [])
+    keys = sorted(normalized or [])
+    clauses, args = [], [snapshot_id]
+    if exact:
+        clauses.append(f"part_number IN ({','.join('?' for _ in exact)})")
+        args += exact
+    if keys:
+        clauses.append(f"{_NORMALIZED_PN} IN ({','.join('?' for _ in keys)})")
+        args += keys
+    where = " OR ".join(clauses)
     price = [_load(row["payload"]) for row in connection.execute(
-        f"SELECT payload FROM price_row WHERE snapshot_id = ? AND part_number IN ({placeholders})"
-        " ORDER BY row_no", args)]
+        f"SELECT payload FROM price_row WHERE snapshot_id = ? AND ({where}) ORDER BY row_no", args)]
     cost = [_load(row["payload"]) for row in connection.execute(
-        f"SELECT payload FROM cost_row WHERE snapshot_id = ? AND part_number IN ({placeholders})"
-        " ORDER BY row_no", args)]
+        f"SELECT payload FROM cost_row WHERE snapshot_id = ? AND ({where}) ORDER BY row_no", args)]
     return price, cost
 
 
@@ -243,3 +298,34 @@ def clear_inbox(connection: sqlite3.Connection) -> None:
     with connection:
         connection.execute("DELETE FROM inbox")
         connection.execute("DELETE FROM meta WHERE key = 'seeded'")
+
+
+# ---------- approved quote history ----------
+
+def insert_quote(connection: sqlite3.Connection, header: dict, lines: list[dict]) -> None:
+    """Insert one approved quote. The caller owns the transaction (no commit here)."""
+    connection.execute(
+        "INSERT INTO quote_header(quote_id, task_id, revision, rfq_number, customer, currency,"
+        " disposition, total_lines, priced_lines, subtotal_cny, approved_by, approved_at,"
+        " approval_mode, policy_version, data_snapshot_id, document)"
+        " VALUES (:quote_id, :task_id, :revision, :rfq_number, :customer, :currency,"
+        " :disposition, :total_lines, :priced_lines, :subtotal_cny, :approved_by, :approved_at,"
+        " :approval_mode, :policy_version, :data_snapshot_id, :document)", header)
+    connection.executemany(
+        "INSERT INTO quote_line(quote_id, line_id, line_number, part_number, description,"
+        " quantity, unit, unit_price, line_total, source_type, source_id, certificate,"
+        " condition, match_type) VALUES (:quote_id, :line_id, :line_number, :part_number,"
+        " :description, :quantity, :unit, :unit_price, :line_total, :source_type, :source_id,"
+        " :certificate, :condition, :match_type)", lines)
+
+
+def quote_history(connection: sqlite3.Connection, part_number: str | None = None) -> list[dict]:
+    """Approved quote lines, newest first — the basis for later price comparison."""
+    sql = ("SELECT h.quote_id, h.rfq_number, h.customer, h.approved_by, h.approved_at,"
+           " h.approval_mode, l.* FROM quote_line l JOIN quote_header h USING (quote_id)")
+    args: tuple = ()
+    if part_number:
+        sql += " WHERE l.part_number = ?"
+        args = (part_number,)
+    sql += " ORDER BY h.approved_at DESC, l.line_number"
+    return [dict(row) for row in connection.execute(sql, args)]
