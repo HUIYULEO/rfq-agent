@@ -47,7 +47,7 @@ def _iso(value):
     return None
 
 
-RAW_FIELDS = ("Part Number", "Quantity", "Unit Of Measure", "件状条件", "询价产品要求",
+RAW_FIELDS = ("询价单号", "Part Number", "Quantity", "Unit Of Measure", "件状条件", "询价产品要求",
               "询价MPN", "手册件号", "产品范围", "截止报价日期", "Description")
 
 

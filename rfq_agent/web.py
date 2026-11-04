@@ -247,7 +247,13 @@ def _extraction_page(task: dict, offset: int, limit: int) -> dict:
     findings = quality.inspect(rfq)
     by_line: dict[str, list[dict]] = {}
     unlocated = []
-    counts = Counter(line.get("part_number") for line in lines)
+    part_inquiries: dict[str, set[str]] = {}
+    groups: dict[tuple[str, str], list[dict]] = {}
+    for line in lines:
+        inquiry = str(line.get("inquiry_no") or "").strip()
+        part = line.get("part_number") or ""
+        part_inquiries.setdefault(part, set()).add(inquiry)
+        groups.setdefault((inquiry, part), []).append(line)
     units = Counter(line.get("unit") for line in lines)
     common_unit = units.most_common(1)[0][0] if units else None
     evaluated = rfq.get("evaluation_date") or ""
@@ -255,9 +261,13 @@ def _extraction_page(task: dict, offset: int, limit: int) -> dict:
         ids = finding.get("lines") or []
         kind = finding.get("kind")
         if kind == "duplicate_part":
-            ids = [line["line_id"] for line in lines if counts[line.get("part_number")] > 1]
+            ids = [line["line_id"] for line in lines if len(groups[(str(line.get("inquiry_no") or "").strip(), line.get("part_number") or "")]) > 1]
+        elif kind == "repeated_part_across_inquiries":
+            ids = [line["line_id"] for line in lines if len(part_inquiries[line.get("part_number") or ""] - {""}) > 1]
         elif kind == "unit_mix":
             ids = [line["line_id"] for line in lines if line.get("unit") != common_unit]
+        elif kind == "unit_conflict":
+            ids = [line["line_id"] for line in lines if len({item.get("unit") for item in groups[(str(line.get("inquiry_no") or "").strip(), line.get("part_number") or "")]}) > 1]
         elif kind in ("missing_priority", "missing_due_at", "missing_condition"):
             field = {"missing_priority": "priority", "missing_due_at": "due_at",
                      "missing_condition": "condition_accept"}[kind]
@@ -275,14 +285,17 @@ def _extraction_page(task: dict, offset: int, limit: int) -> dict:
                 if anomalous:
                     ids.append(line["line_id"])
         if not ids:
-            unlocated.append({"title": finding["title"], "detail": finding["detail"]})
+            unlocated.append({"title": finding["title"], "detail": finding["detail"],
+                              "severity": finding["severity"]})
         for line_id in ids:
             by_line.setdefault(line_id, []).append({
-                "title": finding["title"], "detail": finding["detail"]})
+                "title": finding["title"], "detail": finding["detail"],
+                "severity": finding["severity"]})
     for issue in (task.get("extraction") or {}).get("issues") or []:
         if issue.get("kind") == "reconciled":
             continue
-        item = {"title": "模型识别疑点", "detail": str(issue.get("detail") or "")}
+        item = {"title": "模型识别疑点", "detail": str(issue.get("detail") or ""),
+                "severity": "warn"}
         index = issue.get("line")
         if isinstance(index, int) and 1 <= index <= len(lines):
             by_line.setdefault(lines[index - 1]["line_id"], []).append(item)
@@ -295,6 +308,7 @@ def _extraction_page(task: dict, offset: int, limit: int) -> dict:
             "line_id": line["line_id"],
             "line_number": int(str(line["line_id"]).lstrip("L")) if str(line["line_id"]).lstrip("L").isdigit() else None,
             "part_number": line.get("part_number") or "",
+            "inquiry_no": line.get("inquiry_no") or "",
             "description": line.get("description") or "",
             "quantity": line.get("quantity"), "unit": line.get("unit") or "",
             "condition": line.get("condition_accept") or [],

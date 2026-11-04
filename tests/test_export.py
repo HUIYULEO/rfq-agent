@@ -72,21 +72,19 @@ class DraftContentTest(unittest.TestCase):
     def test_chinese_case_carries_its_parse_warnings(self):
         text = draft_text("A", WORK)
         self.assertIn("解析质量提示", text)
-        self.assertIn("重复料号", text)
+        self.assertIn("同询价号重复料号", text)
         self.assertIn("不改变任何价格", text)
 
-    def test_case_without_terms_but_with_warnings_shows_only_the_warnings(self):
-        """No empty headings: a section only appears when it has something to say."""
+    def test_case_b_neutral_source_observations_do_not_become_quote_warnings(self):
         text = draft_text("B", WORK)
         self.assertNotIn("客户要求与响应", text)
-        self.assertIn("解析质量提示", text)
-        self.assertIn("PN-0001", text)
+        self.assertNotIn("解析质量提示", text)
 
     def test_each_heading_appears_once(self):
         """The template has no Heading 1 style; a failed lookup must not duplicate headings."""
         text = draft_text("B", WORK)
         self.assertEqual(text.count("报价依据与条件摘要（草案）"), 1)
-        self.assertEqual(text.count("解析质量提示"), 1)
+        self.assertEqual(draft_text("A", WORK).count("解析质量提示"), 1)
 
 
 if __name__ == "__main__":

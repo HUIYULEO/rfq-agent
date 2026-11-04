@@ -307,7 +307,9 @@
   .source-files{margin:14px 0;padding:11px 13px;border:1px solid var(--line);border-radius:8px;background:#fafcff}
   .source-files .h{font-weight:650;font-size:12px;margin-bottom:6px}
   .source-files a{display:inline-block;margin:3px 12px 3px 0;font-size:12px}
-  .extract-issue{color:var(--warn);font-weight:600;white-space:normal;min-width:170px;max-width:300px}
+  .extract-issue{color:var(--ink2);font-weight:600;white-space:normal;min-width:170px;max-width:300px}
+  .extract-issue .warn{color:var(--warn)}
+  .extract-issue .info{color:var(--muted)}
   .extract-issue small{display:block;font-weight:400;color:var(--muted);margin-top:2px}
   .extract-flag{background:#fffaf2}
   .raw-values{white-space:normal;min-width:250px;max-width:420px;color:var(--ink2)}
@@ -787,7 +789,7 @@ async function paintStructure(token) {
   const bar = (label, n) => `<div class="bar"><div class="h"><span>${label}</span>
       <span class="num">${n}/${m.lines}</span></div>
       <div class="t"><div class="f ${n < m.lines ? "warn" : ""}" style="width:${pct(n)}%"></div></div></div>`;
-  $("stages").innerHTML = `<p class="panel-note">${qs.warn ? `${qs.warn} 类需注意的问题` : `${m.lines} 行已结构化`}。逐行核对提取值、原始值和问题。</p>
+  $("stages").innerHTML = `<p class="panel-note">${qs.warn ? `${qs.warn} 类待核对事项` : `${m.lines} 行已结构化`}。逐行核对询价号、提取值、原始值和评审标记；未声明字段不自动补默认值。</p>
     <div class="bars">${bar("料号", f.part_number || 0)}${bar("数量", f.quantity || 0)}${bar("单位", f.unit || 0)}${bar("件状要求", f.condition || 0)}</div>
     <p class="muted">${f.with_evidence || 0}/${m.lines} 行可回溯到原始单元格${qs.info ? ` · ${qs.info} 条载体说明` : ""}</p>
     <div id="extractBody"><span class="spin"></span> 正在载入提取结果…</div>`;
@@ -799,26 +801,26 @@ async function paintStructure(token) {
   }
   if (token !== PANEL_TOKEN) return;
   const rows = page.lines || [];
-  const issueCell = (items) => items.length ? items.map((issue) => `<div>${esc(issue.title)}<small>${esc(issue.detail)}</small></div>`).join("") : "—";
+  const issueCell = (items) => items.length ? items.map((issue) => `<div class="${issue.severity === "warn" ? "warn" : "info"}">${esc(issue.title)}<small>${esc(issue.detail)}</small></div>`).join("") : "—";
   const body = rows.map((r) => {
     const raw = Object.entries(r.raw || {}).filter(([, value]) => value !== "").map(([key, value]) => `${key}: ${value}`).join(" · ");
     const location = [r.citation.email, r.citation.attachment, r.citation.sheet,
       r.citation.row != null ? `第 ${r.citation.row} 行` : ""].filter(Boolean).join(" / ");
-    return `<tr class="${r.issues.length ? "extract-flag" : ""}">
-      <td class="r num">${esc(r.line_number ?? "—")}</td><td><span class="pn">${esc(r.part_number)}</span></td>
+    return `<tr class="${r.issues.some((issue) => issue.severity === "warn") ? "extract-flag" : ""}">
+      <td class="r num">${esc(r.line_number ?? "—")}</td><td>${esc(r.inquiry_no || "—")}</td><td><span class="pn">${esc(r.part_number)}</span></td>
       <td class="wrap">${esc(r.description || "—")}</td><td class="r num">${esc(r.quantity)} ${esc(r.unit)}</td>
       <td>${esc((r.condition || []).join(" / ") || "未声明")}</td><td>${esc(r.priority || "—")}</td>
       <td>${esc(r.due_at || "—")}</td><td class="extract-issue">${issueCell(r.issues)}</td>
       <td class="raw-values">${esc(raw || "原值未保存")}</td><td class="wrap">${esc(location || "—")}</td></tr>`;
   }).join("");
-  const unlocated = (page.unlocated_issues || []).map((issue) => `<tr class="extract-flag"><td>—</td><td colspan="6">单据级 / 未定位到行</td>
+  const unlocated = (page.unlocated_issues || []).map((issue) => `<tr class="${issue.severity === "warn" ? "extract-flag" : ""}"><td>—</td><td colspan="7">单据级 / 未定位到行</td>
     <td class="extract-issue">${issueCell([issue])}</td><td colspan="2">—</td></tr>`).join("");
   const from = page.total ? page.offset + 1 : 0;
   const to = page.offset + rows.length;
   $("extractBody").innerHTML = `<div class="hscroll"><table class="grid"><thead><tr>
-    <th class="r">#</th><th>料号</th><th>描述</th><th class="r">数量 / 单位</th><th>件状</th>
-    <th>优先级</th><th>报价截止</th><th>问题</th><th>原始值</th><th>原件位置</th>
-    </tr></thead><tbody>${body || `<tr><td colspan="10">没有提取行</td></tr>`}${unlocated}</tbody></table></div>
+    <th class="r">#</th><th>询价单号</th><th>料号</th><th>描述</th><th class="r">数量 / 单位</th><th>件状</th>
+    <th>优先级</th><th>报价截止</th><th>评审标记</th><th>原始值</th><th>原件位置</th>
+    </tr></thead><tbody>${body || `<tr><td colspan="11">没有提取行</td></tr>`}${unlocated}</tbody></table></div>
     <div class="pager"><button class="btn" id="extractPrev" type="button">上一页</button>
       <span class="muted">${from}–${to} / ${page.total}</span>
       <button class="btn" id="extractNext" type="button">下一页</button></div>`;
