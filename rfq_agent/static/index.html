@@ -308,10 +308,11 @@
   .source-files .h{font-weight:650;font-size:12px;margin-bottom:6px}
   .source-files a{display:inline-block;margin:3px 12px 3px 0;font-size:12px}
   .extract-issue{color:var(--ink2);font-weight:600;white-space:normal;min-width:170px;max-width:300px}
-  .extract-issue .warn{color:var(--warn)}
+  .extract-issue .warn{display:block;padding:7px 9px;border:1px solid #f0d18c;border-radius:6px;background:#fff1c9;color:#8b4b00}
+  .extract-issue .warn+ .warn{margin-top:5px}
   .extract-issue .info{color:var(--muted)}
   .extract-issue small{display:block;font-weight:400;color:var(--muted);margin-top:2px}
-  .extract-flag{background:#fffaf2}
+  .extract-flag{background:#fff8e8}
   .raw-values{white-space:normal;min-width:250px;max-width:420px;color:var(--ink2)}
 </style>
 </head>
@@ -520,7 +521,7 @@ async function openTask(taskId, caseKey) {
   S = state;
   CASEKEY = caseKey || null;
   EXTRACT_OFFSET = 0; LINE_OFFSET = 0; REPORT_OFFSET = 0; REVIEW_TAB = "open";
-  STEP = S.dock_step || (S.open_reviews ? 4 : 5);
+  STEP = 2;
   resetQuestionContext();
   setUrl(S.task_id);
   $("empty").hidden = true; $("docwrap").hidden = false;
@@ -560,7 +561,7 @@ async function start() {
     解析邮件 · 提取行项目 · 查参考表…（停在需要你决定的地方）</div>`;
   try {
     S = await api("/api/run", { case: CASEKEY, autonomy: "interactive" });
-    STEP = S.dock_step || 4;
+    STEP = 2;
     setUrl(S.task_id);
     notify(`新任务已执行并进入收件箱；${S.open_reviews} 项待预审。`);
   } catch (e) {
@@ -809,7 +810,7 @@ async function paintStructure(token) {
     return `<tr class="${r.issues.some((issue) => issue.severity === "warn") ? "extract-flag" : ""}">
       <td class="r num">${esc(r.line_number ?? "—")}</td><td>${esc(r.inquiry_no || "—")}</td><td><span class="pn">${esc(r.part_number)}</span></td>
       <td class="wrap">${esc(r.description || "—")}</td><td class="r num">${esc(r.quantity)} ${esc(r.unit)}</td>
-      <td>${esc((r.condition || []).join(" / ") || "未声明")}</td><td>${esc(r.priority || "—")}</td>
+      <td>${esc((r.condition || []).join(" / ") || "未声明")}</td><td>${esc(r.priority || "未声明")}</td>
       <td>${esc(r.due_at || "—")}</td><td class="extract-issue">${issueCell(r.issues)}</td>
       <td class="raw-values">${esc(raw || "原值未保存")}</td><td class="wrap">${esc(location || "—")}</td></tr>`;
   }).join("");
@@ -1098,7 +1099,7 @@ async function send() {
     if (r.state) {
       const first = !S;
       S = r.state;
-      if (first) STEP = S.dock_step || STEP;
+      if (first) STEP = 2;
       render();
       refresh();
     }

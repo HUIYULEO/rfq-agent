@@ -268,9 +268,8 @@ def _extraction_page(task: dict, offset: int, limit: int) -> dict:
             ids = [line["line_id"] for line in lines if line.get("unit") != common_unit]
         elif kind == "unit_conflict":
             ids = [line["line_id"] for line in lines if len({item.get("unit") for item in groups[(str(line.get("inquiry_no") or "").strip(), line.get("part_number") or "")]}) > 1]
-        elif kind in ("missing_priority", "missing_due_at", "missing_condition"):
-            field = {"missing_priority": "priority", "missing_due_at": "due_at",
-                     "missing_condition": "condition_accept"}[kind]
+        elif kind in ("missing_due_at", "missing_condition"):
+            field = {"missing_due_at": "due_at", "missing_condition": "condition_accept"}[kind]
             ids = [line["line_id"] for line in lines if not line.get(field)]
         elif kind == "date_anomaly":
             ids = []

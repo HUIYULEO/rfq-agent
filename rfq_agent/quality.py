@@ -97,13 +97,6 @@ def inspect(rfq) -> list[dict]:
 
     # The source column is 截止报价日期 / Due Date: it is the customer's
     # response deadline, not a delivery date or a supplier lead time.
-    unspecified_priority = [line for line in lines if not line.get("priority")]
-    if unspecified_priority:
-        findings.append({
-            "kind": "missing_priority", "severity": "info", "title": "优先级未声明",
-            "detail": f"{len(unspecified_priority)}/{total} 行未填写优先级；保留空值，当前没有默认优先级规则",
-            "examples": [], "lines": _ids(unspecified_priority), "count": len(unspecified_priority),
-        })
     finding = _counter_finding("missing_due_at", "缺少报价回复截止日期", lines,
                                "due_at", "报价回复截止日期")
     if finding:

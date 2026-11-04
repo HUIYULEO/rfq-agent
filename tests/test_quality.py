@@ -49,18 +49,16 @@ class QualityTest(unittest.TestCase):
         for key in ("C", "F"):
             self.assertEqual(summary(findings(key))["warn"], 0, key)
             info = {item["kind"] for item in findings(key) if item["severity"] == "info"}
-            self.assertEqual(info, {"missing_priority", "missing_due_at", "missing_condition"})
+            self.assertEqual(info, {"missing_due_at", "missing_condition"})
 
     def test_findings_point_back_at_rows(self):
         duplicate = next(item for item in findings("A") if item["kind"] == "duplicate_part")
         self.assertTrue(duplicate["lines"])
         self.assertTrue(all(str(line).startswith("L") for line in duplicate["lines"]))
 
-    def test_partial_missing_priority_is_unstated_without_assumed_default(self):
-        missing = next(item for item in findings("A") if item["kind"] == "missing_priority")
-        self.assertEqual(missing["severity"], "info")
-        self.assertIn("34/122", missing["detail"])
-        self.assertIn("没有默认优先级规则", missing["detail"])
+    def test_unstated_priority_is_not_a_review_finding(self):
+        self.assertNotIn("missing_priority", kinds("A"))
+        self.assertNotIn("missing_priority", kinds("B"))
 
     def test_same_inquiry_and_part_with_different_units_is_a_warning(self):
         rfq = {"lines": [

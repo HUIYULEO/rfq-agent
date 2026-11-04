@@ -314,7 +314,7 @@ class DeskCopyTests(unittest.TestCase):
         self.assertEqual(page["total"], 70)
         self.assertEqual(page["lines"][0]["raw"]["Quantity"], "02")
         self.assertEqual({item["title"] for item in page["lines"][0]["issues"]},
-                         {"同询价号重复料号", "优先级未声明"})
+                         {"同询价号重复料号"})
 
     def test_page_carries_the_six_steps_and_the_confirm(self):
         html = PAGE.read_text(encoding="utf-8")
