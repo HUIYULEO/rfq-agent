@@ -315,4 +315,4 @@ class Session:
             return None
         from .web import _view  # reuse the exact JSON the browser sees
 
-        return _view(self.service.get_task_result(self.task_id))
+        return _view(self.service.store.get_desk(self.task_id))

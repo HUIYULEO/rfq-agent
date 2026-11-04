@@ -84,6 +84,8 @@
   .btn:hover{border-color:var(--accent);color:var(--accent)}
   .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
   .btn.primary:hover{background:#1a44bd;color:#fff}
+  .btn.quiet{border-color:transparent;background:transparent;color:var(--faint);font-weight:500}
+  .btn.quiet:hover{border-color:transparent;background:transparent;color:var(--ink2);text-decoration:underline}
   .btn:disabled{opacity:.45;cursor:default}
   .btn.lg{padding:8px 16px;font-size:12.5px}
 
@@ -267,6 +269,34 @@
   .ana .loc{font-family:var(--mono);font-size:10.5px;color:var(--faint)}
   .ana .why{color:var(--muted)}
   .ana .stamp{font-size:11px;color:var(--accent);font-weight:600}
+
+  .stepper{display:flex;gap:6px;overflow-x:auto;padding:12px 0 2px}
+  .stepper button.step{flex:1 0 0;min-width:76px;border:1px solid var(--line);background:#fff;
+                       border-radius:8px;padding:6px 4px 7px;color:var(--ink2);line-height:1.25}
+  .stepper button.step .ix{display:block;font-size:10px;color:var(--faint);font-variant-numeric:tabular-nums}
+  .stepper button.step .nm{display:block;font-size:13px;font-weight:650;white-space:nowrap}
+  .stepper button.step:hover{border-color:var(--accent)}
+  .stepper button.step.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .stepper button.step.on .ix{color:#dbe6ff}
+  .stepper button.step.done{background:var(--ok-soft);border-color:var(--ok-line)}
+  .stepper button.step.attn{box-shadow:inset 0 0 0 1px var(--warn-line)}
+  .hscroll{overflow:auto;margin-top:8px;max-height:calc(100vh - 300px)}
+  table.grid{width:max-content;min-width:max(100%,1200px);border-collapse:collapse;font-size:11.5px}
+  table.grid th,table.grid td{border-bottom:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top;white-space:nowrap}
+  table.grid th{font-size:10.5px;color:var(--faint);font-weight:600;position:sticky;top:0;background:#fff;z-index:1}
+  table.grid td.wrap{white-space:normal;min-width:220px;max-width:360px}
+  .out{font-weight:650}
+  .out.grounded{color:var(--ok)}
+  .out.pending{color:var(--warn)}
+  .out.blocked{color:var(--bad);font-weight:600}
+  .tabs{display:flex;gap:6px;margin-bottom:10px}
+  .tabs button{border:1px solid var(--line);background:#fff;border-radius:999px;padding:4px 10px;font-size:12px;color:var(--ink2)}
+  .tabs button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .pager{display:flex;gap:8px;align-items:center;margin-top:8px}
+  .callout{border:1px solid var(--warn-line);background:var(--warn-soft);color:var(--ink2);
+           border-radius:8px;padding:12px 14px}
+  .callout strong{color:var(--warn)}
+  .panel-note{margin:0 0 10px;color:var(--muted);font-size:12px}
 </style>
 </head>
 <body>
@@ -293,9 +323,9 @@
 
   <section class="work">
     <div class="empty" id="empty">
-      <h2>从收件箱选一个任务，或导入询价邮件</h2>
-      <div>收件箱里是已经处理过的任务，随时点回现场；<br />
-        演示素材只是输入，每次运行都会创建新任务并进入收件箱。</div>
+      <h2>从收件箱选一个任务，或从演示素材开始</h2>
+      <div>点「演示素材」会先确认：打开已有任务，或作为新任务运行。<br />
+        收件箱里是已经处理过的任务，随时点回现场。</div>
     </div>
 
     <div id="docwrap" hidden>
@@ -307,32 +337,14 @@
           </div>
           <div class="right"><span class="pill" id="status">—</span></div>
         </div>
+        <nav class="stepper" id="stepper" aria-label="报价步骤"></nav>
         <div class="doc-actions">
-          <button class="btn primary" id="start">开始处理</button>
-          <button class="btn" id="export" hidden>生成报价草案</button>
-          <button class="btn" id="rowsbtn" hidden>查看明细</button>
+          <button class="btn primary" id="primary" type="button">运行新任务</button>
+          <button class="btn quiet" id="rerun" type="button" hidden>再次运行</button>
           <span class="note" id="stepnote"></span>
         </div>
       </div>
       <div class="stages" id="stages"></div>
-    </div>
-
-    <div class="drawer" id="drawer" hidden>
-      <div class="drawer-head">
-        <button class="btn" id="back">← 返回</button>
-        <h2 id="drawertitle">行项目明细</h2>
-        <div class="spacer"></div>
-        <span class="muted" id="drawerhint"></span>
-      </div>
-      <div class="tablewrap">
-        <table>
-          <thead><tr>
-            <th class="r">#</th><th>料号</th><th>描述</th><th class="r">数量</th><th class="r">单价</th>
-            <th class="r">金额</th><th>来源</th><th>依据 / 未报价原因</th><th>来源位置</th>
-          </tr></thead>
-          <tbody id="rows"></tbody>
-        </table>
-      </div>
     </div>
   </section>
 
@@ -344,6 +356,13 @@
     </div>
   </div>
   <div class="dragveil" id="dragveil" hidden><div>松开以导入询价邮件（.eml，可多个）</div></div>
+  <div class="veil" id="choose" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-label="演示素材">
+      <div class="modal-head"><h2 id="chooseTitle">演示素材</h2></div>
+      <div class="modal-body" id="chooseBody"></div>
+      <div class="modal-foot" id="chooseFoot"></div>
+    </div>
+  </div>
 
   <button class="ask-launch" id="askOpen" type="button" aria-controls="askPanel"
           aria-expanded="false">提问 / 调用助手</button>
@@ -373,9 +392,11 @@ const RULE_LABEL = { pn_match: "件号匹配", certificate: "证书/适航", uom
 const SOURCE = { internal: "内部库存", supplier: "供应商报价", manual: "转人工" };
 const STAGE = { received: "待处理", parsed: "已解析", priced: "待确认", draft: "已出草案" };
 
-let CASES = [], CASEKEY = null, S = null, SID = null, DATA = null, BUSY = false,
-    ACTIVE_META = null, SHOW_ALL_REVIEWS = false, SHOW_ALL_ANALYSIS = false;
+let TASKS = [], CASES = [], CASEKEY = null, S = null, SID = null, DATA = null, BUSY = false;
+let STEP = 1, LINE_OFFSET = 0, REPORT_OFFSET = 0, REVIEW_TAB = "open", PANEL_TOKEN = 0;
 let noticeTimer = null;
+const PAGE = 40;
+const STEPS = ["输入采集", "结构提取", "询价分析", "人工预审", "分析报告", "报价草案"];
 
 function notify(message, error = false) {
   const notice = $("notice");
@@ -410,14 +431,20 @@ async function api(path, body) {
   };
   const res = await fetch(path, opt);
   const text = await res.text();
-  let data; try { data = JSON.parse(text); } catch { data = { error: text }; }
+  let data; try { data = text ? JSON.parse(text) : {}; } catch { data = { error: text || `HTTP ${res.status}` }; }
   if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
   return data;
+}
+
+function existingTaskId(meta) {
+  const inbox = TASKS.find((t) => t.key === meta.key && t.task_id);
+  return (inbox && inbox.task_id) || meta.task_id || "";
 }
 
 /* ---------- lists: inbox (real tasks) + demo fixtures ---------- */
 async function refresh() {
   const [tasks, fixtures] = await Promise.all([api("/api/cases"), api("/api/fixtures")]);
+  TASKS = tasks;
   CASES = fixtures;
   $("count").textContent = tasks.length;
   $("poolcount").textContent = fixtures.length;
@@ -425,7 +452,7 @@ async function refresh() {
   $("tasks").innerHTML = tasks.length ? tasks.map((t) => {
     const cls = t.stage === "draft" ? "ok" : t.stage === "priced" ? "warn" : "new";
     return `<li class="item${S && t.task_id === S.task_id ? " on" : ""}${t.task_id ? "" : " off"}"
-      data-task="${esc(t.task_id || "")}">
+      data-task="${esc(t.task_id || "")}" data-key="${esc(t.key || "")}">
       <div class="r1"><span class="who">${esc(t.customer || t.key)}</span><span class="cnt">${t.lines} 行</span></div>
       <div class="sub">${esc(t.subject || t.file)}</div>
       <div class="meta"><span class="tag">${esc(CONTAINER[t.container] || t.container)}</span>
@@ -433,36 +460,61 @@ async function refresh() {
     </li>`;
   }).join("") : `<li class="pool-item"><div class="who muted">收件箱为空：运行下方素材，或导入询价邮件</div></li>`;
   $("tasks").querySelectorAll("li.item[data-task]").forEach((li) => {
-    if (li.dataset.task) li.onclick = () => openTask(li.dataset.task);
+    if (li.dataset.task) li.onclick = () => openTask(li.dataset.task, li.dataset.key);
   });
 
   $("list").innerHTML = CASES.map((c) => {
+    const hasTask = !!existingTaskId(c);
     return `<li class="item${c.key === CASEKEY ? " on" : ""}" data-key="${esc(c.key)}">
       <div class="r1"><span class="who">用例 ${esc(c.key)} · ${esc(c.customer)}</span><span class="cnt">${c.lines} 行</span></div>
       <div class="sub">${esc(c.subject || c.file)}</div>
       <div class="meta"><span class="tag">${esc(CONTAINER[c.container] || c.container)}</span>
-        <span class="tag ${c.reference ? "ok" : ""}">${c.reference ? "已执行参考案例" : "仅输入 · 每次新运行"}</span></div>
+        <span class="tag ${hasTask ? "ok" : ""}">${hasTask ? "有已有任务" : "尚未运行"}</span></div>
     </li>`;
   }).join("");
-  $("list").querySelectorAll("li.item").forEach((li) => { li.onclick = () => select(li.dataset.key); });
+  $("list").querySelectorAll("li.item").forEach((li) => { li.onclick = () => askMaterial(li.dataset.key); });
+}
+
+function closeChoose() { $("choose").hidden = true; }
+
+function askMaterial(key) {
+  if (!$("veil").hidden) return;
+  const meta = CASES.find((c) => c.key === key);
+  if (!meta) return;
+  const existing = existingTaskId(meta);
+  $("chooseTitle").textContent = `演示素材 · 用例 ${meta.key}`;
+  $("chooseBody").innerHTML = existing
+    ? `<p>这封素材已经有任务。请先选择：<b>打开已有任务</b>会回到上次的现场；<b>作为新任务运行</b>会新建一条并进入收件箱，不覆盖旧任务。</p>`
+    : `<p>这封素材还没有任务。<b>作为新任务运行</b>会解析、定价，并停在需要人工决定的地方。不会读取其他案例以前的结果。</p>`;
+  const openBtn = existing
+    ? `<button class="btn" id="chooseOpen" type="button">打开已有任务</button>` : "";
+  $("chooseFoot").innerHTML = `<button class="btn l" id="chooseCancel" type="button">取消</button>
+    ${openBtn}<button class="btn primary" id="chooseRun" type="button">作为新任务运行</button>`;
+  $("choose").hidden = false;
+  $("chooseCancel").onclick = closeChoose;
+  if (existing) $("chooseOpen").onclick = () => { closeChoose(); openTask(existing, key); };
+  $("chooseRun").onclick = () => { closeChoose(); CASEKEY = key; start(); };
 }
 
 /* ---------- open a task that already exists (inbox / deep link) ---------- */
-async function openTask(taskId) {
+async function openTask(taskId, caseKey) {
   let state;
   try { state = await api(`/api/task?id=${encodeURIComponent(taskId)}`); }
   catch (e) { notify(`任务加载失败：${e.message}`, true); return; }
   S = state;
-  CASEKEY = null; ACTIVE_META = null; SHOW_ALL_REVIEWS = false; SHOW_ALL_ANALYSIS = false;
+  CASEKEY = caseKey || null;
+  LINE_OFFSET = 0; REPORT_OFFSET = 0; REVIEW_TAB = "open";
+  STEP = S.dock_step || (S.open_reviews ? 4 : 5);
   resetQuestionContext();
   setUrl(S.task_id);
   $("empty").hidden = true; $("docwrap").hidden = false;
-  render(); refresh();
+  render();
+  refresh();
 }
 
-/* ---------- case view ---------- */
 async function resetDemo() {
-  CASEKEY = null; S = null; SID = null; ACTIVE_META = null; SHOW_ALL_REVIEWS = false; SHOW_ALL_ANALYSIS = false;
+  CASEKEY = null; S = null; SID = null; STEP = 1;
+  LINE_OFFSET = 0; REPORT_OFFSET = 0; REVIEW_TAB = "open";
   resetQuestionContext();
   setUrl(null);
   await refresh();
@@ -471,227 +523,197 @@ async function resetDemo() {
   notify("当前查看已清空；任务记录仍保存在收件箱。");
 }
 
-async function select(key) {
-  CASEKEY = key; SID = null; S = null; SHOW_ALL_REVIEWS = false; SHOW_ALL_ANALYSIS = false;
-  resetQuestionContext();
-  setUrl(null);
-  const meta = CASES.find((c) => c.key === key);
-  ACTIVE_META = meta || null;
-  $("empty").hidden = true; $("docwrap").hidden = false;
-  $("cust").textContent = meta ? meta.customer : key;
-  $("subline").textContent = meta ? [CONTAINER[meta.container] || meta.container, `${meta.lines} 行`].join(" · ") : "";
-  $("status").className = "pill"; $("status").textContent = "待处理";
-  if (meta && meta.reference && meta.task_id) {
-    try { S = await api(`/api/task?id=${encodeURIComponent(meta.task_id)}`); setUrl(S.task_id); }
-    catch (e) { notify(`参考案例加载失败：${e.message}`, true); }
-  }
-  render();
-  refresh();
-}
-
 async function start() {
   if (BUSY) return;
   if (!CASEKEY) { notify("请先选择一个演示素材，或导入询价邮件。", true); return; }
   BUSY = true;
   resetQuestionContext();
-  SHOW_ALL_REVIEWS = false; SHOW_ALL_ANALYSIS = false;
-  $("start").disabled = true;
+  LINE_OFFSET = 0; REPORT_OFFSET = 0; REVIEW_TAB = "open";
+  $("empty").hidden = true; $("docwrap").hidden = false;
+  const meta = CASES.find((c) => c.key === CASEKEY);
+  if (!S) {
+    $("cust").textContent = meta ? meta.customer : CASEKEY;
+    $("subline").textContent = meta ? [CONTAINER[meta.container] || meta.container, `${meta.lines} 行`].join(" · ") : "";
+    $("status").className = "pill"; $("status").textContent = "处理中";
+  }
+  STEP = 1;
+  paintChrome();
+  $("primary").disabled = true;
+  $("rerun").disabled = true;
   $("stages").innerHTML = `<div class="muted" style="padding:8px 2px"><span class="spin"></span>
     解析邮件 · 提取行项目 · 查参考表…（停在需要你决定的地方）</div>`;
   try {
     S = await api("/api/run", { case: CASEKEY, autonomy: "interactive" });
+    STEP = S.dock_step || 4;
     setUrl(S.task_id);
-    notify(`新任务已执行并进入收件箱；${S.review_items.filter((i) => i.status === "open").length} 项待确认。`);
+    notify(`新任务已执行并进入收件箱；${S.open_reviews} 项待预审。`);
   } catch (e) {
-    $("stages").innerHTML = `<div class="muted" style="color:var(--bad)">${esc(e.message)}</div>`;
     notify(e.message, true);
+    if (!S) {
+      $("stages").innerHTML = `<div class="muted" style="color:var(--bad)">${esc(e.message)}</div>`;
+      BUSY = false;
+      paintChrome();
+      refresh();
+      return;
+    }
   } finally {
-    BUSY = false; $("start").disabled = false;
-    render(); refresh();
+    BUSY = false;
+  }
+  render();
+  refresh();
+}
+
+function go(step) { STEP = step; render(); }
+
+function rememberCase() {
+  if (S && !CASEKEY) {
+    const hit = TASKS.find((t) => t.task_id === S.task_id) || CASES.find((c) => c.task_id === S.task_id);
+    if (hit) CASEKEY = hit.key;
   }
 }
 
-/* ---------- render ---------- */
-function stageCard(n, title, state, chip, body, foot) {
-  const cls = state === "ok" ? "ok" : state === "warn" ? "warn" : "wait";
-  return `<section class="stage ${cls}"><div class="no">${n}</div><div class="card">
-    <header><h2>${title}</h2>${chip ? `<span class="tag ${cls === "wait" ? "" : cls}">${chip}</span>` : ""}</header>
-    <div class="body">${body}</div>${foot ? `<div class="foot">${foot}</div>` : ""}
-  </div></section>`;
+function showPrimary(label, action) {
+  const btn = $("primary");
+  btn.hidden = false;
+  btn.disabled = BUSY;
+  btn.className = "btn primary";
+  btn.textContent = label;
+  btn.onclick = action;
 }
-const waitBody = (text) => `<div class="muted">${text}</div>`;
 
-function render() {
-  const meta = CASES.find((c) => c.key === CASEKEY);
+function paintChrome() {
+  rememberCase();
+  const rerun = $("rerun");
+  rerun.hidden = !(CASEKEY && S);
+  rerun.disabled = BUSY;
+  rerun.className = "btn quiet";
+  rerun.textContent = "再次运行";
+  rerun.title = "创建新任务，不覆盖当前任务";
+  rerun.onclick = start;
+
+  const buttons = STEPS.map((name, index) => {
+    const n = index + 1;
+    const on = n === STEP;
+    let done = false;
+    if (S) {
+      if (n <= 3 || n === 5) done = true;
+      if (n === 4 && !S.open_reviews) done = true;
+      if (n === 6 && (S.artifacts || []).some((file) => file.startsWith("quote"))) done = true;
+    }
+    const attn = !!(S && S.open_reviews && n === 6 && !on);
+    const cls = `step${on ? " on" : ""}${done && !on ? " done" : ""}${attn ? " attn" : ""}`;
+    return `<button type="button" class="${cls}" data-step="${n}" aria-current="${on ? "step" : "false"}">
+      <span class="ix">${n}</span><span class="nm">${name}</span></button>`;
+  }).join("");
+  $("stepper").innerHTML = buttons;
+  $("stepper").querySelectorAll("button[data-step]").forEach((b) => {
+    b.onclick = () => go(Number(b.dataset.step));
+  });
+
   if (!S) {
-    $("start").hidden = false; $("export").hidden = true; $("rowsbtn").hidden = true;
-    $("stepnote").textContent = "";
-    $("status").className = "pill"; $("status").textContent = "待处理";
-    $("stages").innerHTML = `<div class="gate">
-      <h2>测试输入尚未运行</h2>
-      <p>点「运行新任务」会创建全新的 task；不会读取这个案例以前的结果。系统自动执行到
-         HIL 门禁后停止，历史只进入后端审计账本。</p>
-      <div class="pipeline"><span>解析</span><span>标准化</span><span>异常识别</span>
-        <span>匹配价格</span><span>硬约束过滤</span><span class="stop">停在待确认</span></div>
-      <button class="btn primary lg" id="gateStart">运行新任务</button>
-    </div>`;
-    $("gateStart").onclick = start;
+    showPrimary("运行新任务", start);
+    $("stepnote").textContent = CASEKEY ? "确认后才会创建新任务" : "";
+    $("status").className = "pill";
+    if (!$("status").textContent || $("status").textContent === "—") $("status").textContent = "待处理";
     return;
   }
-  const s = S, m = s.summary, f = s.fields, d = s.data || {};
-  const open = s.review_items.filter((i) => i.status === "open");
-  const visibleOpen = SHOW_ALL_REVIEWS ? open : open.slice(0, 3);
-  const answered = s.review_items.filter((i) => i.status !== "open");
+  const open = S.open_reviews || 0;
+  const quotable = !!S.quote_allowed;
+  const canApprove = quotable && S.approval_enabled && S.status !== "active";
+  const hasQuote = (S.artifacts || []).some((file) => file.startsWith("quote"));
+  $("cust").textContent = S.customer || "—";
+  $("subline").textContent = [S.rfq_number, CONTAINER[S.container] || S.container,
+    `${(S.summary && S.summary.lines) || 0} 行`, S.evaluation_date ? `评估日 ${S.evaluation_date}` : "",
+    (S.source_files || []).join("、")].filter(Boolean).join(" · ");
+  $("status").className = "pill " + (S.status || "");
+  $("status").textContent = S.status === "awaiting_review" ? `待确认 ${open}`
+    : S.status === "exported" ? "已导出" : S.status === "draft_ready" ? "草案就绪"
+    : S.status === "active" ? "已批准" : (S.status || "—");
+  $("policyline").textContent = `策略 ${S.policy_version || "—"}`;
+  if (DATA && DATA.snapshot_id) {
+    $("dataline").innerHTML = `数据 <b>${esc(DATA.snapshot_id)}</b> · ${(DATA.price_rows || 0) + (DATA.cost_rows || 0)} 行`;
+  }
 
-  $("cust").textContent = s.customer;
-  $("subline").textContent = [s.rfq_number, CONTAINER[s.container] || s.container, `${m.lines} 行`,
-    `评估日 ${s.evaluation_date}`, s.source_files.join("、")].filter(Boolean).join(" · ");
-  $("status").className = "pill " + s.status;
-  $("status").textContent = s.status === "awaiting_review" ? `待确认 ${open.length}`
-    : s.status === "exported" ? "已导出" : s.status === "draft_ready" ? "草案就绪" : s.status;
-  $("policyline").textContent = `策略 ${s.policy_version}`;
-  if (DATA) $("dataline").innerHTML = `数据 <b>${esc(DATA.snapshot_id)}</b> · ${DATA.price_rows + DATA.cost_rows} 行`;
+  if (STEP === 1) {
+    $("primary").hidden = true;
+    $("stepnote").textContent = CASEKEY ? "需要重跑时用「再次运行」，会新建任务" : "输入已采集";
+  } else if (STEP === 2) {
+    showPrimary("查看询价分析", () => go(3));
+    $("stepnote").textContent = "结构已提取，价格决定不在这一步";
+  } else if (STEP === 3) {
+    showPrimary(open ? "进入人工预审" : "查看分析报告", () => go(open ? 4 : 5));
+    $("stepnote").textContent = "只读定位，不在这一步做决定";
+  } else if (STEP === 4) {
+    if (open) {
+      $("primary").hidden = true;
+      $("stepnote").textContent = `停在 ${open} 项需要你决定的地方`;
+    } else {
+      showPrimary("查看分析报告", () => go(5));
+      $("stepnote").textContent = "待预审项已清空";
+    }
+  } else if (STEP === 5) {
+    const again = (S.artifacts || []).some((file) => file.startsWith("analysis"));
+    showPrimary(again ? "重新导出分析报告" : "导出分析报告", doExport);
+    $("stepnote").textContent = "成功或失败都会生成询价分析报告";
+  } else if (open) {
+    showPrimary("去完成人工预审", () => go(4));
+    $("stepnote").textContent = "报价草案可查看；生成前要先完成人工预审";
+  } else if (canApprove && hasQuote) {
+    showPrimary(S.approval_mode === "demo" ? "演示批准并写入历史" : "批准并写入历史", doApprove);
+    $("stepnote").textContent = "批准后才写入历史报价表";
+  } else if (quotable) {
+    showPrimary(hasQuote ? "重新生成报价草案" : "生成报价草案", doExport);
+    $("stepnote").textContent = hasQuote ? "文件已生成，可在本页下载" : "可以生成报价草案";
+  } else {
+    showPrimary("查看分析报告", () => go(5));
+    $("stepnote").textContent = "当前处置不生成报价单";
+  }
+}
 
-  $("start").hidden = !CASEKEY;
-  $("start").textContent = "再次运行（新任务）";
-  $("rowsbtn").hidden = false;
-  $("rowsbtn").textContent = `查看 ${m.lines} 行明细`;
-  $("rowsbtn").onclick = () => { $("drawer").hidden = false; renderRows(s); };
-  $("back").onclick = () => { $("drawer").hidden = true; };
-  const quotable = !open.length && s.evaluation_status === "complete"
-    && ["QUOTE", "PARTIAL_QUOTE"].includes(s.commercial_disposition);
-  $("export").hidden = !s.results.length;
-  $("export").textContent = quotable ? (s.artifacts.length ? "重新生成草案与分析报告" : "生成报价草案与分析报告")
-    : (s.artifacts.length ? "重新导出询价分析报告" : "导出询价分析报告");
-  $("export").onclick = doExport;
-  $("stepnote").textContent = open.length
-    ? `停在 ${open.length} 项需要你决定的地方`
-    : s.artifacts.length ? "文件已生成，可下载" : quotable ? "全部行都有依据，可以生成草案" : "可导出询价分析报告";
+function render() {
+  paintChrome();
+  const token = ++PANEL_TOKEN;
+  paintPanel(token);
+}
 
-  const pct = (n) => m.lines ? Math.round(n / m.lines * 100) : 0;
-  const bar = (label, n) => `<div class="bar"><div class="h"><span>${label}</span>
-      <span class="num">${n}/${m.lines}</span></div>
-      <div class="t"><div class="f ${n < m.lines ? "warn" : ""}" style="width:${pct(n)}%"></div></div></div>`;
+function fileLinks(files) {
+  if (!files.length) return `<div class="muted">导出后，下载链接会出现在这里。</div>`;
+  return `<div class="art">${files.map((name) =>
+    `<a href="/api/download?id=${encodeURIComponent(S.task_id)}&file=${encodeURIComponent(name)}" target="_blank">${esc(name)}</a>`
+  ).join("")}</div>`;
+}
 
-  const reqs = s.requirements || [];
-  const reqBlock = reqs.length ? `<div class="reqs">
-      <div class="h">客户随附要求（${reqs.length} 条，原文照录）</div>
-      <ol>${reqs.map((r) => `<li>${esc(r.text)}<em>${esc(r.source)}</em></li>`).join("")}</ol>
-    </div>` : "";
-  const s1 = stageCard("A", "输入与要求", "ok", CONTAINER[s.container] || s.container, `<div class="kv">
-      <div><div class="k">客户</div><div class="v">${esc(s.customer)}</div></div>
-      <div><div class="k">询价号</div><div class="v mono">${esc(s.rfq_number)}</div></div>
-      <div><div class="k">主题</div><div class="v" title="${esc(s.subject)}">${esc(s.subject)}</div></div>
-      <div><div class="k">行数</div><div class="v">${m.lines}</div></div></div>${reqBlock}`,
-    `来源 <code>${esc(s.source_files.join("、"))}</code>`);
+function analysisFiles() {
+  return (S.artifacts || []).filter((name) => name.startsWith("analysis") || name.startsWith("draft-"));
+}
 
-  const qs = s.quality_summary || { warn: 0, info: 0 };
-  const findings = (s.quality || []).map((item) => `<div class="finding ${item.severity}">
-      <span class="dot2"></span><span class="t">${esc(item.title)}</span>
-      <span class="d">${esc(item.detail)}</span>
-      ${item.examples && item.examples.length ? `<span class="ex">${esc(item.examples.join(" · "))}</span>` : ""}
-    </div>`).join("");
-  const s2 = stageCard("B", "结构化解析", qs.warn ? "warn" : "ok",
-    qs.warn ? `${qs.warn} 处需注意` : `${m.lines} 行`,
-    `<div class="bars">
-      ${bar("料号", f.part_number)}${bar("数量", f.quantity)}${bar("单位", f.unit)}${bar("件状要求", f.condition)}
-    </div>${findings ? `<div class="findings">${findings}</div>` : ""}`,
-    `${f.with_evidence}/${m.lines} 行可回溯到原始单元格 · 表格已归一为统一列名` +
-    (qs.info ? ` · ${qs.info} 条载体说明` : ""));
+function draftFiles() {
+  return (S.artifacts || []).filter((name) => /^(analysis|draft|quote-draft|quote)-/.test(name));
+}
 
-  const s3 = stageCard("C", "定价结果", m.review_lines ? "warn" : "ok", `${m.priced_lines}/${m.lines} 有依据`,
-    `<div class="kv">
-      <div><div class="k">内部库存</div><div class="v big">${m.internal_lines}</div></div>
-      <div><div class="k">供应商报价</div><div class="v big">${m.supplier_lines}</div></div>
-      <div><div class="k">转人工</div><div class="v big" style="color:var(--warn)">${m.review_lines}</div></div>
-      <div><div class="k">已报价小计</div><div class="v big">${
-        m.priced_lines ? "¥" + money(m.priced_subtotal_cny) : "—"}</div></div>
-    </div>`,
-    `<span>价格资源表 <code>${esc(d.price_rows ?? "—")}</code> 行 · 命中 <code>${esc(d.hit_price ?? "—")}</code></span>
-     <span>内部成本表 <code>${esc(d.cost_rows ?? "—")}</code> 行 · 命中 <code>${esc(d.hit_cost ?? "—")}</code></span>
-     <span>快照 <code>${esc(d.snapshot_id || "—")}</code></span>`);
-
-  const settledText = s.commercial_disposition === "QUOTE" ? "全部行已有可用依据，可以进入草案阶段。"
-    : s.commercial_disposition === "PARTIAL_QUOTE" ? "已形成部分报价；未报价行保留人工处置记录。"
-    : s.commercial_disposition === "SUPPLIER_INQUIRY" ? "当前结论是转供应商询价，不会生成正式报价。"
-    : s.commercial_disposition === "NO_BID" ? "当前结论是不报价。" : "本轮自动执行已结束。";
-  const s4 = stageCard(2, open.length ? "当前门禁：需要人工决定" : "自动执行完成", open.length ? "warn" : "ok",
-    open.length ? `${open.length} 项` : "无阻塞",
-    open.length ? `<div class="asks">${visibleOpen.map((i) => `<div class="ask">
-        <div class="h"><b>${esc(i.id)}</b><span>${esc(i.target.part_number || "整案")}</span>
-          <span>${esc(i.kinds.join(" · "))}</span></div>
-        <div class="q">${esc(i.question)}</div>
-        ${i.locator ? `<div class="muted" style="font-size:10.5px;font-family:var(--mono)">定位：${esc(i.locator.text)}</div>` : ""}
-        <div class="opts">${i.options.map((o) =>
-          `<button data-item="${esc(i.id)}" data-opt="${esc(o.id)}">${esc(o.label)}</button>`).join("")}</div>
-        ${i.evidence.length ? `<details><summary>看依据（${i.evidence.length} 条）</summary><ul>${
-          i.evidence.map((e) => `<li><code>${esc(e.rule)}</code> ${esc(e.detail)}</li>`).join("")}</ul></details>` : ""}
-      </div>`).join("")}${!SHOW_ALL_REVIEWS && open.length > visibleOpen.length
-        ? `<button class="btn" id="showAllReviews">显示其余 ${open.length - visibleOpen.length} 项待办</button>` : ""}</div>`
-      : `<div class="muted">${esc(settledText)}</div>`,
-    answered.length ? answered.map((i) => `<span>${esc(i.id)} → ${esc(i.answer)}</span>`).join("") : "");
-
-  const arts = s.artifacts || [];
-  const termItems = s.terms || [];
-  const ts = s.terms_summary || { total: 0, met: 0, todo: 0, manual: 0, na: 0 };
-  const termIcon = { met: "✓", todo: "!", manual: "?", na: "–" };
-  const termBlock = termItems.length ? `<div class="terms">
-      <div class="h">客户要求核对 <span>${ts.met}/${ts.total} 已满足${
-        ts.todo ? ` · ${ts.todo} 项待补齐` : ""}${ts.manual ? ` · ${ts.manual} 项需人工确认` : ""}</span></div>
-      ${termItems.map((i) => `<div class="term ${i.status}">
-        <span class="ic">${termIcon[i.status] || "·"}</span>
-        <span class="tx">${esc(i.text)}<em>${esc(i.source)}</em></span>
-        <span class="lb">${esc(i.label)}</span>
-        <span class="dt">${esc(i.detail)}</span>
-      </div>`).join("")}
-    </div>` : "";
-  const a = s.analysis || { summary: {}, lines: [], open_questions: [], findings: [] };
-  const asum = a.summary || {};
-  const ORDER = { pending: 0, inquiry: 1, no_bid: 2, priced: 3 };
-  const problemLines = (a.lines || []).filter((r) => r.status !== "priced" || (r.findings || []).length)
-    .sort((x, y) => (ORDER[x.status] - ORDER[y.status]) || ((x.line_number || 0) - (y.line_number || 0)));
-  const shownLines = SHOW_ALL_ANALYSIS ? problemLines : problemLines.slice(0, 12);
-  const locText = (l) => (l && l.text) || "—";
-  const anaRows = shownLines.map((r) => `<tr>
-      <td class="num">${esc(r.line_number ?? r.line_id)}</td>
-      <td><span class="pn">${esc(r.part_number)}</span></td>
-      <td class="st ${esc(r.status)}">${esc(r.status_label)}</td>
-      <td class="why">${esc([...(r.reasons || []).map((x) => x.detail), ...(r.findings || []).map((x) => x.detail)].join("；") || "—")}</td>
-      <td>${esc(r.suggested_action)}</td>
-      <td class="loc">${esc(locText(r.locator))}</td></tr>`).join("");
-  const approved = s.approval && s.approval.approved_by;
-  const anaBody = `<div class="ana">
-      <div class="kv">
-        <div><div class="k">已报价</div><div class="v big">${esc(asum.priced ?? 0)}</div></div>
-        <div><div class="k">待确认</div><div class="v big" style="color:var(--warn)">${esc(asum.pending ?? 0)}</div></div>
-        <div><div class="k">转询价</div><div class="v big">${esc(asum.inquiry ?? 0)}</div></div>
-        <div><div class="k">不报价</div><div class="v big">${esc(asum.no_bid ?? 0)}</div></div>
-        <div><div class="k">规则需关注 / 违规</div><div class="v big">${esc(asum.findings_warn ?? 0)} / ${esc(asum.findings_fail ?? 0)}</div></div>
-      </div>
-      <div class="muted" style="font-size:11px">规则核查覆盖：${Object.entries(asum.checks || {}).map(([rule, c]) =>
-        `${esc(RULE_LABEL[rule] || rule)} 通过 ${c.pass} · 需关注 ${c.warn} · 违规 ${c.fail} · 不适用 ${c.not_applicable}`).join("；")}</div>
-      ${problemLines.length ? `<table><thead><tr><th>行</th><th>料号</th><th>状态</th><th>原因</th><th>建议动作</th><th>定位（邮件 / 附件 / 表 / 行 / 列 / 原值）</th></tr></thead>
-        <tbody>${anaRows}</tbody></table>
-        ${!SHOW_ALL_ANALYSIS && problemLines.length > shownLines.length
-          ? `<button class="btn" id="showAllAnalysis">显示其余 ${problemLines.length - shownLines.length} 行</button>` : ""}`
-        : `<div class="muted">全部行已报价，规则核查无需关注项。</div>`}
-      ${approved ? `<div class="stamp">${esc(s.approval.label)}：${esc(s.approval.approved_by)} · ${esc(s.approval.approved_at)} · ${esc(s.approval.quote_id || "")}（已写入历史报价表）</div>` : ""}
+function paintPanel(token) {
+  if (!S) {
+    $("stages").innerHTML = `<div class="gate">
+      <h2>演示素材尚未运行</h2>
+      <p>点上方「运行新任务」会创建全新的 task，自动执行到人工预审后停止。
+         若这封素材已有任务，请从左侧重新点开，并选择「打开已有任务」。</p>
+      <div class="pipeline"><span>输入采集</span><span>结构提取</span><span>询价分析</span>
+        <span class="stop">人工预审</span><span>分析报告</span><span>报价草案</span></div>
     </div>`;
-  const s6 = stageCard(4, "询价分析报告", (asum.pending || asum.findings_fail) ? "warn" : "ok",
-    `${asum.lines ?? 0} 行 · ${problemLines.length} 行需关注`, anaBody,
-    `<span>成功和失败的单子都会生成；导出为 analysis-r${esc(s.revision)}.docx（标题「询价分析报告」）</span>`);
+    return;
+  }
+  if (STEP === 1) paintIntake();
+  else if (STEP === 2) paintStructure();
+  else if (STEP === 3) paintInquiry(token);
+  else if (STEP === 4) paintReviews(token);
+  else if (STEP === 5) paintReport(token);
+  else paintDraft();
+}
 
-  const canApprove = quotable && s.approval_enabled && s.status !== "active";
-  const approveBtn = canApprove ? `<button class="btn primary" id="approve">${
-    s.approval_mode === "demo" ? "演示批准并写入历史" : "批准并写入历史"}</button>` : "";
-  const s5 = stageCard(3, "报价草案", arts.length ? "ok" : "wait", arts.length ? "已生成" : "未生成",
-    (arts.length ? `<div class="art">${arts.map((a) =>
-      `<a href="/api/download?id=${encodeURIComponent(s.task_id)}&file=${encodeURIComponent(a)}"
-          target="_blank">${esc(a)}</a>`).join("")}</div>`
-      : waitBody(open.length ? "先处理完上面的待确认项，再生成草案。" : "点上方「生成报价草案」。")) + termBlock
-      + (approveBtn ? `<div style="margin-top:8px">${approveBtn}</div>` : ""),
-    `<span>产物永远是待复核草案：未计税费运费，不预留库存</span>`);
-
+function paintIntake() {
+  const reqs = S.requirements || [];
+  const reqBlock = reqs.length ? `<div class="reqs"><div class="h">客户随附要求（${reqs.length} 条，原文照录）</div>
+      <ol>${reqs.map((r) => `<li>${esc(r.text)}<em>${esc(r.source)}</em></li>`).join("")}</ol></div>` : "";
   const traceLabel = {
     task_created: "建立任务并锁定输入版本",
     rfq_validated: "校验 RFQ 结构与必填字段",
@@ -701,34 +723,253 @@ function render() {
     quote_activated: "人工批准并激活报价",
     feedback_recorded: "记录反馈供后续评测"
   };
-  const trace = (s.agent_trace || []).map((item) => `<div class="runstep">
+  const trace = (S.agent_trace || []).map((item) => `<div class="runstep">
       <span class="mark"></span><span>${esc(traceLabel[item.action] || item.action)}</span>
       <span class="at">r${esc(item.revision)} · ${esc((item.at || "").split("T")[1] || item.at || "")}</span>
     </div>`).join("");
-  const live = stageCard(1, "本次实时执行", open.length ? "warn" : "ok",
-    open.length ? "暂停等待 HIL" : "本轮已完成",
-    `<div class="runlog">${trace || waitBody("任务执行轨迹尚未写入")}</div>`,
-    `<span>task <code>${esc(s.task_id)}</code></span><span>revision <code>${esc(s.revision)}</code></span>
-     <span>处置 <code>${esc(s.commercial_disposition || "PENDING")}</code></span>`);
-  const details = `<details class="resultbox"><summary>按需查看解析与定价证据（不会一次展开全部结果）</summary>
-      <div class="inside">${s1 + s2 + s3}</div></details>`;
-  $("stages").innerHTML = live + s4 + s6 + details + (open.length ? "" : s5);
-  const showAna = $("showAllAnalysis");
-  if (showAna) showAna.onclick = () => { SHOW_ALL_ANALYSIS = true; render(); };
-  const approve = $("approve");
-  if (approve) approve.onclick = doApprove;
-  $("stages").querySelectorAll(".ask .opts button").forEach((b) => {
-    b.onclick = () => resolve(b.dataset.item, b.dataset.opt);
+  $("stages").innerHTML = `<div class="kv">
+      <div><div class="k">客户</div><div class="v">${esc(S.customer)}</div></div>
+      <div><div class="k">询价号</div><div class="v mono">${esc(S.rfq_number)}</div></div>
+      <div><div class="k">主题</div><div class="v" title="${esc(S.subject)}">${esc(S.subject)}</div></div>
+      <div><div class="k">载体</div><div class="v">${esc(CONTAINER[S.container] || S.container || "—")}</div></div>
+      <div><div class="k">行数</div><div class="v">${esc((S.summary || {}).lines ?? "")}</div></div>
+      <div><div class="k">评估日</div><div class="v">${esc(S.evaluation_date)}</div></div>
+    </div>${reqBlock}
+    <p class="muted">来源 ${esc((S.source_files || []).join("、"))}</p>
+    <details class="resultbox"><summary>本次执行轨迹</summary><div class="inside"><div class="runlog">${
+      trace || `<div class="muted">任务执行轨迹尚未写入</div>`}</div>
+      <p class="muted">task ${esc(S.task_id)} · r${esc(S.revision)} · ${esc(S.commercial_disposition || "PENDING")}</p>
+    </details>`;
+}
+
+function paintStructure() {
+  const m = S.summary || { lines: 0 };
+  const f = S.fields || {};
+  const qs = S.quality_summary || { warn: 0, info: 0 };
+  const pct = (n) => m.lines ? Math.round(n / m.lines * 100) : 0;
+  const bar = (label, n) => `<div class="bar"><div class="h"><span>${label}</span>
+      <span class="num">${n}/${m.lines}</span></div>
+      <div class="t"><div class="f ${n < m.lines ? "warn" : ""}" style="width:${pct(n)}%"></div></div></div>`;
+  const findings = (S.quality || []).map((item) => `<div class="finding ${item.severity}">
+      <span class="dot2"></span><span class="t">${esc(item.title)}</span>
+      <span class="d">${esc(item.detail)}</span>
+      ${item.examples && item.examples.length ? `<span class="ex">${esc(item.examples.join(" · "))}</span>` : ""}
+    </div>`).join("");
+  $("stages").innerHTML = `<p class="panel-note">${qs.warn ? `${qs.warn} 处需注意` : `${m.lines} 行已结构化`}。字段按原文保留，不在这里改价格。</p>
+    <div class="bars">${bar("料号", f.part_number || 0)}${bar("数量", f.quantity || 0)}${bar("单位", f.unit || 0)}${bar("件状要求", f.condition || 0)}</div>
+    ${findings ? `<div class="findings">${findings}</div>` : ""}
+    <p class="muted">${f.with_evidence || 0}/${m.lines} 行可回溯到原始单元格${qs.info ? ` · ${qs.info} 条载体说明` : ""}</p>`;
+}
+
+async function paintInquiry(token) {
+  const q = S.inquiry || {};
+  const sub = (S.summary && S.summary.priced_lines) ? "¥" + money(S.summary.priced_subtotal_cny) : "—";
+  $("stages").innerHTML = `<div class="kv">
+      <div><div class="k">有依据</div><div class="v big">${esc(q.grounded ?? 0)}</div></div>
+      <div><div class="k">待预审</div><div class="v big" style="color:var(--warn)">${esc(q.pending ?? 0)}</div></div>
+      <div><div class="k">阻断</div><div class="v big" style="color:var(--bad)">${esc(q.blocked ?? 0)}</div></div>
+      <div><div class="k">已报价小计</div><div class="v big">${sub}</div></div>
+    </div>
+    <p class="panel-note">本步只读：每行给出邮件 / 附件 / 表-行-列 / 原文，以及有依据、待预审或阻断原因。决定在「人工预审」。</p>
+    <div id="linebody"><span class="spin"></span> 正在载入本页…</div>`;
+  let page;
+  try { page = await api(`/api/lines?id=${encodeURIComponent(S.task_id)}&offset=${LINE_OFFSET}&limit=${PAGE}`); }
+  catch (e) {
+    if (token === PANEL_TOKEN) $("linebody").innerHTML = `<div class="muted" style="color:var(--bad)">${esc(e.message)}</div>`;
+    return;
+  }
+  if (token !== PANEL_TOKEN) return;
+  const rows = page.lines || [];
+  const body = rows.map((r) => `<tr>
+      <td class="r num">${esc(r.line_number)}</td>
+      <td><span class="pn">${esc(r.part_number)}</span></td>
+      <td class="wrap">${esc(r.description)}</td>
+      <td class="r num">${esc(r.quantity)} ${esc(r.unit || "")}</td>
+      <td class="out ${esc(r.kind)}">${esc(r.outcome)}</td>
+      <td class="wrap">${esc(r.kind === "grounded"
+        ? [SOURCE[r.source] || r.source || "", r.unit_price != null ? `单价 ${money(r.unit_price)}` : "",
+           r.line_total != null ? `金额 ${money(r.line_total)}` : ""].filter(Boolean).join(" · ") || "有价格依据"
+        : (r.reason || "—"))}</td>
+      <td>${esc(r.citation.email || "—")}</td>
+      <td>${esc(r.citation.attachment || "—")}</td>
+      <td>${esc(r.citation.sheet || "—")}</td>
+      <td class="r num">${esc(r.citation.row ?? "—")}</td>
+      <td>${esc(r.citation.column || "—")}${r.citation.column_header ? ` ${esc(r.citation.column_header)}` : ""}</td>
+      <td>${esc(r.citation.raw || "—")}</td>
+    </tr>`).join("");
+  const from = page.total ? page.offset + 1 : 0;
+  const to = page.offset + rows.length;
+  $("linebody").innerHTML = `<div class="hscroll"><table class="grid"><thead><tr>
+      <th class="r">#</th><th>料号</th><th>描述</th><th class="r">数量</th><th>结果</th><th>说明</th>
+      <th>邮件</th><th>附件</th><th>表</th><th class="r">行</th><th>列</th><th>原值</th>
+    </tr></thead><tbody>${body || `<tr><td colspan="12">没有行</td></tr>`}</tbody></table></div>
+    <div class="pager"><button class="btn" id="linePrev" type="button">上一页</button>
+      <span class="muted">${from}–${to} / ${page.total}</span>
+      <button class="btn" id="lineNext" type="button">下一页</button></div>`;
+  $("linePrev").disabled = page.offset <= 0;
+  $("lineNext").disabled = page.offset + rows.length >= page.total;
+  $("linePrev").onclick = () => { LINE_OFFSET = Math.max(0, page.offset - PAGE); render(); };
+  $("lineNext").onclick = () => { LINE_OFFSET = page.offset + rows.length; render(); };
+}
+
+function reviewCard(item, passed) {
+  const label = passed
+    ? ((item.options || []).find((o) => o.id === item.answer) || {}).label || item.answer || "已决定"
+    : "";
+  return `<div class="ask">
+      <div class="h"><b>${esc(item.id)}</b><span>${esc((item.target && item.target.part_number) || "整案")}</span>
+        <span>${esc((item.kinds || []).join(" · "))}</span></div>
+      <div class="q">${esc(item.question)}</div>
+      ${item.locator ? `<div class="muted" style="font-size:10.5px;font-family:var(--mono)">定位：${esc(item.locator.text)}</div>` : ""}
+      ${passed ? `<div class="muted">已通过：${esc(label)}</div>` : `<div class="opts">${(item.options || []).map((o) =>
+        `<button type="button" data-item="${esc(item.id)}" data-opt="${esc(o.id)}">${esc(o.label)}</button>`).join("")}</div>`}
+      ${(item.evidence || []).length ? `<details><summary>看依据（${item.evidence.length} 条）</summary><ul>${
+        item.evidence.map((e) => `<li><code>${esc(e.rule)}</code> ${esc(e.detail)}</li>`).join("")}</ul></details>` : ""}
+    </div>`;
+}
+
+async function paintReviews(token) {
+  const openN = S.open_reviews || 0;
+  const passedN = S.answered_reviews || 0;
+  $("stages").innerHTML = `<div class="tabs" id="revtabs">
+      <button type="button" data-tab="open" class="${REVIEW_TAB === "open" ? "on" : ""}">待预审 ${openN}</button>
+      <button type="button" data-tab="passed" class="${REVIEW_TAB === "passed" ? "on" : ""}">已通过 ${passedN}</button>
+    </div>
+    <p class="panel-note">${REVIEW_TAB === "open"
+      ? "待预审项全部列在这里。已通过的决定在旁边，不挤在决定区里。"
+      : "这些项已经有决定，只供回看。"}</p>
+    <div id="revbody"><span class="spin"></span> 正在载入…</div>`;
+  $("revtabs").querySelectorAll("button").forEach((b) => {
+    b.onclick = () => { REVIEW_TAB = b.dataset.tab; render(); };
   });
-  const showAll = $("showAllReviews");
-  if (showAll) showAll.onclick = () => { SHOW_ALL_REVIEWS = true; render(); };
+  const host = document.createElement("div");
+  host.className = "asks";
+  const passed = REVIEW_TAB === "passed";
+  let offset = 0;
+  let total = 0;
+  let shown = 0;
+  $("revbody").textContent = "";
+  $("revbody").appendChild(host);
+  host.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-item]");
+    if (button) resolve(button.dataset.item, button.dataset.opt);
+  });
+  try {
+    for (;;) {
+      const page = await api(`/api/reviews?id=${encodeURIComponent(S.task_id)}&bucket=${passed ? "passed" : "open"}&offset=${offset}&limit=80`);
+      if (token !== PANEL_TOKEN || (REVIEW_TAB === "passed") !== passed) return;
+      total = page.total;
+      const items = page.items || [];
+      if (!items.length) break;
+      host.insertAdjacentHTML("beforeend", items.map((item) => reviewCard(item, passed)).join(""));
+      shown += items.length;
+      offset += items.length;
+      if (shown >= total) break;
+    }
+  } catch (e) {
+    if (token === PANEL_TOKEN) host.innerHTML = `<div class="muted" style="color:var(--bad)">${esc(e.message)}</div>`;
+    return;
+  }
+  if (token !== PANEL_TOKEN) return;
+  if (!total) {
+    host.innerHTML = `<div class="muted">${passed ? "还没有已通过的决定。" : "没有待预审项。"}</div>`;
+  } else {
+    const note = document.createElement("div");
+    note.className = "muted";
+    note.textContent = `已显示全部 ${total} 项`;
+    host.appendChild(note);
+  }
+}
+
+async function paintReport(token) {
+  $("stages").innerHTML = `<p class="panel-note">询价分析报告对成功和失败的单子都在。表格可横向滚动，导出文件在本页，不藏在别的阶段里。</p>
+    <div id="reportTop"></div><div id="reportBody"><span class="spin"></span> 正在载入本页…</div>
+    <div style="margin-top:12px"><div class="k" style="font-size:10.5px;color:var(--faint)">下载</div>${fileLinks(analysisFiles())}</div>`;
+  let page;
+  try {
+    page = await api(`/api/report?id=${encodeURIComponent(S.task_id)}&offset=${REPORT_OFFSET}&limit=${PAGE}`);
+  } catch (e) {
+    if (token === PANEL_TOKEN) $("reportBody").innerHTML = `<div class="muted" style="color:var(--bad)">${esc(e.message)}</div>`;
+    return;
+  }
+  if (token !== PANEL_TOKEN) return;
+  const sum = page.summary || {};
+  $("reportTop").innerHTML = `<div class="kv">
+      <div><div class="k">已报价</div><div class="v big">${esc(sum.priced ?? 0)}</div></div>
+      <div><div class="k">待确认</div><div class="v big" style="color:var(--warn)">${esc(sum.pending ?? 0)}</div></div>
+      <div><div class="k">转询价</div><div class="v big">${esc(sum.inquiry ?? 0)}</div></div>
+      <div><div class="k">不报价</div><div class="v big">${esc(sum.no_bid ?? 0)}</div></div>
+      <div><div class="k">已报价小计</div><div class="v big">${sum.priced ? "¥" + money(sum.priced_subtotal_cny) : "—"}</div></div>
+    </div>
+    <div class="muted" style="font-size:11px;margin-top:6px">规则核查：需关注 ${esc(sum.findings_warn ?? 0)} · 违规 ${esc(sum.findings_fail ?? 0)}。${
+      Object.entries(sum.checks || {}).map(([rule, c]) =>
+        `${esc(RULE_LABEL[rule] || rule)} 通过 ${c.pass} / 需关注 ${c.warn} / 违规 ${c.fail}`).join("；")}</div>`;
+  const rows = page.lines || [];
+  const body = rows.map((r) => `<tr>
+      <td class="r num">${esc(r.line_number)}</td>
+      <td><span class="pn">${esc(r.part_number)}</span></td>
+      <td class="r num">${esc(r.quantity)} ${esc(r.unit || "")}</td>
+      <td class="st ${esc(r.status)}">${esc(r.status_label)}</td>
+      <td class="wrap">${esc(r.reason)}</td>
+      <td class="wrap">${esc(r.suggested_action)}</td>
+      <td class="loc wrap">${esc(r.locator || "—")}</td>
+    </tr>`).join("");
+  const from = page.total ? page.offset + 1 : 0;
+  const to = page.offset + rows.length;
+  $("reportBody").innerHTML = `<div class="hscroll"><table class="grid"><thead><tr>
+      <th class="r">行</th><th>料号</th><th class="r">数量</th><th>状态</th><th>原因</th><th>建议动作</th>
+      <th>定位（邮件 / 附件 / 表 / 行 / 列 / 原值）</th>
+    </tr></thead><tbody>${body || `<tr><td colspan="7">没有行</td></tr>`}</tbody></table></div>
+    <div class="pager"><button class="btn" id="reportPrev" type="button">上一页</button>
+      <span class="muted">${from}–${to} / ${page.total}</span>
+      <button class="btn" id="reportNext" type="button">下一页</button></div>`;
+  $("reportPrev").disabled = page.offset <= 0;
+  $("reportNext").disabled = page.offset + rows.length >= page.total;
+  $("reportPrev").onclick = () => { REPORT_OFFSET = Math.max(0, page.offset - PAGE); render(); };
+  $("reportNext").onclick = () => { REPORT_OFFSET = page.offset + rows.length; render(); };
+}
+
+function paintDraft() {
+  const open = S.open_reviews || 0;
+  const termItems = S.terms || [];
+  const ts = S.terms_summary || { total: 0, met: 0, todo: 0, manual: 0 };
+  const termIcon = { met: "✓", todo: "!", manual: "?", na: "–" };
+  const termBlock = termItems.length ? `<div class="terms">
+      <div class="h">客户要求核对 <span>${ts.met}/${ts.total} 已满足${ts.todo ? ` · ${ts.todo} 项待补齐` : ""}${
+        ts.manual ? ` · ${ts.manual} 项需人工确认` : ""}</span></div>
+      ${termItems.map((i) => `<div class="term ${i.status}">
+        <span class="ic">${termIcon[i.status] || "·"}</span>
+        <span class="tx">${esc(i.text)}<em>${esc(i.source)}</em></span>
+        <span class="lb">${esc(i.label)}</span>
+        <span class="dt">${esc(i.detail)}</span>
+      </div>`).join("")}
+    </div>` : "";
+  const approved = S.approval && S.approval.approved_by;
+  const banner = open ? `<div class="callout"><strong>请先完成第 4 步「人工预审」。</strong>
+      <p style="margin:6px 0 0">报价草案这一步保持可点。当前还有 ${open} 项待预审，完成之前不能生成草案。</p></div>` : "";
+  const regen = !open && S.quote_allowed && S.approval_enabled && S.status !== "active"
+      && (S.artifacts || []).some((file) => file.startsWith("quote"))
+    ? `<button class="btn" id="regen" type="button">重新生成报价草案</button>` : "";
+  $("stages").innerHTML = `${banner}
+    ${open ? "" : `<p class="panel-note">${S.quote_allowed
+      ? "可报价的修订在这里生成草案。分析报告的下载也放在本页。"
+      : "当前商业处置不会生成报价单。分析报告仍可在第 5 步导出，下载也列在下面。"}</p>`}
+    <div class="k" style="font-size:10.5px;color:var(--faint);margin-bottom:4px">下载</div>
+    ${fileLinks(draftFiles())}
+    ${termBlock}
+    ${regen ? `<div style="margin-top:8px">${regen}</div>` : ""}
+    ${approved ? `<div class="ana"><div class="stamp">${esc(S.approval.label)}：${esc(S.approval.approved_by)} · ${esc(S.approval.approved_at)} · ${esc(S.approval.quote_id || "")}（已写入历史报价表）</div></div>` : ""}
+    <p class="muted" style="margin-top:8px">产物是待复核草案：未计税费运费，不预留库存。</p>`;
+  const regenBtn = $("regen");
+  if (regenBtn) regenBtn.onclick = doExport;
 }
 
 async function resolve(itemId, optionId) {
   const rev = S.revision;
   try {
     S = await api("/api/resolve", { task_id: S.task_id, revision: rev, item_id: itemId, option_id: optionId });
-    render(); refresh();
+    render();
+    refresh();
     notify(`已记录决定；任务继续执行至 revision ${S.revision}。`);
   } catch (e) { notify(e.message, true); }
 }
@@ -738,44 +979,26 @@ async function doApprove() {
   if (!who) return;
   try {
     S = await api("/api/activate", { task_id: S.task_id, revision: S.revision, approved_by: who });
-    render(); refresh();
+    render();
+    refresh();
     notify("已批准：历史报价已写入，正式文件可在当前任务下载。");
   } catch (e) { notify(e.message, true); }
 }
 
 async function doExport() {
-  $("export").disabled = true;
+  if (BUSY || !S) return;
+  BUSY = true;
+  $("primary").disabled = true;
   try {
-    const r = await api("/api/export", { task_id: S.task_id, revision: S.revision });
-    S = r; render(); refresh();
-    notify("文件已生成（询价分析报告必出；可报价时另附报价草案），可在当前任务下载。");
+    const response = await api("/api/export", { task_id: S.task_id, revision: S.revision });
+    S = response;
+    notify("文件已生成（询价分析报告必出；可报价时另附报价草案），下载在分析报告和报价草案里。");
   } catch (e) { notify(e.message, true); }
-  finally { $("export").disabled = false; }
-}
-
-function renderRows(s) {
-  $("drawertitle").textContent = `行项目明细 · ${s.summary.lines} 行`;
-  $("drawerhint").textContent = s.source_files.join("、");
-  $("rows").innerHTML = s.results.map((r) => {
-    const ok = r.eligibility === "priced";
-    const qty = r.quantity_basis === "moq" ? `${esc(r.requested_quantity)} → ${esc(r.quantity)}` : esc(r.quantity);
-    const basis = ok
-      ? [r.quantity_basis === "moq" ? `按 MOQ ${r.quantity} 计价` : "", r.supplier_name || "",
-         r.condition ? `件状 ${r.condition}` : "", r.lead_time_days ? `${r.lead_time_days} 天` : "",
-         r.valid_until ? `有效至 ${r.valid_until}` : "", ...(r.warnings || [])].filter(Boolean).join(" · ")
-      : (r.reasons || []).join("；");
-    return `<tr>
-      <td class="r num">${esc(r.line_number)}</td>
-      <td><span class="pn">${esc(r.part_number)}</span></td>
-      <td>${esc(r.description)}</td>
-      <td class="r num">${qty}</td>
-      <td class="r num">${ok ? money(r.unit_price) : "—"}</td>
-      <td class="r num">${ok ? money(r.line_total) : "—"}</td>
-      <td><span class="src">${esc(SOURCE[r.source] || r.source || "—")}</span></td>
-      <td class="${ok ? "" : "why"}">${esc(basis || "—")}</td>
-      <td><span class="prov">${esc(r.provenance)}</span></td>
-    </tr>`;
-  }).join("");
+  finally {
+    BUSY = false;
+    render();
+    refresh();
+  }
 }
 
 /* ---------- chat ---------- */
@@ -803,7 +1026,13 @@ async function send() {
     }
     if (r.error) chatSay("sys", "错误", r.error);
     if (r.reply) chatSay("agent", "助手", r.reply);
-    if (r.state) { S = r.state; render(); refresh(); }
+    if (r.state) {
+      const first = !S;
+      S = r.state;
+      if (first) STEP = S.dock_step || STEP;
+      render();
+      refresh();
+    }
   } catch (e) { pending.remove(); chatSay("sys", "错误", e.message); }
   finally { $("send").disabled = false; box.focus(); }
 }
@@ -954,16 +1183,17 @@ window.addEventListener("drop", (e) => {
 $("send").onclick = send;
 $("askOpen").onclick = () => setAskOpen(true);
 $("askClose").onclick = () => setAskOpen(false);
+$("primary").onclick = start;
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
     if (!$("askPanel").hidden) setAskOpen(false);
+    else if (!$("choose").hidden) closeChoose();
     else if (!$("veil").hidden && !PV_BUSY) { QUEUE = []; QINDEX = 0; closeVeil(); refresh(); }
   }
 });
 $("chat").addEventListener("keydown", (e) => {
   if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
 });
-$("start").onclick = start;
 
 async function boot() {
   try { DATA = await api("/api/data"); } catch (e) { DATA = null; }
@@ -978,6 +1208,7 @@ async function boot() {
   if (deepTask) openTask(deepTask);
 }
 boot();
+
 </script>
 </body>
 </html>

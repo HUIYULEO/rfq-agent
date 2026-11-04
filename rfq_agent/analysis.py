@@ -44,10 +44,10 @@ RULE_LABELS = {"pn_match": "件号匹配", "certificate": "证书/适航", "uom"
                "condition": "件状", "quote_due": "报价截止"}
 
 
-def _line_status(row: dict, open_items: list[dict], resolutions: dict) -> str:
+def _line_status(row: dict, open_line_ids: set, task_open: bool, resolutions: dict) -> str:
     line_id = row["line_id"]
-    if any(item["target"].get("line_id") == line_id or item["scope"] == "task"
-           for item in open_items):
+    # A task-scoped open item blocks every line; a line item blocks only its target.
+    if task_open or line_id in open_line_ids:
         return "pending"
     if row.get("eligibility") == "priced":
         return "priced"
@@ -58,68 +58,85 @@ def _line_status(row: dict, open_items: list[dict], resolutions: dict) -> str:
     return "inquiry"
 
 
-def build(task) -> dict:
-    """Structured analysis for one task revision (dict or Task)."""
+def _prepare(task):
+    """Index checks by line once. The report used to rescan every check per line."""
+    from .business_rules import locate
+
     data = task.to_dict() if hasattr(task, "to_dict") else task
-    rfq = data["rfq"]
     results = data.get("results") or []
     review_items = data.get("review_items") or []
-    resolutions = data.get("resolutions") or {}
     findings = data.get("business_checks") or []
     open_items = [item for item in review_items
                   if item.get("severity") == "blocking" and item.get("status") == "open"]
-    lines_by_id = {line["line_id"]: line for line in rfq.get("lines", [])}
+    by_line: dict[str, list] = {}
+    for item in findings:
+        by_line.setdefault(item["line_id"], []).append(item)
+    open_line_ids = set()
+    task_open = False
+    open_by_line: dict[str, list] = {}
+    for item in open_items:
+        target = item.get("target") or {}
+        if item.get("scope") == "task":
+            task_open = True
+        line_id = target.get("line_id")
+        if line_id:
+            open_line_ids.add(line_id)
+            open_by_line.setdefault(line_id, []).append(item)
+    lines_by_id = {line["line_id"]: line for line in data["rfq"].get("lines", [])}
+    return data, results, review_items, findings, open_items, by_line, open_line_ids, task_open, open_by_line, lines_by_id, locate
 
-    from .business_rules import locate
 
-    rows = []
-    for row in results:
-        line = lines_by_id.get(row["line_id"], {})
-        decision = row.get("decision") or {}
-        status = _line_status(row, open_items, resolutions)
-        reasons = list(decision.get("review_evidence") or [])
-        reasons += [{"rule": flag["kind"], "detail": flag["detail"]}
-                    for flag in decision.get("flags") or []]
-        line_findings = [item for item in findings if item["line_id"] == row["line_id"]
-                         and item["status"] in ("warn", "fail")]
-        own_items = [item for item in open_items if item["target"].get("line_id") == row["line_id"]]
-        if own_items:
-            action = "人工决定：" + "；".join(item["question"] for item in own_items)
-        elif status == "priced":
-            extra = [item["suggested_action"] for item in line_findings if item.get("suggested_action")]
-            action = "可进入报价" + (f"；报价前：{'；'.join(dict.fromkeys(extra))}" if extra else "")
-        elif status == "no_bid":
-            action = "不报此行，回复客户说明"
-        else:
-            rules = [reason["rule"] for reason in reasons]
-            action = "；".join(dict.fromkeys(ACTIONS.get(rule, "转人工处理") for rule in rules)) \
-                or "向供应商询价"
-        rows.append({
-            "line_id": row["line_id"],
-            "line_number": row.get("line_number"),
-            "part_number": row["part_number"],
-            "description": row.get("description") or "",
-            "quantity": row.get("quantity"),
-            "unit": row.get("unit"),
-            "status": status,
-            "status_label": STATUS_LABELS[status],
-            "unit_price": row.get("unit_price"),
-            "line_total": row.get("line_total"),
-            "source": decision.get("recommended_source"),
-            "selected_source_id": decision.get("selected_source_id"),
-            "certificate": (decision.get("basis") or {}).get("certificate"),
-            "requirement": line.get("product_requirement"),
-            "reasons": reasons,
-            "findings": [{"rule": item["rule"], "status": item["status"],
-                          "detail": item["detail"]} for item in line_findings],
-            # Every business check on this line, passes included: what was verified.
-            "checks": [{"rule": item["rule"], "status": item["status"], "detail": item["detail"]}
-                       for item in findings if item["line_id"] == row["line_id"]],
-            "suggested_action": action,
-            "locator": locate(line, "Part Number") if line else None,
-        })
+def _project_row(row, data, by_line, open_line_ids, task_open, open_by_line, lines_by_id, locate) -> dict:
+    line = lines_by_id.get(row["line_id"], {})
+    decision = row.get("decision") or {}
+    resolutions = data.get("resolutions") or {}
+    status = _line_status(row, open_line_ids, task_open, resolutions)
+    reasons = list(decision.get("review_evidence") or [])
+    reasons += [{"rule": flag["kind"], "detail": flag["detail"]}
+                for flag in decision.get("flags") or []]
+    own_findings = by_line.get(row["line_id"], [])
+    line_findings = [item for item in own_findings if item["status"] in ("warn", "fail")]
+    own_items = open_by_line.get(row["line_id"], [])
+    if own_items:
+        action = "人工决定：" + "；".join(item["question"] for item in own_items)
+    elif status == "priced":
+        extra = [item["suggested_action"] for item in line_findings if item.get("suggested_action")]
+        action = "可进入报价" + (f"；报价前：{'；'.join(dict.fromkeys(extra))}" if extra else "")
+    elif status == "no_bid":
+        action = "不报此行，回复客户说明"
+    else:
+        rules = [reason["rule"] for reason in reasons]
+        action = "；".join(dict.fromkeys(ACTIONS.get(rule, "转人工处理") for rule in rules)) \
+            or "向供应商询价"
+    return {
+        "line_id": row["line_id"],
+        "line_number": row.get("line_number"),
+        "part_number": row["part_number"],
+        "description": row.get("description") or "",
+        "quantity": row.get("quantity"),
+        "unit": row.get("unit"),
+        "status": status,
+        "status_label": STATUS_LABELS[status],
+        "unit_price": row.get("unit_price"),
+        "line_total": row.get("line_total"),
+        "source": decision.get("recommended_source"),
+        "selected_source_id": decision.get("selected_source_id"),
+        "certificate": (decision.get("basis") or {}).get("certificate"),
+        "requirement": line.get("product_requirement"),
+        "reasons": reasons,
+        "findings": [{"rule": item["rule"], "status": item["status"],
+                      "detail": item["detail"]} for item in line_findings],
+        # Every business check on this line, passes included: what was verified.
+        "checks": [{"rule": item["rule"], "status": item["status"], "detail": item["detail"]}
+                   for item in own_findings],
+        "suggested_action": action,
+        "locator": locate(line, "Part Number") if line else None,
+    }
 
-    counts = {key: sum(1 for row in rows if row["status"] == key) for key in STATUS_LABELS}
+
+def _envelope(data, results, findings, open_items, review_items, statuses: list[str]) -> dict:
+    rfq = data["rfq"]
+    counts = {key: sum(1 for status in statuses if status == key) for key in STATUS_LABELS}
     by_rule = {rule: sum(1 for item in findings if item["rule"] == rule
                          and item["status"] in ("warn", "fail")) for rule in RULE_LABELS}
     money = summarize(results) if results else {"priced_subtotal_cny": "0.00", "priced_lines": 0}
@@ -137,7 +154,7 @@ def build(task) -> dict:
         "policy_version": data.get("policy_version", ""),
         "data_snapshot_id": data.get("data_snapshot_id", ""),
         "summary": {
-            "lines": len(rows),
+            "lines": len(results),
             **counts,
             "open_reviews": len(open_items),
             "answered_reviews": sum(1 for item in review_items if item.get("status") == "answered"),
@@ -159,10 +176,49 @@ def build(task) -> dict:
             "id": item["id"], "answer": item.get("answer"),
             "label": ANSWER_LABELS.get(item.get("answer"), item.get("answer")),
         } for item in review_items if item.get("status") == "answered"],
-        "lines": rows,
         "findings": [item for item in findings if item["status"] in ("warn", "fail")],
         "evaluation_issues": data.get("evaluation_issues", []),
     }
+
+
+def _statuses(results, open_line_ids, task_open, resolutions) -> list[str]:
+    return [_line_status(row, open_line_ids, task_open, resolutions) for row in results]
+
+
+def build(task) -> dict:
+    """Structured analysis for one task revision (dict or Task)."""
+    (data, results, review_items, findings, open_items, by_line, open_line_ids, task_open,
+     open_by_line, lines_by_id, locate) = _prepare(task)
+    resolutions = data.get("resolutions") or {}
+    rows = [_project_row(row, data, by_line, open_line_ids, task_open, open_by_line,
+                         lines_by_id, locate) for row in results]
+    payload = _envelope(data, results, findings, open_items, review_items,
+                        _statuses(results, open_line_ids, task_open, resolutions))
+    payload["lines"] = rows
+    return payload
+
+
+def page(task, offset: int = 0, limit: int = 40) -> dict:
+    """One window of the analysis, with the same summary as ``build``.
+
+    The desk must not materialise every line (and every check) into the HTTP
+    response just to paint the first screen.
+    """
+    (data, results, review_items, findings, open_items, by_line, open_line_ids, task_open,
+     open_by_line, lines_by_id, locate) = _prepare(task)
+    resolutions = data.get("resolutions") or {}
+    total = len(results)
+    offset = max(0, int(offset))
+    limit = max(1, int(limit))
+    payload = _envelope(data, results, findings, open_items, review_items,
+                        _statuses(results, open_line_ids, task_open, resolutions))
+    payload["total"] = total
+    payload["offset"] = offset
+    payload["limit"] = limit
+    payload["lines"] = [_project_row(row, data, by_line, open_line_ids, task_open, open_by_line,
+                                     lines_by_id, locate)
+                        for row in results[offset:offset + limit]]
+    return payload
 
 
 def _cell(cell, value) -> None:
