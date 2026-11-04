@@ -102,5 +102,27 @@ class IngestTests(unittest.TestCase):
                 self.assertEqual(rfq.requirements, [])
 
 
+class HtmlTableSelectionTests(unittest.TestCase):
+    """A body may hold more than one table; the inquiry is not always the first."""
+
+    def test_disclaimer_table_does_not_hide_the_inquiry_table(self):
+        from rfq_agent.ingest import _rows_from_html
+
+        markup = ("<table><tr><td>Disclaimer</td><td>legal notice</td></tr></table>"
+                  "<table><tr><td>Part Number</td><td>Quantity</td><td>Unit Of Measure</td></tr>"
+                  "<tr><td>PN-0001</td><td>8</td><td>EA</td></tr></table>")
+        rows = _rows_from_html(markup)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["Part Number"], "PN-0001")
+        self.assertEqual(rows[0]["_sheet"], "正文表格 2")
+
+    def test_no_usable_table_raises_with_the_reason(self):
+        from rfq_agent.ingest import _rows_from_html
+
+        with self.assertRaises(ValueError) as caught:
+            _rows_from_html("<p>no table here</p>")
+        self.assertIn("没有可用的表格", str(caught.exception))
+
+
 if __name__ == "__main__":
     unittest.main()

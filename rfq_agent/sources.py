@@ -96,6 +96,9 @@ def build_rfq(inquiry_rows: list[dict], *, rfq_number: str, evaluation_date: str
                 **({"qty_line": item["_qty_line"]} if item.get("_qty_line") else {}),
                 **({"columns": {key: dict(value) for key, value in columns.items()}}
                    if columns else {}),
+                # Model extraction provenance (perception.py): which block/row it read
+                # and how sure it was, so the reviewer can re-check the exact cell.
+                **({"extraction": dict(item["_extraction"])} if item.get("_extraction") else {}),
                 "raw": {key: ("" if item.get(key) is None else str(item.get(key)))
                         for key in RAW_FIELDS if key in item},
             },

@@ -97,6 +97,28 @@ class RFQService:
             self._save(task)
         return task.to_dict()
 
+    def record_extraction(self, task_id: str, report: dict) -> dict:
+        """Persist how the input was understood, before anything was priced.
+
+        The report is the perception layer's audit trail (which blocks were read, what
+        the model refused, which rows look misread). It is evidence, never a price
+        input, so it lives on the trace and not in the results.
+        """
+        task = self.store.get(task_id)
+        self._trace(task, "input_understood",
+                    source=report.get("source", ""),
+                    model=report.get("model", ""),
+                    document_type=report.get("document_type", ""),
+                    lines_model=report.get("lines_model", 0),
+                    lines_deterministic=report.get("lines_deterministic", 0),
+                    refused=len(report.get("refused") or []),
+                    best_guess=len(report.get("best_guess") or []),
+                    reason=report.get("reason", ""),
+                    outcome="continue")
+        task.extraction = report
+        self._save(task)
+        return task.to_dict()
+
     # ---------- pricing gate ----------
 
     @staticmethod

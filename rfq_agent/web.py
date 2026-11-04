@@ -17,11 +17,12 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 from uuid import uuid4
 
-from . import analysis as analysis_report, quality, terms
+from . import analysis as analysis_report, perception, quality, terms
 from .cases import (admit_case, available, case_by_key, confirm_pending, data_status,
                     discover, inbox, load_case, mark_stage, provider_for, reset_inbox,
                     stage_pending, sweep_pending, template_for)
 from .genesis import GenesisError, Session, load_config, missing_keys
+from .perception import PerceptionError
 from .ledger import OperationalLedger
 from .policy import active_policy
 from .pricing import summarize
@@ -51,6 +52,28 @@ def _service() -> RFQService:
                              policy=policy, template=template_for(ROOT),
                              ledger=OperationalLedger(ROOT / "runtime" / "operations.db"))
     return SERVICE
+
+
+def _understand(case: str):
+    """Main path: the model reads the mail, code audits it, pricing still does the sums.
+
+    Falls back to the deterministic parser when the model is unconfigured, unreachable
+    or refuses the extraction — a dead model must never dead-end the demo. Which path
+    actually ran is written to the task trace, so "the agent read this" is checkable
+    rather than asserted.
+    """
+    path = case_by_key(ROOT, case).path
+    config = load_config(ROOT)
+    if missing_keys(config):
+        rfq, _ = load_case(ROOT, case)
+        return rfq, {"source": "deterministic", "model": "",
+                     "reason": "模型未配置，使用确定性解析"}
+    try:
+        return perception.run(config, path)
+    except (PerceptionError, GenesisError) as exc:
+        rfq, _ = load_case(ROOT, case)
+        return rfq, {"source": "deterministic", "model": config.get("GENESIS_MODEL", ""),
+                     "reason": f"模型理解失败，回退确定性解析：{exc}"}
 
 
 def _lines_view(rfq: dict) -> list[dict]:
@@ -297,6 +320,7 @@ def _view(task: dict) -> dict:
         "dock_step": 4 if inquiry["open_reviews"] else (6 if quote_allowed else 5),
         "quote_allowed": quote_allowed,
         "agent_trace": (task.get("agent_trace") or [])[-30:],
+        "extraction": task.get("extraction") or {},
         "artifacts": artifacts,
         "fields": _field_health(lines),
         "quality": quality_findings,
@@ -397,8 +421,10 @@ class Handler(BaseHTTPRequestHandler):
         return json.loads(self.rfile.read(length).decode("utf-8"))
 
     def _run(self, case: str, autonomy: str):
-        rfq, _ = load_case(ROOT, case)
+        rfq, extraction = _understand(case)
         state = _service().start_task(rfq.to_dict(), autonomy=autonomy)
+        if extraction:
+            state = _service().record_extraction(state["task_id"], extraction)
         admit_case(ROOT, case)
         mark_stage(ROOT, case, "priced", state["task_id"])
         return state
