@@ -12,9 +12,10 @@ from copy import deepcopy
 from decimal import Decimal
 from pathlib import Path
 
-from .deps import require
-from . import quality, terms as term_checks
-from .policy import money, q2
+from rfq_agent.infrastructure.deps import require
+from rfq_agent.domain import quality
+from rfq_agent.domain import terms as term_checks
+from rfq_agent.domain.policy import money, q2
 
 DIGITS = "零壹贰叁肆伍陆柒捌玖"
 UNITS = ("", "拾", "佰", "仟")

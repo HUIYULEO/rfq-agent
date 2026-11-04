@@ -18,3 +18,6 @@ rfq-agent = "rfq_agent.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["rfq_agent*"]
+
+[tool.setuptools.package-data]
+rfq_agent = ["static/*.html"]

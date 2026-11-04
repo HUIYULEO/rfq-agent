@@ -7,10 +7,10 @@ from decimal import Decimal
 from pathlib import Path
 from uuid import uuid4
 
-from rfq_agent.models import Task
-from rfq_agent.policy import DEFAULT_POLICY
-from rfq_agent.service import RFQService
-from rfq_agent.storage import TaskStore
+from rfq_agent.domain.models import Task
+from rfq_agent.domain.policy import DEFAULT_POLICY
+from rfq_agent.application.service import RFQService
+from rfq_agent.infrastructure.storage import TaskStore
 
 
 def _temp_dir(prefix: str) -> Path:

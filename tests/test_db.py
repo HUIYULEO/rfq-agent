@@ -4,9 +4,9 @@ import unittest
 from pathlib import Path
 from uuid import uuid4
 
-from rfq_agent import db
-from rfq_agent.cases import COST_TABLE, MATERIAL, PRICE_TABLE
-from rfq_agent.sources import load_cost_table, load_price_table
+from rfq_agent.infrastructure import db
+from rfq_agent.application.cases import COST_TABLE, MATERIAL, PRICE_TABLE
+from rfq_agent.ingestion.sources import load_cost_table, load_price_table
 
 ROOT = Path(__file__).parents[1]
 

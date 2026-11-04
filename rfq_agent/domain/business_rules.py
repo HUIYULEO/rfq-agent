@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import datetime as dt
 
-from .compliance import certificate_satisfies, is_pma, same_unit
+from rfq_agent.domain.compliance import certificate_satisfies, is_pma, same_unit
 
 # Status: pass / warn (a human must look) / fail (a priced line violates a hard rule
 # without a recorded human decision — an engine defect) / not_applicable.

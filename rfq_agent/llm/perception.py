@@ -31,11 +31,11 @@ from dataclasses import dataclass, field
 from decimal import InvalidOperation
 from pathlib import Path
 
-from .genesis import Genesis, GenesisError, missing_keys
-from .ingest import docx_text, html_prose, html_tables, read_eml, xlsx_sheets
-from .models import RFQ, Requirement, positive_decimal
-from .pdf_text import extract_lines
-from .sources import build_rfq
+from rfq_agent.llm.genesis import Genesis, GenesisError, missing_keys
+from rfq_agent.ingestion.ingest import docx_text, html_prose, html_tables, read_eml, xlsx_sheets
+from rfq_agent.domain.models import RFQ, Requirement, positive_decimal
+from rfq_agent.ingestion.pdf_text import extract_lines
+from rfq_agent.ingestion.sources import build_rfq
 
 # Confidence bands from the assessment: adopt / adopt-but-ask / refuse.
 AUTO_ACCEPT = 0.95
@@ -524,7 +524,7 @@ def _to_row(record: dict, block: Block | None) -> dict:
 
 def _deterministic(path: Path) -> tuple[RFQ | None, str]:
     """The existing parser, kept as the audit baseline and the fallback."""
-    from .ingest import ingest_eml
+    from rfq_agent.ingestion.ingest import ingest_eml
 
     try:
         return ingest_eml(path), ""
@@ -545,7 +545,7 @@ def _model_rfq(check: Check, path: Path, mail) -> RFQ:
         number = f"RFQ-{match.group(1)}" if match else path.stem
     date = check.meta.get("evaluation_date") or ""
     if not date:
-        from .ingest import _mail_date
+        from rfq_agent.ingestion.ingest import _mail_date
 
         date = _mail_date(mail.date) or dt.date.today().isoformat()
     else:

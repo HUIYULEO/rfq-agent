@@ -6,11 +6,11 @@ from pathlib import Path
 
 from docx import Document
 
-from rfq_agent.cases import load_case, template_for
-from rfq_agent.export_docx import render_draft
-from rfq_agent.pricing import summarize
-from rfq_agent.service import RFQService
-from rfq_agent.storage import TaskStore
+from rfq_agent.application.cases import load_case, template_for
+from rfq_agent.reporting.export_docx import render_draft
+from rfq_agent.domain.pricing import summarize
+from rfq_agent.application.service import RFQService
+from rfq_agent.infrastructure.storage import TaskStore
 
 ROOT = Path(__file__).resolve().parents[1]
 WORK = ROOT / "runtime" / "test_export"

@@ -7,7 +7,7 @@ It does not certify business eligibility or commercial policy.
 
 from decimal import Decimal, InvalidOperation
 
-from .policy import line_amount
+from rfq_agent.domain.policy import line_amount
 
 
 def _money(value):

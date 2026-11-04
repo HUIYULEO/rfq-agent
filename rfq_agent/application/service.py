@@ -9,12 +9,12 @@ import datetime as dt
 import json
 from uuid import uuid4
 
-from .models import RFQ, Task, positive_decimal
-from .ledger import AGENT_TRACE, ARTIFACT, HUMAN_DECISION, OperationalLedger
-from .policy import POLICY_VERSION, AUTONOMY_PRESETS, DEFAULT_POLICY
-from .pricing import build_review_items, summarize
-from .ports import PendingQuoteProvider, QuoteProvider
-from .storage import TaskStore
+from rfq_agent.domain.models import RFQ, Task, positive_decimal
+from rfq_agent.infrastructure.ledger import AGENT_TRACE, ARTIFACT, HUMAN_DECISION, OperationalLedger
+from rfq_agent.domain.policy import POLICY_VERSION, AUTONOMY_PRESETS, DEFAULT_POLICY
+from rfq_agent.domain.pricing import build_review_items, summarize
+from rfq_agent.domain.ports import PendingQuoteProvider, QuoteProvider
+from rfq_agent.infrastructure.storage import TaskStore
 
 
 class RFQService:
@@ -172,8 +172,8 @@ class RFQService:
             })
 
     def _settle(self, task: Task) -> None:
-        from .business_rules import check_business
-        from .evaluation import validate
+        from rfq_agent.domain.business_rules import check_business
+        from rfq_agent.domain.evaluation import validate
         task.evaluation_issues = validate(task.rfq, task.results)
         task.business_checks, business_issues = check_business(task.rfq, task.results)
         task.evaluation_issues = sorted(set(task.evaluation_issues) | set(business_issues))
@@ -331,7 +331,7 @@ class RFQService:
             "results": task.results,
             "evaluation_issues": task.evaluation_issues,
         }
-        from .analysis import build as build_analysis
+        from rfq_agent.reporting.analysis import build as build_analysis
 
         analysis = build_analysis(task)
         payload["business_checks"] = task.business_checks
@@ -343,7 +343,7 @@ class RFQService:
 
         # Every task gets a human-readable analysis report, quotable or not.
         if render_docx:
-            from .analysis import render_docx as render_analysis
+            from rfq_agent.reporting.analysis import render_docx as render_analysis
             try:
                 analysis_path = render_analysis(analysis, directory / f"analysis-r{revision}.docx")
                 artifacts.append(str(analysis_path))
@@ -356,7 +356,7 @@ class RFQService:
                                not task.open_reviews() and
                                task.commercial_disposition in {"QUOTE", "PARTIAL_QUOTE"})
         if render_docx and self.template is not None and quote_draft_allowed:
-            from .export_docx import render_draft
+            from rfq_agent.reporting.export_docx import render_draft
             docx_path = directory / f"quote-draft-r{revision}.docx"
             render_draft(template=self.template, output=docx_path, rfq=task.rfq,
                          results=task.results, summary=summary,
@@ -385,7 +385,7 @@ class RFQService:
 
     def analysis(self, task_id: str) -> dict:
         """Structured inquiry analysis for the current revision (web panel / API)."""
-        from .analysis import build as build_analysis
+        from rfq_agent.reporting.analysis import build as build_analysis
 
         return build_analysis(self.store.get(task_id))
 
@@ -421,7 +421,7 @@ class RFQService:
         if any(item.get("actor") == "system:auto_draft" for item in task.decision_log):
             raise ValueError("Automatic review defaults cannot approve a commercial quote")
 
-        from .db import connect, insert_quote
+        from rfq_agent.infrastructure.db import connect, insert_quote
 
         mode = self.policy.get("approval_mode", "commercial")  # demo policy sets "demo"
         approval = {
@@ -471,7 +471,7 @@ class RFQService:
             with connection:   # one transaction: history rows + final document, or neither
                 insert_quote(connection, header, lines)
                 if self.template is not None:
-                    from .export_docx import render_draft
+                    from rfq_agent.reporting.export_docx import render_draft
                     try:
                         render_draft(template=self.template, output=docx_path, rfq=task.rfq,
                                      results=task.results, summary=summary,

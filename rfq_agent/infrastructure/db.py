@@ -160,9 +160,9 @@ def latest(connection: sqlite3.Connection) -> sqlite3.Row | None:
 
 def sync(connection: sqlite3.Connection, root: Path, *, force: bool = False) -> dict:
     """Ingest the workbooks into a snapshot. Returns what happened, not what to do."""
-    from .cases import COST_TABLE, MATERIAL, PRICE_TABLE
-    from .policy import POLICY_VERSION
-    from .sources import load_cost_table, load_price_table
+    from rfq_agent.application.cases import COST_TABLE, MATERIAL, PRICE_TABLE
+    from rfq_agent.domain.policy import POLICY_VERSION
+    from rfq_agent.ingestion.sources import load_cost_table, load_price_table
 
     price_path = root / MATERIAL / PRICE_TABLE
     cost_path = root / MATERIAL / COST_TABLE

@@ -4,10 +4,10 @@ import unittest
 from pathlib import Path
 from uuid import uuid4
 
-from rfq_agent.ledger import (AGENT_TRACE, HUMAN_DECISION, OUTCOME_FEEDBACK,
+from rfq_agent.infrastructure.ledger import (AGENT_TRACE, HUMAN_DECISION, OUTCOME_FEEDBACK,
                               TASK_SNAPSHOT, OperationalLedger)
-from rfq_agent.service import RFQService
-from rfq_agent.storage import TaskStore
+from rfq_agent.application.service import RFQService
+from rfq_agent.infrastructure.storage import TaskStore
 
 
 ROOT = Path(__file__).parents[1]

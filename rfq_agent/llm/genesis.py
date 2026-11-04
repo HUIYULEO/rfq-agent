@@ -1,7 +1,7 @@
 """Genesis (OpenAI-compatible) chat client and tool loop — stdlib only.
 
 The deterministic layer stays the only source of numbers: the model chooses which
-business tool to call, the tool answers from rfq_agent.pricing. Nothing here computes
+business tool to call, the tool answers from rfq_agent.domain.pricing. Nothing here computes
 a price, and a model failure never blocks the deterministic path.
 
 Config comes from the environment, then from <repo>/.env (gitignored):
@@ -17,10 +17,11 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-from .cases import discover
-from . import quality, terms
-from .pricing import summarize
-from .service import RFQService
+from rfq_agent.application.cases import discover
+from rfq_agent.domain import quality
+from rfq_agent.domain import terms
+from rfq_agent.domain.pricing import summarize
+from rfq_agent.application.service import RFQService
 
 CONFIG_KEYS = ("GENESIS_BASE_URL", "GENESIS_MODEL", "GENESIS_ACCESS_TOKEN")
 MAX_ROUNDS = 6
@@ -189,7 +190,7 @@ def dispatch(service: RFQService, root: Path, name: str, args: dict) -> dict:
                            "container": case.container, "file": case.path.name}
                           for case in discover(root)]}
     if name == "start_case":
-        from .cases import load_case
+        from rfq_agent.application.cases import load_case
 
         rfq, _ = load_case(root, args["case_key"])
         return _compact(service.start_task(rfq.to_dict(),
@@ -313,6 +314,6 @@ class Session:
     def _state(self) -> dict | None:
         if not self.task_id:
             return None
-        from .web import _view  # reuse the exact JSON the browser sees
+        from rfq_agent.web import _view  # reuse the exact JSON the browser sees
 
         return _view(self.service.store.get_desk(self.task_id))

@@ -2,9 +2,9 @@ import argparse
 import json
 from pathlib import Path
 
-from .storage import TaskStore
-from .service import RFQService
-from .pricing import summarize
+from rfq_agent.infrastructure.storage import TaskStore
+from rfq_agent.application.service import RFQService
+from rfq_agent.domain.pricing import summarize
 
 
 def _print(payload):
@@ -12,7 +12,7 @@ def _print(payload):
 
 
 def _run_case(args, service: RFQService):
-    from .cases import load_case, template_for
+    from rfq_agent.application.cases import load_case, template_for
 
     root = Path.cwd()
     rfq, provider = load_case(root, args.case)
@@ -74,7 +74,7 @@ def main():
             service.build_quote_options(task_id, 1)
             result = service.export_quote_draft(task_id, 1)
         else:
-            from .agent import create_agent
+            from rfq_agent.llm.agent import create_agent
             agent = create_agent(service)
             response = agent.invoke({"messages": [{"role": "user", "content":
                 f"分析任务 {task_id}，生成报价候选及草案。不要修改原始数量。"}]},

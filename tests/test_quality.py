@@ -3,8 +3,8 @@
 import unittest
 from pathlib import Path
 
-from rfq_agent.cases import load_case
-from rfq_agent.quality import inspect, summary
+from rfq_agent.application.cases import load_case
+from rfq_agent.domain.quality import inspect, summary
 
 ROOT = Path(__file__).resolve().parents[1]
 

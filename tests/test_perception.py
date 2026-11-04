@@ -11,10 +11,10 @@ from pathlib import Path
 from unittest import mock
 from uuid import uuid4
 
-from rfq_agent import perception
-from rfq_agent.cases import case_by_key
-from rfq_agent.models import Requirement
-from rfq_agent.sources import build_rfq
+from rfq_agent.llm import perception
+from rfq_agent.application.cases import case_by_key
+from rfq_agent.domain.models import Requirement
+from rfq_agent.ingestion.sources import build_rfq
 
 ROOT = Path(__file__).parents[1]
 

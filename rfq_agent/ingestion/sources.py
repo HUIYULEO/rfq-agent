@@ -4,8 +4,8 @@ from __future__ import annotations
 import datetime as dt
 from pathlib import Path
 
-from .deps import require
-from .models import RFQ, Line
+from rfq_agent.infrastructure.deps import require
+from rfq_agent.domain.models import RFQ, Line
 
 
 def _load_sheet(path: Path) -> tuple[list[str], list[dict]]:
@@ -59,7 +59,7 @@ def _text(value) -> str | None:
 def build_rfq(inquiry_rows: list[dict], *, rfq_number: str, evaluation_date: str,
               source_files: list[str], customer: str = "", subject: str = "",
               urgency: str = "NORMAL", requirements: list | None = None) -> RFQ:
-    from .compliance import required_certificates
+    from rfq_agent.domain.compliance import required_certificates
 
     lines = []
     for number, item in enumerate(inquiry_rows, start=1):
