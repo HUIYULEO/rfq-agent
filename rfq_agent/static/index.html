@@ -301,6 +301,19 @@
            border-radius:8px;padding:12px 14px}
   .callout strong{color:var(--warn)}
   .panel-note{margin:0 0 10px;color:var(--muted);font-size:12px}
+  .intake-identity{display:flex;align-items:baseline;flex-wrap:wrap;gap:6px 18px;margin-bottom:14px}
+  .intake-identity strong{font-size:20px;color:var(--ink)}
+  .intake-identity code{font-size:13px;color:var(--ink2)}
+  .source-files{margin:14px 0;padding:11px 13px;border:1px solid var(--line);border-radius:8px;background:#fafcff}
+  .source-files .h{font-weight:650;font-size:12px;margin-bottom:6px}
+  .source-files a{display:inline-block;margin:3px 12px 3px 0;font-size:12px}
+  .extract-issue{color:var(--ink2);font-weight:600;white-space:normal;min-width:170px;max-width:300px}
+  .extract-issue .warn{display:block;padding:7px 9px;border:1px solid #f0d18c;border-radius:6px;background:#fff1c9;color:#8b4b00}
+  .extract-issue .warn+ .warn{margin-top:5px}
+  .extract-issue .info{color:var(--muted)}
+  .extract-issue small{display:block;font-weight:400;color:var(--muted);margin-top:2px}
+  .extract-flag{background:#fff8e8}
+  .raw-values{white-space:normal;min-width:250px;max-width:420px;color:var(--ink2)}
 </style>
 </head>
 <body>
@@ -397,7 +410,7 @@ const SOURCE = { internal: "内部库存", supplier: "供应商报价", manual: 
 const STAGE = { received: "待处理", parsed: "已解析", priced: "待确认", draft: "已出草案" };
 
 let TASKS = [], CASES = [], CASEKEY = null, S = null, SID = null, DATA = null, BUSY = false;
-let STEP = 1, LINE_OFFSET = 0, REPORT_OFFSET = 0, REVIEW_TAB = "open", PANEL_TOKEN = 0;
+let STEP = 1, EXTRACT_OFFSET = 0, LINE_OFFSET = 0, REPORT_OFFSET = 0, REVIEW_TAB = "open", PANEL_TOKEN = 0;
 let noticeTimer = null;
 const PAGE = 40;
 const STEPS = ["输入采集", "结构提取", "询价分析", "人工预审", "分析报告", "报价草案"];
@@ -507,8 +520,8 @@ async function openTask(taskId, caseKey) {
   catch (e) { notify(`任务加载失败：${e.message}`, true); return; }
   S = state;
   CASEKEY = caseKey || null;
-  LINE_OFFSET = 0; REPORT_OFFSET = 0; REVIEW_TAB = "open";
-  STEP = S.dock_step || (S.open_reviews ? 4 : 5);
+  EXTRACT_OFFSET = 0; LINE_OFFSET = 0; REPORT_OFFSET = 0; REVIEW_TAB = "open";
+  STEP = 2;
   resetQuestionContext();
   setUrl(S.task_id);
   $("empty").hidden = true; $("docwrap").hidden = false;
@@ -518,7 +531,7 @@ async function openTask(taskId, caseKey) {
 
 async function resetDemo() {
   CASEKEY = null; S = null; SID = null; STEP = 1;
-  LINE_OFFSET = 0; REPORT_OFFSET = 0; REVIEW_TAB = "open";
+  EXTRACT_OFFSET = 0; LINE_OFFSET = 0; REPORT_OFFSET = 0; REVIEW_TAB = "open";
   resetQuestionContext();
   setUrl(null);
   await refresh();
@@ -532,7 +545,7 @@ async function start() {
   if (!CASEKEY) { notify("请先选择一个演示素材，或导入询价邮件。", true); return; }
   BUSY = true;
   resetQuestionContext();
-  LINE_OFFSET = 0; REPORT_OFFSET = 0; REVIEW_TAB = "open";
+  EXTRACT_OFFSET = 0; LINE_OFFSET = 0; REPORT_OFFSET = 0; REVIEW_TAB = "open";
   $("empty").hidden = true; $("docwrap").hidden = false;
   const meta = CASES.find((c) => c.key === CASEKEY);
   if (!S) {
@@ -548,7 +561,7 @@ async function start() {
     解析邮件 · 提取行项目 · 查参考表…（停在需要你决定的地方）</div>`;
   try {
     S = await api("/api/run", { case: CASEKEY, autonomy: "interactive" });
-    STEP = S.dock_step || 4;
+    STEP = 2;
     setUrl(S.task_id);
     notify(`新任务已执行并进入收件箱；${S.open_reviews} 项待预审。`);
   } catch (e) {
@@ -707,7 +720,7 @@ function paintPanel(token) {
     return;
   }
   if (STEP === 1) paintIntake();
-  else if (STEP === 2) paintStructure();
+  else if (STEP === 2) paintStructure(token);
   else if (STEP === 3) paintInquiry(token);
   else if (STEP === 4) paintReviews(token);
   else if (STEP === 5) paintReport(token);
@@ -736,6 +749,10 @@ function paintIntake() {
   const reqs = S.requirements || [];
   const reqBlock = reqs.length ? `<div class="reqs"><div class="h">客户随附要求（${reqs.length} 条，原文照录）</div>
       <ol>${reqs.map((r) => `<li>${esc(r.text)}<em>${esc(r.source)}</em></li>`).join("")}</ol></div>` : "";
+  const files = S.source_files || [];
+  const sourceLinks = files.map((name, index) => `<a href="/api/source?id=${encodeURIComponent(S.task_id)}${
+    index ? `&file=${encodeURIComponent(name)}` : ""}" target="_blank" rel="noopener">${
+    index ? "附件：" : "邮件原件："}${esc(name)}</a>`).join("");
   const traceLabel = {
     task_created: "建立任务并锁定输入版本",
     input_understood: "模型读邮件：判断类型、抽条款、标记可疑行",
@@ -750,22 +767,22 @@ function paintIntake() {
       <span class="mark"></span><span>${esc(traceLabel[item.action] || item.action)}</span>
       <span class="at">r${esc(item.revision)} · ${esc((item.at || "").split("T")[1] || item.at || "")}</span>
     </div>`).join("");
-  $("stages").innerHTML = `<div class="kv">
-      <div><div class="k">客户</div><div class="v">${esc(S.customer)}</div></div>
-      <div><div class="k">询价号</div><div class="v mono">${esc(S.rfq_number)}</div></div>
-      <div><div class="k">主题</div><div class="v" title="${esc(S.subject)}">${esc(S.subject)}</div></div>
+  $("stages").innerHTML = `<div class="intake-identity"><strong>${esc(S.customer || "客户未识别")}</strong>
+      <code>${esc(S.rfq_number || "询价号未识别")}</code>
+      <span class="muted">${esc((S.summary || {}).lines ?? 0)} 行</span></div>
+    <div class="kv">
+      <div><div class="k">邮件主题</div><div class="v" title="${esc(S.subject)}">${esc(S.subject || "—")}</div></div>
       <div><div class="k">载体</div><div class="v">${esc(CONTAINER[S.container] || S.container || "—")}</div></div>
-      <div><div class="k">行数</div><div class="v">${esc((S.summary || {}).lines ?? "")}</div></div>
       <div><div class="k">评估日</div><div class="v">${esc(S.evaluation_date)}</div></div>
-    </div>${reqBlock}${readingBlock()}
-    <p class="muted">来源 ${esc((S.source_files || []).join("、"))}</p>
+    </div><div class="source-files"><div class="h">输入原件</div>${sourceLinks || "没有保存原件链接"}</div>
+    ${reqBlock}${readingBlock()}
     <details class="resultbox"><summary>本次执行轨迹</summary><div class="inside"><div class="runlog">${
       trace || `<div class="muted">任务执行轨迹尚未写入</div>`}</div>
       <p class="muted">task ${esc(S.task_id)} · r${esc(S.revision)} · ${esc(S.commercial_disposition || "PENDING")}</p>
     </details>`;
 }
 
-function paintStructure() {
+async function paintStructure(token) {
   const m = S.summary || { lines: 0 };
   const f = S.fields || {};
   const qs = S.quality_summary || { warn: 0, info: 0 };
@@ -773,15 +790,45 @@ function paintStructure() {
   const bar = (label, n) => `<div class="bar"><div class="h"><span>${label}</span>
       <span class="num">${n}/${m.lines}</span></div>
       <div class="t"><div class="f ${n < m.lines ? "warn" : ""}" style="width:${pct(n)}%"></div></div></div>`;
-  const findings = (S.quality || []).map((item) => `<div class="finding ${item.severity}">
-      <span class="dot2"></span><span class="t">${esc(item.title)}</span>
-      <span class="d">${esc(item.detail)}</span>
-      ${item.examples && item.examples.length ? `<span class="ex">${esc(item.examples.join(" · "))}</span>` : ""}
-    </div>`).join("");
-  $("stages").innerHTML = `<p class="panel-note">${qs.warn ? `${qs.warn} 处需注意` : `${m.lines} 行已结构化`}。字段按原文保留，不在这里改价格。</p>
+  $("stages").innerHTML = `<p class="panel-note">${qs.warn ? `${qs.warn} 类待核对事项` : `${m.lines} 行已结构化`}。逐行核对询价号、提取值、原始值和评审标记；未声明字段不自动补默认值。</p>
     <div class="bars">${bar("料号", f.part_number || 0)}${bar("数量", f.quantity || 0)}${bar("单位", f.unit || 0)}${bar("件状要求", f.condition || 0)}</div>
-    ${findings ? `<div class="findings">${findings}</div>` : ""}
-    <p class="muted">${f.with_evidence || 0}/${m.lines} 行可回溯到原始单元格${qs.info ? ` · ${qs.info} 条载体说明` : ""}</p>`;
+    <p class="muted">${f.with_evidence || 0}/${m.lines} 行可回溯到原始单元格${qs.info ? ` · ${qs.info} 条载体说明` : ""}</p>
+    <div id="extractBody"><span class="spin"></span> 正在载入提取结果…</div>`;
+  let page;
+  try { page = await api(`/api/extraction?id=${encodeURIComponent(S.task_id)}&offset=${EXTRACT_OFFSET}&limit=${PAGE}`); }
+  catch (e) {
+    if (token === PANEL_TOKEN) $("extractBody").innerHTML = `<div class="muted" style="color:var(--bad)">${esc(e.message)}</div>`;
+    return;
+  }
+  if (token !== PANEL_TOKEN) return;
+  const rows = page.lines || [];
+  const issueCell = (items) => items.length ? items.map((issue) => `<div class="${issue.severity === "warn" ? "warn" : "info"}">${esc(issue.title)}<small>${esc(issue.detail)}</small></div>`).join("") : "—";
+  const body = rows.map((r) => {
+    const raw = Object.entries(r.raw || {}).filter(([, value]) => value !== "").map(([key, value]) => `${key}: ${value}`).join(" · ");
+    const location = [r.citation.email, r.citation.attachment, r.citation.sheet,
+      r.citation.row != null ? `第 ${r.citation.row} 行` : ""].filter(Boolean).join(" / ");
+    return `<tr class="${r.issues.some((issue) => issue.severity === "warn") ? "extract-flag" : ""}">
+      <td class="r num">${esc(r.line_number ?? "—")}</td><td>${esc(r.inquiry_no || "—")}</td><td><span class="pn">${esc(r.part_number)}</span></td>
+      <td class="wrap">${esc(r.description || "—")}</td><td class="r num">${esc(r.quantity)} ${esc(r.unit)}</td>
+      <td>${esc((r.condition || []).join(" / ") || "未声明")}</td><td>${esc(r.priority || "未声明")}</td>
+      <td>${esc(r.due_at || "—")}</td><td class="extract-issue">${issueCell(r.issues)}</td>
+      <td class="raw-values">${esc(raw || "原值未保存")}</td><td class="wrap">${esc(location || "—")}</td></tr>`;
+  }).join("");
+  const unlocated = (page.unlocated_issues || []).map((issue) => `<tr class="${issue.severity === "warn" ? "extract-flag" : ""}"><td>—</td><td colspan="7">单据级 / 未定位到行</td>
+    <td class="extract-issue">${issueCell([issue])}</td><td colspan="2">—</td></tr>`).join("");
+  const from = page.total ? page.offset + 1 : 0;
+  const to = page.offset + rows.length;
+  $("extractBody").innerHTML = `<div class="hscroll"><table class="grid"><thead><tr>
+    <th class="r">#</th><th>询价单号</th><th>料号</th><th>描述</th><th class="r">数量 / 单位</th><th>件状</th>
+    <th>优先级</th><th>报价截止</th><th>评审标记</th><th>原始值</th><th>原件位置</th>
+    </tr></thead><tbody>${body || `<tr><td colspan="11">没有提取行</td></tr>`}${unlocated}</tbody></table></div>
+    <div class="pager"><button class="btn" id="extractPrev" type="button">上一页</button>
+      <span class="muted">${from}–${to} / ${page.total}</span>
+      <button class="btn" id="extractNext" type="button">下一页</button></div>`;
+  $("extractPrev").disabled = page.offset <= 0;
+  $("extractNext").disabled = page.offset + rows.length >= page.total;
+  $("extractPrev").onclick = () => { EXTRACT_OFFSET = Math.max(0, page.offset - PAGE); render(); };
+  $("extractNext").onclick = () => { EXTRACT_OFFSET = page.offset + rows.length; render(); };
 }
 
 async function paintInquiry(token) {
@@ -1052,7 +1099,7 @@ async function send() {
     if (r.state) {
       const first = !S;
       S = r.state;
-      if (first) STEP = S.dock_step || STEP;
+      if (first) STEP = 2;
       render();
       refresh();
     }

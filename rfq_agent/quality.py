@@ -1,9 +1,8 @@
-"""Parse-quality findings: duplicates, missing fields, unit and date anomalies.
+"""Source-grounded observations and review findings for an RFQ.
 
-Required by §8.1.3 of the brief. These never change a price — they describe what the
-document itself is inconsistent about, and each one points back to the rows it came from.
-A column that is empty in *every* row is a property of the carrier (a PDF simply has no
-priority column), not a defect; only partial coverage is reported as a problem.
+Repeated parts and multiple units are normal across independent inquiry lines. Only
+conflicts within the same inquiry number and part are review warnings. An unspecified
+priority stays unspecified; this module never invents a default.
 """
 
 from collections import Counter
@@ -40,36 +39,68 @@ def inspect(rfq) -> list[dict]:
     total = len(lines)
     findings: list[dict] = []
 
-    counts = Counter(line["part_number"] for line in lines)
-    repeated = {part: times for part, times in counts.items() if times > 1}
-    if repeated:
-        extra = sum(times - 1 for times in repeated.values())
-        worst = sorted(repeated.items(), key=lambda pair: (-pair[1], pair[0]))[:3]
+    groups: dict[tuple[str, str], list[dict]] = {}
+    by_part: dict[str, list[dict]] = {}
+    for line in lines:
+        part = line["part_number"]
+        inquiry = str(line.get("inquiry_no") or "").strip()
+        groups.setdefault((inquiry, part), []).append(line)
+        by_part.setdefault(part, []).append(line)
+
+    duplicate_groups = {key: group for key, group in groups.items() if len(group) > 1}
+    if duplicate_groups:
+        extra = sum(len(group) - 1 for group in duplicate_groups.values())
+        examples = sorted(duplicate_groups.items(), key=lambda pair: (-len(pair[1]), pair[0]))[:3]
         findings.append({
-            "kind": "duplicate_part", "severity": "warn", "title": "重复料号",
-            "detail": f"{len(repeated)} 个料号重复出现，共 {extra} 行重复；按原样保留，不合并也不删除",
-            "examples": [f"{part} ×{times}" for part, times in worst],
-            "lines": _ids([line for line in lines if counts[line["part_number"]] > 1]),
+            "kind": "duplicate_part", "severity": "warn", "title": "同询价号重复料号",
+            "detail": f"{len(duplicate_groups)} 组相同询价号和料号重复，共 {extra} 行重复；保留原行，核对是否为重复请求",
+            "examples": [f"{part} ×{len(group)}（询价号 {inquiry or '未声明'}）"
+                         for (inquiry, part), group in examples],
+            "lines": _ids([line for group in duplicate_groups.values() for line in group]),
             "count": extra,
+        })
+
+    across = {part: group for part, group in by_part.items()
+              if len({str(line.get("inquiry_no") or "").strip() for line in group} - {""}) > 1}
+    if across:
+        findings.append({
+            "kind": "repeated_part_across_inquiries", "severity": "info",
+            "title": "不同询价号同料号",
+            "detail": f"{len(across)} 个料号出现在不同询价单号中；它们是独立询价行，不按重复请求处理",
+            "examples": [f"{part} ×{len(group)}" for part, group in list(across.items())[:3]],
+            "lines": _ids([line for part in across for line in across[part]]),
+            "count": len(across),
         })
 
     units = Counter(line["unit"] for line in lines)
     if len(units) > 1:
         findings.append({
-            "kind": "unit_mix", "severity": "warn", "title": "单位混用",
-            "detail": "同一单据内出现多种计量单位：" + "、".join(
-                f"{unit} {times} 行" for unit, times in units.most_common()),
+            "kind": "unit_mix", "severity": "info", "title": "多种计量单位",
+            "detail": "不同询价行的计量单位：" + "、".join(
+                f"{unit} {times} 行" for unit, times in units.most_common()) + "；按行保留，不据此判错",
             "examples": [], "lines": _ids([line for line in lines if line["unit"] != units.most_common(1)[0][0]]),
             "count": total - units.most_common(1)[0][1],
         })
 
+    unit_conflicts = {key: group for key, group in groups.items()
+                      if len({line["unit"] for line in group}) > 1}
+    if unit_conflicts:
+        findings.append({
+            "kind": "unit_conflict", "severity": "warn", "title": "同询价号同料号单位不一致",
+            "detail": f"{len(unit_conflicts)} 组相同询价号和料号使用不同单位，需核对数量口径",
+            "examples": [f"{part}（{inquiry or '询价号未声明'}）："
+                         + "/".join(sorted({line["unit"] for line in group}))
+                         for (inquiry, part), group in list(unit_conflicts.items())[:3]],
+            "lines": _ids([line for group in unit_conflicts.values() for line in group]),
+            "count": len(unit_conflicts),
+        })
+
     # The source column is 截止报价日期 / Due Date: it is the customer's
     # response deadline, not a delivery date or a supplier lead time.
-    for field, label, title in (("priority", "优先级", "缺少优先级"),
-                                ("due_at", "报价回复截止日期", "缺少报价回复截止日期")):
-        finding = _counter_finding(f"missing_{field}", title, lines, field, label)
-        if finding:
-            findings.append(finding)
+    finding = _counter_finding("missing_due_at", "缺少报价回复截止日期", lines,
+                               "due_at", "报价回复截止日期")
+    if finding:
+        findings.append(finding)
 
     evaluated = data.get("evaluation_date") or ""
     late = []

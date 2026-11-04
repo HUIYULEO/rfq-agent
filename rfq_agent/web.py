@@ -10,14 +10,18 @@ from __future__ import annotations
 
 import argparse
 import json
+import mimetypes
 import re
 import threading
+from collections import Counter
+from datetime import date
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, quote, urlparse
 from uuid import uuid4
 
 from . import analysis as analysis_report, perception, quality, terms
+from .ingest import read_eml
 from .cases import (admit_case, available, case_by_key, confirm_pending, data_status,
                     discover, inbox, load_case, mark_stage, provider_for, reset_inbox,
                     stage_pending, sweep_pending, template_for)
@@ -235,6 +239,86 @@ def _line_page(task: dict, offset: int, limit: int) -> dict:
         })
     return {"total": len(results), "offset": offset, "limit": limit,
             "summary": _inquiry_summary(task), "lines": rows}
+
+
+def _extraction_page(task: dict, offset: int, limit: int) -> dict:
+    rfq = task.get("rfq") or {}
+    lines = rfq.get("lines") or []
+    findings = quality.inspect(rfq)
+    by_line: dict[str, list[dict]] = {}
+    unlocated = []
+    part_inquiries: dict[str, set[str]] = {}
+    groups: dict[tuple[str, str], list[dict]] = {}
+    for line in lines:
+        inquiry = str(line.get("inquiry_no") or "").strip()
+        part = line.get("part_number") or ""
+        part_inquiries.setdefault(part, set()).add(inquiry)
+        groups.setdefault((inquiry, part), []).append(line)
+    units = Counter(line.get("unit") for line in lines)
+    common_unit = units.most_common(1)[0][0] if units else None
+    evaluated = rfq.get("evaluation_date") or ""
+    for finding in findings:
+        ids = finding.get("lines") or []
+        kind = finding.get("kind")
+        if kind == "duplicate_part":
+            ids = [line["line_id"] for line in lines if len(groups[(str(line.get("inquiry_no") or "").strip(), line.get("part_number") or "")]) > 1]
+        elif kind == "repeated_part_across_inquiries":
+            ids = [line["line_id"] for line in lines if len(part_inquiries[line.get("part_number") or ""] - {""}) > 1]
+        elif kind == "unit_mix":
+            ids = [line["line_id"] for line in lines if line.get("unit") != common_unit]
+        elif kind == "unit_conflict":
+            ids = [line["line_id"] for line in lines if len({item.get("unit") for item in groups[(str(line.get("inquiry_no") or "").strip(), line.get("part_number") or "")]}) > 1]
+        elif kind in ("missing_due_at", "missing_condition"):
+            field = {"missing_due_at": "due_at", "missing_condition": "condition_accept"}[kind]
+            ids = [line["line_id"] for line in lines if not line.get(field)]
+        elif kind == "date_anomaly":
+            ids = []
+            for line in lines:
+                due = (line.get("due_at") or "")[:10]
+                if not due or not evaluated:
+                    continue
+                try:
+                    anomalous = date.fromisoformat(due) < date.fromisoformat(evaluated)
+                except ValueError:
+                    anomalous = True
+                if anomalous:
+                    ids.append(line["line_id"])
+        if not ids:
+            unlocated.append({"title": finding["title"], "detail": finding["detail"],
+                              "severity": finding["severity"]})
+        for line_id in ids:
+            by_line.setdefault(line_id, []).append({
+                "title": finding["title"], "detail": finding["detail"],
+                "severity": finding["severity"]})
+    for issue in (task.get("extraction") or {}).get("issues") or []:
+        if issue.get("kind") == "reconciled":
+            continue
+        item = {"title": "模型识别疑点", "detail": str(issue.get("detail") or ""),
+                "severity": "warn"}
+        index = issue.get("line")
+        if isinstance(index, int) and 1 <= index <= len(lines):
+            by_line.setdefault(lines[index - 1]["line_id"], []).append(item)
+        else:
+            unlocated.append(item)
+    rows = []
+    for line in lines[offset:offset + limit]:
+        evidence = line.get("evidence") or {}
+        rows.append({
+            "line_id": line["line_id"],
+            "line_number": int(str(line["line_id"]).lstrip("L")) if str(line["line_id"]).lstrip("L").isdigit() else None,
+            "part_number": line.get("part_number") or "",
+            "inquiry_no": line.get("inquiry_no") or "",
+            "description": line.get("description") or "",
+            "quantity": line.get("quantity"), "unit": line.get("unit") or "",
+            "condition": line.get("condition_accept") or [],
+            "priority": line.get("priority") or "",
+            "due_at": line.get("due_at") or "",
+            "raw": evidence.get("raw") or {},
+            "citation": _citation(line),
+            "issues": by_line.get(line["line_id"], []),
+        })
+    return {"total": len(lines), "offset": offset, "limit": limit,
+            "lines": rows, "unlocated_issues": unlocated}
 
 
 def _review_page(task: dict, bucket: str, offset: int, limit: int) -> dict:
@@ -508,14 +592,16 @@ class Handler(BaseHTTPRequestHandler):
             except ValueError as exc:
                 self._error(exc, 404)
             return
-        if parsed.path in ("/api/lines", "/api/reviews", "/api/report"):
+        if parsed.path in ("/api/extraction", "/api/lines", "/api/reviews", "/api/report"):
             query = parse_qs(parsed.query)
             task_id = (query.get("id") or [""])[0]
             offset, limit = _page_window(query)
             try:
                 with LOCK:
                     desk = _load_desk(task_id)
-                if parsed.path == "/api/lines":
+                if parsed.path == "/api/extraction":
+                    payload = _extraction_page(desk, offset, limit)
+                elif parsed.path == "/api/lines":
                     payload = _line_page(desk, offset, limit)
                 elif parsed.path == "/api/reviews":
                     bucket = (query.get("bucket") or ["open"])[0]
@@ -525,6 +611,38 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(payload)
             except ValueError as exc:
                 self._error(exc, 404)
+            return
+        if parsed.path == "/api/source":
+            query = parse_qs(parsed.query)
+            task_id = (query.get("id") or [""])[0]
+            requested = (query.get("file") or [""])[0]
+            try:
+                with LOCK:
+                    _load_desk(task_id)
+                    item = next((entry for entry in inbox(ROOT)
+                                 if entry.get("task_id") == task_id), None)
+                if item is None:
+                    raise ValueError("source file not found for task")
+                path = item["case"].path
+                if requested:
+                    attachment = next(((name, data) for name, data in read_eml(path).attachments
+                                       if name == requested), None)
+                    if attachment is None:
+                        raise ValueError("attachment not found in original email")
+                    filename, payload = attachment
+                else:
+                    filename, payload = path.name, path.read_bytes()
+            except (ValueError, OSError) as exc:
+                self._error(exc, 404)
+                return
+            content_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
+            disposition = "inline" if content_type in ("application/pdf", "text/plain") else "attachment"
+            self.send_response(200)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Disposition", disposition + "; filename*=UTF-8''" + quote(filename))
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
             return
         if parsed.path == "/api/analysis":
             query = parse_qs(parsed.query)
