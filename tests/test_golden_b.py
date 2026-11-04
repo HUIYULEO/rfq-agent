@@ -12,11 +12,11 @@ from decimal import Decimal
 from pathlib import Path
 from uuid import uuid4
 
-from rfq_agent import deps
-from rfq_agent.cases import load_case, template_for
-from rfq_agent.pricing import summarize
-from rfq_agent.service import RFQService
-from rfq_agent.storage import TaskStore
+from rfq_agent.infrastructure import deps
+from rfq_agent.application.cases import load_case, template_for
+from rfq_agent.domain.pricing import summarize
+from rfq_agent.application.service import RFQService
+from rfq_agent.infrastructure.storage import TaskStore
 
 ROOT = Path(__file__).parents[1]
 GOLDEN = ROOT / "tests" / "fixtures" / "expected" / "buyer_b.json"
@@ -166,7 +166,7 @@ class GoldenBuyerBTests(unittest.TestCase):
 
 class RmbUpperTests(unittest.TestCase):
     def test_capital_amounts(self):
-        from rfq_agent.export_docx import rmb_upper
+        from rfq_agent.reporting.export_docx import rmb_upper
 
         cases = {
             "386595.80": "叁拾捌万陆仟伍佰玖拾伍元捌角整",

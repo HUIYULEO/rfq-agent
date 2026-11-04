@@ -8,7 +8,7 @@ Exit code 0 = ready, 1 = something must be installed.
 import sys
 from pathlib import Path
 
-from .deps import ensure_deps
+from rfq_agent.infrastructure.deps import ensure_deps
 
 REQUIRED = (("docx", "导出 Word 草案"), ("openpyxl", "读取 Excel 附件"))
 

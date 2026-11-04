@@ -18,10 +18,11 @@ from http.server import ThreadingHTTPServer
 from pathlib import Path
 from uuid import uuid4
 
-from rfq_agent import analysis, web
-from rfq_agent.models import Line, RFQ, Task
-from rfq_agent.service import RFQService
-from rfq_agent.storage import TaskStore
+from rfq_agent.reporting import analysis
+from rfq_agent import web
+from rfq_agent.domain.models import Line, RFQ, Task
+from rfq_agent.application.service import RFQService
+from rfq_agent.infrastructure.storage import TaskStore
 
 ROOT = Path(__file__).resolve().parents[1]
 PAGE = Path(__file__).resolve().parents[1] / "rfq_agent" / "static" / "index.html"

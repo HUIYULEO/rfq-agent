@@ -12,9 +12,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from uuid import uuid4
 
-from .ingest import ingest_eml, read_eml
-from .policy import POLICY_VERSION
-from .pricing import SQLiteQuoteProvider
+from rfq_agent.ingestion.ingest import ingest_eml, read_eml
+from rfq_agent.domain.policy import POLICY_VERSION
+from rfq_agent.domain.pricing import SQLiteQuoteProvider
 
 MATERIAL = Path("data/询价信息素材")
 PRICE_TABLE = "价格资源表_演示数据.xlsx"
@@ -65,7 +65,7 @@ def discover(root: Path, *, refresh: bool = False) -> list[Case]:
     connection = None
     if files:
         try:
-            from .db import connect
+            from rfq_agent.infrastructure.db import connect
 
             connection = connect(DB_PATH(root))
         except (OSError, ValueError):
@@ -77,7 +77,7 @@ def discover(root: Path, *, refresh: bool = False) -> list[Case]:
         mtime = path.stat().st_mtime
         cached = None
         if connection is not None and not refresh:
-            from .db import cached_mail
+            from rfq_agent.infrastructure.db import cached_mail
 
             cached = cached_mail(connection, path, mtime)
         if cached:
@@ -106,7 +106,7 @@ def discover(root: Path, *, refresh: bool = False) -> list[Case]:
         cases.append(case)
         if connection is not None:
             try:
-                from .db import remember_mail
+                from rfq_agent.infrastructure.db import remember_mail
 
                 remember_mail(connection, path, mtime, case)
             except OSError:
@@ -190,7 +190,7 @@ def sweep_pending(root: Path) -> int:
 
 def provider_for(root: Path) -> SQLiteQuoteProvider:
     """SQLite-backed: the workbooks are ingested once per snapshot, then queried."""
-    from .db import connect, sync
+    from rfq_agent.infrastructure.db import connect, sync
 
     connection = connect(DB_PATH(root))
     info = sync(connection, root)
@@ -199,7 +199,7 @@ def provider_for(root: Path) -> SQLiteQuoteProvider:
 
 def data_status(root: Path) -> dict:
     """What the reference data currently is — shown in the UI so it is never a guess."""
-    from .db import connect, counts, latest, sync
+    from rfq_agent.infrastructure.db import connect, counts, latest, sync
 
     connection = connect(DB_PATH(root))
     info = sync(connection, root)
@@ -233,7 +233,7 @@ def case_by_key(root: Path, key: str) -> Case:
 # ---------- inbox: the demo ships small, the user admits the rest ----------
 
 def _inbox_db(root: Path):
-    from .db import admit, connect, inbox_rows, mark_seeded, seeded, set_stage
+    from rfq_agent.infrastructure.db import admit, connect, inbox_rows, mark_seeded, seeded, set_stage
 
     connection = connect(DB_PATH(root))
     return connection, admit, inbox_rows, mark_seeded, seeded, set_stage
@@ -281,7 +281,7 @@ def reset_inbox(root: Path) -> None:
     Uploaded files stay on disk (they are the user's own material); only the inbox
     and its stage markers are cleared, so the next demo starts from the gate.
     """
-    from .db import clear_inbox, connect
+    from rfq_agent.infrastructure.db import clear_inbox, connect
 
     connection = connect(DB_PATH(root))
     clear_inbox(connection)

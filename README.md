@@ -120,26 +120,37 @@ inbox      用户收了哪几封、走到哪一步、对应 task_id
 复核项 ID 由目标推导（`RI-0016` = 第 16 行，`RI-TASK` = 全案），答完不重新编号，
 否则决策日志会指向错的对象。
 
-## 分层
+## 项目结构
 
 ```text
-ingest.py      .eml → RFQ（四种载体，一个出口；含条款提取）
-pdf_text.py    标准库 PDF 文字提取（带坐标）
-sources.py     xlsx 读表、row → Line、价格/成本表加载
-pricing.py     确定性定价引擎：候选、硬约束、加成、复核项
-quality.py     单据一致性检查（重复行、单位、缺字段、日期）
-service.py     业务动作 + 复核门 + revision + 产物
-export_docx.py 官方模板填充 + 依据摘要页 + 金额大写
-cases.py       案例发现、收件箱、素材池
-db.py          SQLite：快照、价格/成本行、邮件缓存、收件箱
-web.py         本地演示服务（标准库 http.server）
-cli.py         demo / case / agent 三个命令
-agent.py       Deep Agents + Genesis 适配（懒加载，可选）
+rfq_agent/
+  domain/          数据模型、定价、合规、业务规则与质量检查
+  application/     RFQService 流程编排、案例与收件箱操作
+  ingestion/       邮件、表格、PDF 解析与数据归一
+  infrastructure/  SQLite、任务存储、审计账本与可选依赖加载
+  llm/             模型客户端、输入理解与 Agent 工具调用
+  reporting/       分析报告与报价 DOCX 导出
+  static/          Web 页面资源
+  web.py           HTTP 服务入口
+  cli.py           命令行入口
+  checkenv.py      环境检查入口
+tests/             回归测试
+tools/             开发与素材核对脚本
+refer_doc/         设计、评审与交付文档
+examples/          示例输入与预期结果
+data/              本地询价素材（不纳入 Git）
+runtime/           本地数据库、任务与导出产物（不纳入 Git）
 ```
+
+启动命令保持不变：`python -m rfq_agent.web`、`python -m rfq_agent.cli`。
+内部模块使用明确的包路径，例如 `from rfq_agent.application.service import RFQService`；
+旧的平铺导入路径不再提供兼容别名，新增代码和测试按职责放入对应目录。
+这是目录归类，保留现有业务调用关系；例如定价模块仍包含 SQLite provider，
+模型工具仍复用 Web 结果视图，并未在本次整理中改写这些边界。
 
 ## 对话层（模型可选）
 
-`rfq_agent/genesis.py` 是 OpenAI 兼容的客户端 + 工具循环，纯标准库。
+`rfq_agent/llm/genesis.py` 是 OpenAI 兼容的客户端 + 工具循环，纯标准库。
 配置放 `.env`（已 gitignore）：
 
 ```text

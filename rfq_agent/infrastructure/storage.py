@@ -3,7 +3,8 @@ import json
 import os
 import re
 from pathlib import Path
-from .models import Task
+
+from rfq_agent.domain.models import Task
 
 
 # Candidate arrays are audit evidence for the engine. The desk never renders them,

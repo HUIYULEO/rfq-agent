@@ -9,8 +9,8 @@ import unittest
 from pathlib import Path
 from uuid import uuid4
 
-from rfq_agent.service import RFQService
-from rfq_agent.storage import TaskStore
+from rfq_agent.application.service import RFQService
+from rfq_agent.infrastructure.storage import TaskStore
 
 
 def _test_root() -> Path:

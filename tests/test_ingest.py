@@ -2,8 +2,8 @@
 import unittest
 from pathlib import Path
 
-from rfq_agent.cases import discover, load_case
-from rfq_agent.pricing import build_review_items, summarize
+from rfq_agent.application.cases import discover, load_case
+from rfq_agent.domain.pricing import build_review_items, summarize
 
 ROOT = Path(__file__).parents[1]
 
@@ -106,7 +106,7 @@ class HtmlTableSelectionTests(unittest.TestCase):
     """A body may hold more than one table; the inquiry is not always the first."""
 
     def test_disclaimer_table_does_not_hide_the_inquiry_table(self):
-        from rfq_agent.ingest import _rows_from_html
+        from rfq_agent.ingestion.ingest import _rows_from_html
 
         markup = ("<table><tr><td>Disclaimer</td><td>legal notice</td></tr></table>"
                   "<table><tr><td>Part Number</td><td>Quantity</td><td>Unit Of Measure</td></tr>"
@@ -117,7 +117,7 @@ class HtmlTableSelectionTests(unittest.TestCase):
         self.assertEqual(rows[0]["_sheet"], "正文表格 2")
 
     def test_no_usable_table_raises_with_the_reason(self):
-        from rfq_agent.ingest import _rows_from_html
+        from rfq_agent.ingestion.ingest import _rows_from_html
 
         with self.assertRaises(ValueError) as caught:
             _rows_from_html("<p>no table here</p>")

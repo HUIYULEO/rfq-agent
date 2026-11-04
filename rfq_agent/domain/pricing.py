@@ -8,9 +8,9 @@ from __future__ import annotations
 
 import datetime as dt
 
-from .compliance import (certificate_satisfies, is_pma, is_special_requirement, lookup_keys,
+from rfq_agent.domain.compliance import (certificate_satisfies, is_pma, is_special_requirement, lookup_keys,
                          match_type, same_unit)
-from .policy import DEFAULT_POLICY, dec, line_amount, money, q2
+from rfq_agent.domain.policy import DEFAULT_POLICY, dec, line_amount, money, q2
 
 MONEY_RULES = ("status_invalid", "date_expired", "moq_exceeds", "condition_mismatch",
                "condition_unknown", "stock_insufficient", "cost_missing", "price_missing",
@@ -495,7 +495,7 @@ class SQLiteQuoteProvider(PriceTableQuoteProvider):
         self.last_query = {"price_rows": 0, "cost_rows": 0, "parts": 0}
 
     def evaluate(self, rfq, resolutions: dict | None = None) -> list[dict]:
-        from .db import rows_for
+        from rfq_agent.infrastructure.db import rows_for
 
         parts = {line.part_number for line in rfq.lines if line.part_number}
         keys = set().union(*(lookup_keys(line) for line in rfq.lines)) if rfq.lines else set()
@@ -529,7 +529,7 @@ def _option(option_id: str) -> dict:
 
 
 def _locator_for(rfq, line_id: str, column: str) -> dict | None:
-    from .business_rules import locate
+    from rfq_agent.domain.business_rules import locate
 
     line = next((item for item in getattr(rfq, "lines", []) if item.line_id == line_id), None)
     return locate(line, column) if line is not None else None

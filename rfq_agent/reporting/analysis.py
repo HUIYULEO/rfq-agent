@@ -10,8 +10,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .deps import require
-from .pricing import ANSWER_LABELS, line_answers, summarize
+from rfq_agent.infrastructure.deps import require
+from rfq_agent.domain.pricing import ANSWER_LABELS, line_answers, summarize
 
 TITLE = "询价分析报告"
 
@@ -60,7 +60,7 @@ def _line_status(row: dict, open_line_ids: set, task_open: bool, resolutions: di
 
 def _prepare(task):
     """Index checks by line once. The report used to rescan every check per line."""
-    from .business_rules import locate
+    from rfq_agent.domain.business_rules import locate
 
     data = task.to_dict() if hasattr(task, "to_dict") else task
     results = data.get("results") or []

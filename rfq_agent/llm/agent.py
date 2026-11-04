@@ -1,6 +1,7 @@
 """Optional Deep Agents / Genesis adapter; imports are lazy for offline use."""
 import os
-from .service import RFQService
+
+from rfq_agent.application.service import RFQService
 
 
 def create_agent(service: RFQService):

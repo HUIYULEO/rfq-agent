@@ -6,7 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from uuid import uuid4
 
-from rfq_agent.ledger import (AGENT_TRACE, HUMAN_DECISION, OUTCOME_FEEDBACK,
+from rfq_agent.infrastructure.ledger import (AGENT_TRACE, HUMAN_DECISION, OUTCOME_FEEDBACK,
                               RULE_DECISION, TASK_SNAPSHOT, OperationalLedger)
 
 

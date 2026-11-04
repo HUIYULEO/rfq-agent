@@ -1,7 +1,7 @@
 import unittest
 
-from rfq_agent.models import Line, RFQ
-from rfq_agent.pricing import PriceTableQuoteProvider
+from rfq_agent.domain.models import Line, RFQ
+from rfq_agent.domain.pricing import PriceTableQuoteProvider
 
 
 def rfq_for(part_number: str) -> RFQ:

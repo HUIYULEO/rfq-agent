@@ -21,9 +21,9 @@ from dataclasses import dataclass, field
 from html.parser import HTMLParser
 from pathlib import Path
 
-from .models import Requirement, RFQ
-from .pdf_text import extract_lines
-from .sources import build_rfq
+from rfq_agent.domain.models import Requirement, RFQ
+from rfq_agent.ingestion.pdf_text import extract_lines
+from rfq_agent.ingestion.sources import build_rfq
 
 # Header cell -> the canonical column name used by the .xlsx attachment.
 HEADER_ALIASES = {
@@ -230,7 +230,7 @@ def docx_text(data: bytes) -> list[str]:
 
 def xlsx_sheets(data: bytes) -> list[tuple[str, list[list[str]]]]:
     """Every worksheet, so a cover sheet in position 1 does not hide the real table."""
-    from .deps import require
+    from rfq_agent.infrastructure.deps import require
 
     openpyxl = require("openpyxl", "reading the .xlsx attachment")
     workbook = openpyxl.load_workbook(io.BytesIO(data), read_only=True, data_only=True)
@@ -331,7 +331,7 @@ def _rows_from_text(text: str) -> list[dict]:
 
 
 def _rows_from_xlsx(data: bytes, filename: str = "") -> list[dict]:
-    from .deps import require
+    from rfq_agent.infrastructure.deps import require
 
     openpyxl = require("openpyxl", "reading the .xlsx attachment")
     workbook = openpyxl.load_workbook(io.BytesIO(data), read_only=True, data_only=True)

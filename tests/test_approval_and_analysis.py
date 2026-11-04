@@ -9,10 +9,10 @@ from uuid import uuid4
 
 from docx import Document
 
-from rfq_agent.cases import load_case, template_for
-from rfq_agent.policy import DEFAULT_POLICY, DEMO_APPROVED_POLICY, active_policy
-from rfq_agent.service import RFQService
-from rfq_agent.storage import TaskStore
+from rfq_agent.application.cases import load_case, template_for
+from rfq_agent.domain.policy import DEFAULT_POLICY, DEMO_APPROVED_POLICY, active_policy
+from rfq_agent.application.service import RFQService
+from rfq_agent.infrastructure.storage import TaskStore
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -103,7 +103,7 @@ class ApprovalTests(unittest.TestCase):
 
     def test_render_failure_rolls_back_history(self):
         service, state = self._ready(DEMO_APPROVED_POLICY)
-        with mock.patch("rfq_agent.export_docx.render_draft", side_effect=RuntimeError("boom")):
+        with mock.patch("rfq_agent.reporting.export_docx.render_draft", side_effect=RuntimeError("boom")):
             with self.assertRaises(RuntimeError):
                 service.activate_quote(state["task_id"], state["revision"], "王经理")
         self.assertEqual(self._rows(service), ([], 0))

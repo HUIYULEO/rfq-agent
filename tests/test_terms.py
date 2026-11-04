@@ -4,9 +4,9 @@ import unittest
 from dataclasses import replace
 from pathlib import Path
 
-from rfq_agent import terms
-from rfq_agent.cases import load_case
-from rfq_agent.models import Requirement
+from rfq_agent.domain import terms
+from rfq_agent.application.cases import load_case
+from rfq_agent.domain.models import Requirement
 
 ROOT = Path(__file__).resolve().parents[1]
 

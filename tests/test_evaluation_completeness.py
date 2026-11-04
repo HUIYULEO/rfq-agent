@@ -2,8 +2,8 @@
 
 import unittest
 
-from rfq_agent.evaluation import validate
-from rfq_agent.models import RFQ
+from rfq_agent.domain.evaluation import validate
+from rfq_agent.domain.models import RFQ
 
 
 def _rfq():
@@ -47,7 +47,7 @@ class CompletenessTests(unittest.TestCase):
 
     def test_fractional_quantity_amount_uses_the_shared_rounding_helper(self):
         """2.5 FT x 13.33 = 33.325 -> 33.33: validate() must agree with pricing."""
-        from rfq_agent.policy import line_amount
+        from rfq_agent.domain.policy import line_amount
 
         rfq = RFQ.from_dict({
             "rfq_number": "CHECK-2", "evaluation_date": "2026-11-02",

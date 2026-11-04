@@ -4,8 +4,8 @@ import shutil
 import unittest
 from pathlib import Path
 
-from rfq_agent import cases
-from rfq_agent.cases import SEED, admit_case, available, discover, inbox, mark_stage
+from rfq_agent.application import cases
+from rfq_agent.application.cases import SEED, admit_case, available, discover, inbox, mark_stage
 
 ROOT = Path(__file__).resolve().parents[1]
 MATERIAL = ROOT / "data" / "询价信息素材"

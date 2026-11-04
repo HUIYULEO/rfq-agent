@@ -1,7 +1,8 @@
 """Replaceable document and pricing adapters, independent of LLM libraries."""
 from pathlib import Path
 from typing import Protocol
-from .models import RFQ
+
+from rfq_agent.domain.models import RFQ
 
 
 class DocumentParser(Protocol):

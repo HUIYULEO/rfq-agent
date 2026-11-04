@@ -4,7 +4,8 @@
 
 The agent's input is the material itself: any of the six official .eml files, or one
 the judge uploads. The page only shows what the pipeline produced — every number comes
-from rfq_agent.pricing, every field from rfq_agent.ingest.
+
+from rfq_agent.domain.pricing, every field from rfq_agent.ingestion.ingest.
 """
 from __future__ import annotations
 
@@ -19,19 +20,21 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, quote, urlparse
 from uuid import uuid4
-
-from . import analysis as analysis_report, perception, quality, terms
-from .ingest import read_eml
-from .cases import (admit_case, available, case_by_key, confirm_pending, data_status,
+from rfq_agent.reporting import analysis as analysis_report
+from rfq_agent.llm import perception
+from rfq_agent.domain import quality
+from rfq_agent.domain import terms
+from rfq_agent.ingestion.ingest import read_eml
+from rfq_agent.application.cases import (admit_case, available, case_by_key, confirm_pending, data_status,
                     discover, inbox, load_case, mark_stage, provider_for, reset_inbox,
                     stage_pending, sweep_pending, template_for)
-from .genesis import GenesisError, Session, load_config, missing_keys
-from .perception import PerceptionError
-from .ledger import OperationalLedger
-from .policy import active_policy
-from .pricing import summarize
-from .service import RFQService
-from .storage import TaskStore
+from rfq_agent.llm.genesis import GenesisError, Session, load_config, missing_keys
+from rfq_agent.llm.perception import PerceptionError
+from rfq_agent.infrastructure.ledger import OperationalLedger
+from rfq_agent.domain.policy import active_policy
+from rfq_agent.domain.pricing import summarize
+from rfq_agent.application.service import RFQService
+from rfq_agent.infrastructure.storage import TaskStore
 
 ROOT = Path(__file__).resolve().parents[1]
 STATIC = Path(__file__).resolve().parent / "static"
@@ -195,7 +198,7 @@ def _inquiry_summary(task: dict) -> dict:
 
 
 def _citation(source) -> dict:
-    from .business_rules import locate
+    from rfq_agent.domain.business_rules import locate
 
     located = locate(source, "Part Number") if source else {}
     raw = located.get("raw_value")

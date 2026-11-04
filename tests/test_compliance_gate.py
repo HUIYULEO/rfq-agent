@@ -7,13 +7,13 @@ import unittest
 from decimal import Decimal
 from pathlib import Path
 
-from rfq_agent.cases import load_case
-from rfq_agent.compliance import match_type, normalize_pn, required_certificates
-from rfq_agent.business_rules import check_business
-from rfq_agent.evaluation import validate
-from rfq_agent.models import Line, RFQ
-from rfq_agent.policy import line_amount
-from rfq_agent.pricing import PriceTableQuoteProvider, build_review_items
+from rfq_agent.application.cases import load_case
+from rfq_agent.domain.compliance import match_type, normalize_pn, required_certificates
+from rfq_agent.domain.business_rules import check_business
+from rfq_agent.domain.evaluation import validate
+from rfq_agent.domain.models import Line, RFQ
+from rfq_agent.domain.policy import line_amount
+from rfq_agent.domain.pricing import PriceTableQuoteProvider, build_review_items
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -134,7 +134,7 @@ class CertificateTests(unittest.TestCase):
 
 
     def test_pma_review_can_be_switched_off_by_policy(self):
-        from rfq_agent.policy import DEFAULT_POLICY
+        from rfq_agent.domain.policy import DEFAULT_POLICY
 
         rfq = rfq_with()
         rows = [supplier("PR01", "FAA 8130-3 (PMA)", 10), supplier("PR02", "EASA Form 1", 14)]
@@ -225,7 +225,7 @@ class AmountAlignmentTests(unittest.TestCase):
 
 class BusinessChecksTests(unittest.TestCase):
     def test_every_line_gets_every_rule_including_passes(self):
-        from rfq_agent.business_rules import BUSINESS_RULES
+        from rfq_agent.domain.business_rules import BUSINESS_RULES
 
         rfq, provider = load_case(ROOT, "B")
         checks, issues = check_business(rfq, provider.evaluate(rfq))
@@ -236,7 +236,7 @@ class BusinessChecksTests(unittest.TestCase):
         self.assertTrue(all(c["locator"]["text"] for c in checks))
 
     def test_task_stores_business_checks_and_old_tasks_default_empty(self):
-        from rfq_agent.models import Task
+        from rfq_agent.domain.models import Task
 
         restored = Task.from_dict({"task_id": "0" * 32, "rfq": rfq_with().to_dict()})
         self.assertEqual(restored.business_checks, [])
