@@ -303,6 +303,19 @@ class DeskLoadTests(unittest.TestCase):
 
 
 class DeskCopyTests(unittest.TestCase):
+    def test_extraction_page_keeps_raw_values_and_marks_all_duplicate_rows(self):
+        lines = [{"line_id": f"L{number:03d}", "part_number": "PN-0001",
+                  "quantity": "2", "unit": "EA", "priority": "" if number == 70 else "HIGH",
+                  "condition_accept": ["NE"], "due_at": "2026-09-10",
+                  "evidence": {"raw": {"Part Number": " PN-0001 ", "Quantity": "02"}}}
+                 for number in range(1, 71)]
+        task = {"rfq": {"lines": lines, "evaluation_date": "2026-09-01"}}
+        page = web._extraction_page(task, 69, 1)
+        self.assertEqual(page["total"], 70)
+        self.assertEqual(page["lines"][0]["raw"]["Quantity"], "02")
+        self.assertEqual({item["title"] for item in page["lines"][0]["issues"]},
+                         {"重复料号", "缺少优先级"})
+
     def test_page_carries_the_six_steps_and_the_confirm(self):
         html = PAGE.read_text(encoding="utf-8")
         self.assertIn(
