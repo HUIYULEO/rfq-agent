@@ -12,6 +12,7 @@ from pathlib import Path
 
 from rfq_agent.infrastructure.deps import require
 from rfq_agent.domain.pricing import ANSWER_LABELS, line_answers, summarize
+from rfq_agent.domain.input_status import input_status
 
 TITLE = "询价分析报告"
 
@@ -142,6 +143,7 @@ def _envelope(data, results, findings, open_items, review_items, statuses: list[
     money = summarize(results) if results else {"priced_subtotal_cny": "0.00", "priced_lines": 0}
     return {
         "title": TITLE,
+        "input_status": input_status(data.get("extraction")),
         "task_id": data["task_id"],
         "revision": data["revision"],
         "rfq_number": rfq.get("rfq_number", ""),
@@ -241,6 +243,8 @@ def render_docx(analysis: dict, output: Path) -> Path:
         "本文件是询价分析记录，用于定位问题和安排下一步动作，不构成对外报价，不得对外发送。")
 
     document.add_heading("一、结论摘要", level=1)
+    status = analysis.get("input_status") or input_status(None)
+    document.add_paragraph(f"输入理解：{status['label']}。{status['reason']}")
     table = document.add_table(rows=0, cols=2)
     table.style = "Table Grid"
     for label, value in (

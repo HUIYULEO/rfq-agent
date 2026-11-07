@@ -728,18 +728,30 @@ function paintPanel(token) {
 }
 
 /* ---------- what the agent understood about the input ---------- */
+function inputStatusBlock(status) {
+  status = status || { label: "模型理解状态未记录", reason: "无法确认是否完成模型审查。" };
+  return `<div class="reading" role="status"><div class="h">输入理解 · ${esc(status.label)}</div>
+    <div>${esc(status.reason)}</div></div>`;
+}
+
+function inputTraceLabel(item) {
+  if (item.model_ran === true) return item.label || "模型理解完成";
+  if (item.degraded === true || item.source === "deterministic") return "仅规则解析（模型理解降级）";
+  return "记录输入理解结果（旧记录，执行状态未明确标记）";
+}
+
 function readingBlock() {
   const ex = (S && S.extraction) || {};
-  if (!ex.mode) return "";
-  const mode = ex.mode === "audit" ? "代码解析 + 模型审查" : "模型抽取（逐字段校验）";
+  const status = (S && S.input_status) || {};
+  if (status.model_ran !== true) return inputStatusBlock(status.label ? status : null);
   const issues = (ex.issues || []).filter((i) => i.kind !== "reconciled").slice(0, 5);
   const stats = [];
   if (ex.mode === "audit" && ex.lines_deterministic) stats.push(`${ex.lines_deterministic} 行由解析器读出`);
   if (ex.mode === "extract" && ex.lines_model) stats.push(`${ex.lines_model} 行由模型抽出并回指原文`);
   if (ex.requirements_added) stats.push(`新增 ${ex.requirements_added} 条客户要求`);
   if ((ex.refused || []).length) stats.push(`拒收 ${ex.refused.length} 行（未通过校验）`);
-  return `<div class="reading"><div class="h">输入理解 · ${esc(mode)}</div>
-    <div>${esc(ex.judgement || ex.reason || "")}</div>
+  return `${inputStatusBlock(status)}<div class="reading">
+    <div>${esc(ex.judgement || "")}</div>
     ${stats.length ? `<div class="muted" style="margin-top:3px">${esc(stats.join(" · "))}</div>` : ""}
     ${issues.length ? `<ul>${issues.map((i) => `<li>${esc(i.detail)}</li>`).join("")}</ul>` : ""}
   </div>`;
@@ -755,7 +767,6 @@ function paintIntake() {
     index ? "附件：" : "邮件原件："}${esc(name)}</a>`).join("");
   const traceLabel = {
     task_created: "建立任务并锁定输入版本",
-    input_understood: "模型读邮件：判断类型、抽条款、标记可疑行",
     rfq_validated: "校验 RFQ 结构与必填字段",
     quote_evaluated: "查询数据快照、执行规则并形成商业处置",
     human_decision_applied: "应用人工决定并恢复同一任务",
@@ -764,7 +775,8 @@ function paintIntake() {
     feedback_recorded: "记录反馈供后续评测"
   };
   const trace = (S.agent_trace || []).map((item) => `<div class="runstep">
-      <span class="mark"></span><span>${esc(traceLabel[item.action] || item.action)}</span>
+      <span class="mark"></span><span>${esc(item.action === "input_understood"
+        ? inputTraceLabel(item) : traceLabel[item.action] || item.action)}</span>
       <span class="at">r${esc(item.revision)} · ${esc((item.at || "").split("T")[1] || item.at || "")}</span>
     </div>`).join("");
   $("stages").innerHTML = `<div class="intake-identity"><strong>${esc(S.customer || "客户未识别")}</strong>
@@ -834,7 +846,7 @@ async function paintStructure(token) {
 async function paintInquiry(token) {
   const q = S.inquiry || {};
   const sub = (S.summary && S.summary.priced_lines) ? "¥" + money(S.summary.priced_subtotal_cny) : "—";
-  $("stages").innerHTML = `<div class="kv">
+  $("stages").innerHTML = `${inputStatusBlock(S.input_status)}<div class="kv">
       <div><div class="k">有依据</div><div class="v big">${esc(q.grounded ?? 0)}</div></div>
       <div><div class="k">待预审</div><div class="v big" style="color:var(--warn)">${esc(q.pending ?? 0)}</div></div>
       <div><div class="k">阻断</div><div class="v big" style="color:var(--bad)">${esc(q.blocked ?? 0)}</div></div>
@@ -964,7 +976,7 @@ async function paintReport(token) {
   }
   if (token !== PANEL_TOKEN) return;
   const sum = page.summary || {};
-  $("reportTop").innerHTML = `<div class="kv">
+  $("reportTop").innerHTML = `${inputStatusBlock(page.input_status)}<div class="kv">
       <div><div class="k">已报价</div><div class="v big">${esc(sum.priced ?? 0)}</div></div>
       <div><div class="k">待确认</div><div class="v big" style="color:var(--warn)">${esc(sum.pending ?? 0)}</div></div>
       <div><div class="k">转询价</div><div class="v big">${esc(sum.inquiry ?? 0)}</div></div>

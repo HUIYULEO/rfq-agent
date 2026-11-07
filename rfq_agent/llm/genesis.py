@@ -29,7 +29,9 @@ MAX_TOOL_BYTES = 6000
 
 
 class GenesisError(RuntimeError):
-    pass
+    def __init__(self, message: str, code: str = "model_error"):
+        super().__init__(message)
+        self.code = code
 
 
 def load_config(root: Path) -> dict:
@@ -78,13 +80,21 @@ class Genesis:
                 body = json.loads(response.read().decode("utf-8"))
         except urllib.error.HTTPError as exc:
             detail = exc.read().decode("utf-8", "replace")[:400]
-            raise GenesisError(f"模型接口返回 {exc.code}：{detail}") from exc
-        except (urllib.error.URLError, TimeoutError, OSError) as exc:
-            raise GenesisError(f"连不上模型接口：{exc}") from exc
+            raise GenesisError(f"模型接口返回 {exc.code}：{detail}", "http_error") from exc
+        except TimeoutError as exc:
+            raise GenesisError("模型请求超时", "timeout") from exc
+        except (urllib.error.URLError, OSError) as exc:
+            code = "timeout" if isinstance(getattr(exc, "reason", None), TimeoutError) else "network_error"
+            raise GenesisError(f"连不上模型接口：{exc}", code) from exc
+        except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+            raise GenesisError("模型接口返回无效 JSON", "invalid_json") from exc
         try:
-            return body["choices"][0]["message"]
-        except (KeyError, IndexError) as exc:
-            raise GenesisError(f"模型返回格式异常：{str(body)[:300]}") from exc
+            message = body["choices"][0]["message"]
+            if not isinstance(message, dict):
+                raise TypeError("message must be an object")
+            return message
+        except (KeyError, IndexError, TypeError) as exc:
+            raise GenesisError("模型返回格式异常", "invalid_response") from exc
 
 
 # ---------- tool surface ----------
