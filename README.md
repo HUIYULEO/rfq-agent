@@ -5,6 +5,10 @@
 
 ## 跑起来
 
+Docker 部署：准备 `.env` 和 `data/` 后执行 `docker compose up -d --build --wait`。
+镜像不包含密钥、素材或历史数据库；运行数据保存在 Docker 卷中。
+完整的部署、访问控制、备份与升级步骤见 [Docker 部署说明](docs/DOCKER_DEPLOYMENT.md)。
+
 ```powershell
 python -m rfq_agent.web --port 8765     # 浏览器打开 http://127.0.0.1:8765/
 ```
