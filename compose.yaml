@@ -1,0 +1,38 @@
+name: rfq-agent
+
+services:
+  rfq-agent:
+    image: ${RFQ_IMAGE:-rfq-agent:local}
+    build: .
+    restart: unless-stopped
+    init: true
+    ports:
+      - "${RFQ_BIND_HOST:-127.0.0.1}:${RFQ_PORT:-8765}:8765"
+    environment:
+      GENESIS_BASE_URL: ${GENESIS_BASE_URL:-https://token.moi.matrixorigin.cn/v1}
+      GENESIS_MODEL: ${GENESIS_MODEL:-}
+      GENESIS_ACCESS_TOKEN: ${GENESIS_ACCESS_TOKEN:-}
+      RFQ_DEMO_APPROVAL: ${RFQ_DEMO_APPROVAL:-0}
+    volumes:
+      - type: bind
+        source: ${RFQ_DATA_DIR:-./data}
+        target: /app/data
+        read_only: true
+        bind:
+          create_host_path: false
+      - runtime:/app/runtime
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=128m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  runtime:

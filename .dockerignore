@@ -1,0 +1,8 @@
+# Allowlist: never send local credentials, material, databases or caches.
+**
+!Dockerfile
+!requirements-docker.txt
+!rfq_agent/
+!rfq_agent/**
+**/__pycache__/
+**/*.py[cod]
