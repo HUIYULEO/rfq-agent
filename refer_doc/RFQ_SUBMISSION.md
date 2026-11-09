@@ -113,12 +113,23 @@ quote-draft-r<rev>.docx（草案，不是可直发的正式报价）
 
 ### 5.1 访问方式
 
-当前版本是**本地可运行实例**，双击 `start.cmd` 即在 `http://127.0.0.1:8765/` 启动并自动打开浏览器，
-不需要登录、不需要配置 API Key、不需要命令行。
+当前版本同时提供两种访问方式：
 
-> **在线链接状态：待部署。** 赛事要求评委通过链接直接访问，这一步需要在 MOI（或任意云主机）
-> 上托管本服务。部署步骤见 5.4；在此之前请以本地实例 + 演示视频作为验证依据。
-> 本文件不假装已有公网地址。
+1. **本地实例（无依赖）**：双击 `start.cmd`，在 `http://127.0.0.1:8765/` 启动并自动打开浏览器，
+   不需要登录、不配置 API Key、不打命令。
+2. **公网实例（评委链接）**：服务已按平台要求改造（认 `PORT` / `RFQ_HOST`、带 `GET /healthz`、
+   有 `Dockerfile` 与 `render.yaml`、收到 `SIGTERM` 正常退出），可直接部署到 Render / Zeabur / 任意 VPS。
+   部署步骤、环境变量、三条路线对比与提交前自检见 [RFQ_DEPLOYMENT.md](RFQ_DEPLOYMENT.md)。
+
+> **在线链接状态：待绑定平台。** 代码与素材已具备对外服务条件（用 `git archive` 导出仓库后
+> 独立跑通了完整判分链路，见 [RFQ_DEPLOYMENT.md](RFQ_DEPLOYMENT.md) §5），但公网地址需要在
+> 你的 Render/Zeabur/VPS 账号里点一次部署后才能生成。拿到地址后请填在下面，并替换掉这句：
+>
+> ```text
+> 可运行智能体：https://<部署完成后填入>
+> ```
+>
+> 本文件不假装已有公网地址。若提交时仍未部署，请以本地实例 + 演示视频作为验证依据。
 
 ### 5.2 三步操作
 
@@ -141,18 +152,27 @@ python -m rfq_agent.checkenv                                             # 环�
 
 产物：`runtime/<task_id>/draft-r<rev>.json`（证据 + 决策日志）、`quote-draft-r<rev>.docx`。
 
-### 5.4 部署到公网（待执行）
+### 5.4 部署到公网
+
+完整步骤见 [RFQ_DEPLOYMENT.md](RFQ_DEPLOYMENT.md)。最短路径（Render 免费版，认根目录 Dockerfile）：
 
 ```powershell
-# 任意一台有 Python 3.11+ 的机器
-git clone <repo> && cd rfq-agent
-pip install -e ".[documents]"
-python -m rfq_agent.web --port 8765          # 或：python -m rfq_agent.web --host 0.0.0.0 --port 8765
+# 1) 素材与部署文件已在仓库里（data/、Dockerfile、render.yaml、/healthz）
+# 2) dashboard.render.com/blueprints -> New Blueprint Instance -> 选本仓库
+# 3) 按 render.yaml 建 free web service（新加坡区，健康检查 /healthz），填入 GENESIS_ACCESS_TOKEN
+# 4) 得到 https://rfq-agent-xxxx.onrender.com，用无痕窗口验证一遍 B 案例
 ```
 
-前面加 Nginx/Caddy 反代到 443 即可。服务无状态依赖，只需要 `data/` 与可写的 `runtime/`。
-若部署到 MOI：把 `rfq_agent` 作为包导入，用 MOI 的入口挂载 `web.py` 的 `Handler`，
-或直接把 `python -m rfq_agent.web` 作为容器命令。
+任意一台有 Docker 的机器等价做法：
+
+```powershell
+docker build -t rfq-agent .
+docker run -d -p 8000:8000 -e RFQ_DEMO_APPROVAL=1 rfq-agent
+```
+
+自建 VPS 时前面加 Caddy 反代到 443 即可（不绑域名就用 `http://<IP>:8000`，不需要备案）。
+服务无状态依赖，只需要 `data/`（随仓库发布）与可写的 `runtime/`；**不能开多 worker**，
+存储是单进程 SQLite。
 
 ## 6. 数据合规说明
 
@@ -172,7 +192,7 @@ python -m rfq_agent.web --port 8765          # 或：python -m rfq_agent.web --h
 
 | 限制 | 现状 | 影响 |
 |---|---|---|
-| 公网在线链接 | 未部署（见 5.4） | 评委目前需本地运行或用演示视频 |
+| 公网在线链接 | 代码与素材已就绪（容器/环境变量/健康检查），待在你的平台账号里执行一次部署 | 评委拿到链接前，需本地运行或用演示视频 |
 | PDF 解析 | 只支持官方那种"显式 `Tm` + Helvetica"的表单；其他 PDF 会明确报错 | 通用 PDF 需换 pypdf/excel 转换 |
 | 价格覆盖 | 342 行价格表只覆盖 `PN-*` 与标准件；`GSK-*`/`AP-*`/`CPL-*` 无依据 | C/D/E/F 0 行有价，这是数据事实，不是解析失败 |
 | 条款 | 已核对"草案是否满足客户要求"，但未回灌定价策略（如"有效期 30 天"未改变报价有效期计算） | 需人工按条款确认 |
@@ -186,7 +206,7 @@ python -m rfq_agent.web --port 8765          # 或：python -m rfq_agent.web --h
 
 | 项 | 状态 |
 |---|---|
-| 三个链接使用未登录浏览器可访问 | ⚠️ 视频与文档已有；在线链接待部署 |
+| 三个链接使用未登录浏览器可访问 | ⚠️ 视频与文档已有；在线链接待绑定平台（代码已就绪，见 5.4） |
 | 智能体完成至少一个官方 RFQ 端到端 | ✅ 样例 B（21 行 → 2 个待确认 → 草案 DOCX） |
 | 视频不超过 3 分钟 | ⬜ 脚本已就绪（RFQ_DEMO_SCRIPT.md），录制待办 |
 | 视频覆盖问题/方案/使用/效果 | ⬜ 脚本按此结构编排 |
