@@ -185,6 +185,26 @@ def _statuses(results, open_line_ids, task_open, resolutions) -> list[str]:
     return [_line_status(row, open_line_ids, task_open, resolutions) for row in results]
 
 
+def _failure(data: dict) -> dict | None:
+    """Why this inquiry produced no parsed lines, located back at the source mail."""
+    extraction = data.get("extraction") or {}
+    if extraction.get("mode") not in {"failed", "degraded"}:
+        return None
+    rfq = data.get("rfq") or {}
+    filename = (rfq.get("source_files") or [""])[0]
+    reason = str(extraction.get("reason") or "")
+    baseline = str(extraction.get("baseline_error") or "")
+    return {
+        "mode": extraction["mode"],
+        "reason": reason,
+        "baseline_error": baseline,
+        "locator": {
+            "file": filename,
+            "text": " / ".join(bit for bit in (filename, "邮件原文", baseline) if bit),
+        },
+    }
+
+
 def build(task) -> dict:
     """Structured analysis for one task revision (dict or Task)."""
     (data, results, review_items, findings, open_items, by_line, open_line_ids, task_open,
@@ -195,6 +215,9 @@ def build(task) -> dict:
     payload = _envelope(data, results, findings, open_items, review_items,
                         _statuses(results, open_line_ids, task_open, resolutions))
     payload["lines"] = rows
+    failure = _failure(data)
+    if failure:
+        payload["failure"] = failure
     return payload
 
 
@@ -218,6 +241,9 @@ def page(task, offset: int = 0, limit: int = 40) -> dict:
     payload["lines"] = [_project_row(row, data, by_line, open_line_ids, task_open, open_by_line,
                                      lines_by_id, locate)
                         for row in results[offset:offset + limit]]
+    failure = _failure(data)
+    if failure:
+        payload["failure"] = failure
     return payload
 
 
@@ -239,6 +265,15 @@ def render_docx(analysis: dict, output: Path) -> Path:
         f"数据快照：{analysis['data_snapshot_id'] or '—'}")
     document.add_paragraph(
         "本文件是询价分析记录，用于定位问题和安排下一步动作，不构成对外报价，不得对外发送。")
+
+    failure = analysis.get("failure")
+    if failure:
+        document.add_heading("未能读出询价行", level=1)
+        document.add_paragraph(failure.get("reason") or "确定性解析与模型抽取都没有得到询价行。")
+        locator = (failure.get("locator") or {}).get("text") or ""
+        if locator:
+            document.add_paragraph(f"定位：{locator}")
+        document.add_paragraph("本单没有可用的询价行，未生成价格，也未写入报价历史。")
 
     document.add_heading("一、结论摘要", level=1)
     table = document.add_table(rows=0, cols=2)

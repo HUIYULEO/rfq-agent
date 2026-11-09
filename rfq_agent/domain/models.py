@@ -70,12 +70,17 @@ class RFQ:
     currency: str = "CNY"
     urgency: str = "NORMAL"
     requirements: list[Requirement] = field(default_factory=list)
+    # The mail is real, but the deterministic parser found no inquiry table.
+    # Empty lines are allowed only in that case, so a failed extraction can
+    # still be stored and reported instead of being rejected as a bad RFQ.
+    unparsed: bool = False
 
     @classmethod
     def from_dict(cls, data: dict):
         date.fromisoformat(data["evaluation_date"])
         lines = [Line(**line) for line in data["lines"]]
-        if not lines or len({x.line_id for x in lines}) != len(lines):
+        duplicate = len({line.line_id for line in lines}) != len(lines)
+        if duplicate or (not lines and not data.get("unparsed")):
             raise ValueError("RFQ must have nonempty, unique line IDs")
         known = {f for f in cls.__dataclass_fields__ if f != "lines"}
         extra = {k: v for k, v in data.items() if k in known}

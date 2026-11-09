@@ -410,7 +410,8 @@ const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) =>
 const money = (v) => (v === null || v === undefined || v === "")
   ? "—" : Number(v).toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const CONTAINER = { "body-html": "正文表格", "body-text": "正文表格", "attachment-xlsx": "Excel 附件",
-                    "attachment-pdf": "PDF 附件" };
+                    "attachment-pdf": "PDF 附件", "agent-extract": "模型抽取",
+                    "unrecognized": "格式未识别，待模型抽取" };
 const RULE_LABEL = { pn_match: "件号匹配", certificate: "证书/适航", uom: "计量单位", condition: "件状", quote_due: "报价截止" };
 const SOURCE = { internal: "内部库存", supplier: "供应商报价", manual: "转人工" };
 const STAGE = { received: "待处理", parsed: "已解析", priced: "待确认", draft: "已出草案" };
@@ -655,7 +656,8 @@ function paintChrome() {
   $("status").className = "pill " + (S.status || "");
   $("status").textContent = S.status === "awaiting_review" ? `待确认 ${open}`
     : S.status === "exported" ? "已导出" : S.status === "draft_ready" ? "草案就绪"
-    : S.status === "active" ? "已批准" : (S.status || "—");
+    : S.status === "active" ? "已批准"
+    : S.status === "evaluation_incomplete" ? "抽取未完成" : (S.status || "—");
   $("policyline").textContent = `策略 ${S.policy_version || "—"}`;
   if (DATA && DATA.snapshot_id) {
     $("dataline").innerHTML = `数据 <b>${esc(DATA.snapshot_id)}</b> · ${(DATA.price_rows || 0) + (DATA.cost_rows || 0)} 行`;
@@ -741,7 +743,13 @@ function paintPanel(token) {
 function readingBlock() {
   const ex = (S && S.extraction) || {};
   if (!ex.mode) return "";
-  const mode = ex.mode === "audit" ? "代码解析 + 模型审查" : "模型抽取（逐字段校验）";
+  const modes = {
+    audit: "代码解析 + 模型审查",
+    extract: "模型抽取（逐字段校验）",
+    degraded: "降级：格式未识别，模型不可用",
+    failed: "失败：格式未识别，模型抽取未成功",
+  };
+  const mode = modes[ex.mode] || ex.mode;
   const issues = (ex.issues || []).filter((i) => i.kind !== "reconciled").slice(0, 5);
   const stats = [];
   if (ex.mode === "audit" && ex.lines_deterministic) stats.push(`${ex.lines_deterministic} 行由解析器读出`);
@@ -792,6 +800,10 @@ function paintIntake() {
     </details>`;
 }
 
+function exMode() {
+  return ((S && S.extraction) || {}).mode || "";
+}
+
 async function paintStructure(token) {
   const m = S.summary || { lines: 0 };
   const f = S.fields || {};
@@ -800,7 +812,12 @@ async function paintStructure(token) {
   const bar = (label, n) => `<div class="bar"><div class="h"><span>${label}</span>
       <span class="num">${n}/${m.lines}</span></div>
       <div class="t"><div class="f ${n < m.lines ? "warn" : ""}" style="width:${pct(n)}%"></div></div></div>`;
-  $("stages").innerHTML = `<p class="panel-note">${qs.warn ? `${qs.warn} 类待核对事项` : `${m.lines} 行已结构化`}。逐行核对询价号、提取值、原始值和评审标记；未声明字段不自动补默认值。</p>
+  const failed = exMode() === "failed" || exMode() === "degraded";
+  const banner = failed ? `<div class="callout"><strong>${exMode() === "degraded" ? "降级" : "抽取失败"}</strong>
+      <p style="margin:6px 0 0">${esc((S.extraction || {}).reason || (S.extraction || {}).judgement || "")}</p></div>` : "";
+  $("stages").innerHTML = `${banner}${readingBlock()}<p class="panel-note">${failed
+      ? "代码没有识别该格式，模型也没有抽出可用的询价行。原因见上，定位在分析报告里。"
+      : (qs.warn ? `${qs.warn} 类待核对事项` : `${m.lines} 行已结构化`) + "。逐行核对询价号、提取值、原始值和评审标记；未声明字段不自动补默认值。"}</p>
     <div class="bars">${bar("料号", f.part_number || 0)}${bar("数量", f.quantity || 0)}${bar("单位", f.unit || 0)}${bar("件状要求", f.condition || 0)}</div>
     <p class="muted">${f.with_evidence || 0}/${m.lines} 行可回溯到原始单元格${qs.info ? ` · ${qs.info} 条载体说明` : ""}</p>
     <div id="extractBody"><span class="spin"></span> 正在载入提取结果…</div>`;
@@ -977,7 +994,11 @@ async function paintReport(token) {
   }
   if (token !== PANEL_TOKEN) return;
   const sum = page.summary || {};
-  $("reportTop").innerHTML = `<div class="kv">
+  const fail = page.failure;
+  const failHtml = fail ? `<div class="callout"><strong>${fail.mode === "degraded" ? "降级" : "抽取失败"}</strong>
+      <p style="margin:6px 0 0">${esc(fail.reason || "")}</p>
+      <p class="muted" style="margin:6px 0 0">定位：${esc((fail.locator || {}).text || "—")}</p></div>` : "";
+  $("reportTop").innerHTML = `${failHtml}<div class="kv">
       <div><div class="k">已报价</div><div class="v big">${esc(sum.priced ?? 0)}</div></div>
       <div><div class="k">待确认</div><div class="v big" style="color:var(--warn)">${esc(sum.pending ?? 0)}</div></div>
       <div><div class="k">转询价</div><div class="v big">${esc(sum.inquiry ?? 0)}</div></div>
@@ -1176,6 +1197,10 @@ async function previewCurrent() {
 function advanceQueue() { QINDEX += 1; previewCurrent(); }
 
 function previewBody(p) {
+  const unrecognized = p.recognized === false ? `<div class="callout"><strong>代码未识别该询价格式</strong>
+      <p style="margin:6px 0 0">${esc(p.notice || "确认后将由模型抽取，并回指原文校验。")}</p>
+      ${p.baseline_error ? `<p class="muted" style="margin:6px 0 0">解析器：${esc(p.baseline_error)}</p>` : ""}
+    </div>` : "";
   const f = p.fields || {};
   const bar = (label, n) => {
     const pct = p.lines ? Math.round((n || 0) / p.lines * 100) : 0;
@@ -1190,7 +1215,7 @@ function previewBody(p) {
   const sample = (p.sample || []).map((r) => `<tr>
       <td class="r num">${esc(r.line_number)}</td><td><span class="pn">${esc(r.part_number)}</span></td>
       <td>${esc(r.description)}</td><td class="r num">${esc(r.quantity)}</td><td>${esc(r.unit)}</td></tr>`).join("");
-  return `<div class="kv">
+  return `${unrecognized}<div class="kv">
       <div><div class="k">客户</div><div class="v">${esc(p.customer || "未标注")}</div></div>
       <div><div class="k">询价号</div><div class="v mono">${esc(p.rfq_number || "—")}</div></div>
       <div><div class="k">评估日</div><div class="v">${esc(p.evaluation_date || "—")}</div></div>
@@ -1210,10 +1235,11 @@ function previewBody(p) {
 }
 
 function showPreview(file, p) {
+  const okLabel = p.recognized === false ? "确认并由模型抽取" : "确认导入并处理";
   openVeil(previewBody(p),
     `<button class="btn l" id="pvCancelAll">全部取消</button>
      <button class="btn" id="pvSkip">不要这封</button>
-     <button class="btn primary" id="pvOk">确认导入并处理</button>`,
+     <button class="btn primary" id="pvOk">${okLabel}</button>`,
     file.name, `第 ${QINDEX + 1} / ${QUEUE.length} 个文件`);
   $("pvCancelAll").onclick = () => { if (!PV_BUSY) { QUEUE = []; QINDEX = 0; previewCurrent(); } };
   $("pvSkip").onclick = () => { if (!PV_BUSY) advanceQueue(); };

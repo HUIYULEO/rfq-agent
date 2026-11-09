@@ -89,8 +89,24 @@ def discover(root: Path, *, refresh: bool = False) -> list[Case]:
             continue
         try:
             mail = read_eml(path)
+        except (ValueError, OSError):
+            continue
+        try:
             rfq = ingest_eml(path)
         except (ValueError, OSError):
+            # An uploaded mail the parser cannot read is still a case: confirm
+            # must be able to find it so the model extraction path can run.
+            if uploads in path.resolve().parents:
+                case = _unrecognized_case(path, mail)
+                if case is not None:
+                    cases.append(case)
+                    if connection is not None:
+                        try:
+                            from rfq_agent.infrastructure.db import remember_mail
+
+                            remember_mail(connection, path, mtime, case)
+                        except OSError:
+                            pass
             continue
         match = BUYER.search(mail.sender)
         if uploads in path.resolve().parents:
@@ -146,11 +162,36 @@ def stage_pending(root: Path, name: str, payload: bytes) -> tuple[str, Path, "RF
     staged.write_bytes(payload)
     try:
         rfq = ingest_eml(staged)
-    except (ValueError, OSError):
-        staged.unlink(missing_ok=True)
-        raise
+    except (ValueError, OSError) as exc:
+        try:
+            from rfq_agent.llm.perception import require_readable, unparsed_rfq
+
+            mail = require_readable(staged)
+        except (ValueError, OSError):
+            staged.unlink(missing_ok=True)
+            raise
+        # Keep the file and issue a token. Preview does not call the model;
+        # confirm is what runs extraction.
+        rfq = unparsed_rfq(staged, mail, note=str(exc))
     (target / f"{token}.name").write_text(Path(name).name, encoding="utf-8")
     return token, staged, rfq
+
+
+def _unrecognized_case(path: Path, mail) -> Case | None:
+    """A readable upload whose table the parser does not know. None if unreadable."""
+    try:
+        from rfq_agent.llm.perception import require_readable
+
+        require_readable(path)
+    except (ValueError, OSError):
+        return None
+    from rfq_agent.ingestion.ingest import _mail_date
+
+    customer = re.sub(r"<.*?>", "", mail.sender).strip() or "未标注客户"
+    return Case(key=f"UP-{path.stem}", path=path, container="unrecognized",
+                label=f"{customer} · 格式未识别", customer=customer,
+                subject=mail.subject or "", received=_mail_date(mail.date) or "",
+                lines=0)
 
 
 def confirm_pending(root: Path, token: str) -> Path:

@@ -302,11 +302,39 @@ class RFQService:
         self._save(task)
         return task.to_dict()
 
+    def accept_unparsed(self, data: dict, report: dict) -> dict:
+        """Keep an inquiry the parser could not read and the model did not extract.
+
+        No lines are invented and nothing is priced. The analysis report states
+        why, with a locator back to the source mail. Quote history is not written.
+        """
+        created = self.create_task(data)
+        task = self.store.get(created["task_id"])
+        task.extraction = dict(report or {})
+        reason = task.extraction.get("reason") or "代码未识别该询价格式，且没有可用的模型抽取结果"
+        task.evaluation_issues = [reason]
+        task.evaluation_status = "incomplete"
+        task.commercial_disposition = "PENDING"
+        self._set_status(task, "evaluation_incomplete", "evaluation_incomplete")
+        self._trace(task, "input_understood",
+                    source=task.extraction.get("source", ""),
+                    model=task.extraction.get("model", ""),
+                    document_type=task.extraction.get("document_type", ""),
+                    lines_model=task.extraction.get("lines_model", 0),
+                    lines_deterministic=task.extraction.get("lines_deterministic", 0),
+                    refused=len(task.extraction.get("refused") or []),
+                    best_guess=len(task.extraction.get("best_guess") or []),
+                    reason=reason,
+                    outcome="degraded")
+        self._save(task)
+        self.export_quote_draft(task.task_id, task.revision)
+        return self.store.get(task.task_id).to_dict()
+
     # ---------- export ----------
 
     def export_quote_draft(self, task_id: str, revision: int, render_docx: bool = True) -> dict:
         task = self._current(task_id, revision)
-        if not task.results:
+        if not task.results and not task.rfq.unparsed:
             raise ValueError("Build quote options before exporting")
         directory = self.store.directory(task_id)
         directory.mkdir(parents=True, exist_ok=True)
@@ -365,7 +393,9 @@ class RFQService:
             artifacts.append(str(docx_path))
 
         task.artifacts = artifacts
-        if not task.open_reviews():
+        # An unparsed inquiry stays incomplete: exporting its analysis report
+        # must not look like a finished quotation.
+        if not task.open_reviews() and not task.rfq.unparsed:
             self._set_status(task, "exported", "draft_exported")
         task.events.append({"action": "exported", "revision": revision, "artifacts": len(artifacts)})
         self._trace(task, "draft_exported", outcome="preview",
