@@ -25,6 +25,10 @@ from rfq_agent.llm.task_context import overview, issue_rows, page_rows, review_d
 CONFIG_KEYS = ("GENESIS_BASE_URL", "GENESIS_MODEL", "GENESIS_ACCESS_TOKEN")
 MAX_ROUNDS = 6
 MAX_CALLS = 12
+# The "explain what you already have" turn is one extra request. A model that is
+# slow or chatty can return nothing useful on the first try; asking once more with
+# a blunter instruction costs a few seconds and keeps a judge-facing answer alive.
+SUMMARY_ATTEMPTS = 2
 READ_TOOLS = {"list_cases", "get_task", "get_task_overview", "list_task_issues",
               "get_review_item", "get_lines", "explain_line", "get_history"}
 
@@ -368,11 +372,18 @@ class Session:
         # the evidence already collected instead of throwing away the whole turn.
         self.messages.append({"role": "system", "content":
                               "查询已结束。现在只根据已获得的工具结果回答原问题，不再调用工具。说明未能确认的事项；不能把读取失败当作没有问题。"})
-        message = self.client.chat(self.messages, [])
-        reply = (message.get("content") or "").strip()
-        if message.get("tool_calls") or not reply:
-            raise GenesisError("已停止继续查询，但模型未能生成总结。已保留工具记录，请查看待复核项或稍后重试。")
-        return self._finish(reply)
+        for attempt in range(SUMMARY_ATTEMPTS):
+            message = self.client.chat(self.messages, [])
+            reply = (message.get("content") or "").strip()
+            if reply:
+                # Tools were disabled for this request, but some models still echo
+                # a tool_calls list next to usable prose. The prose is the answer;
+                # rejecting it here is what turned a good reply into a 502.
+                return self._finish(reply)
+            if attempt + 1 < SUMMARY_ATTEMPTS:
+                self.messages.append({"role": "system", "content":
+                                      "直接输出中文结论：不要调用工具，不要留空。"})
+        raise GenesisError("已停止继续查询，但模型未能生成总结。已保留工具记录，请查看待复核项或稍后重试。")
 
     def _finish(self, reply):
         self.messages.append({"role": "assistant", "content": reply})

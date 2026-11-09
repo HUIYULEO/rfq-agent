@@ -158,11 +158,30 @@ class LoopTests(unittest.TestCase):
         session = self.session()
         bad_call = call()
         bad_call["function"]["arguments"] = '[]'
-        session.client.chat.side_effect = [{"tool_calls": [bad_call]}, {"content": ""}]
+        session.client.chat.side_effect = [{"tool_calls": [bad_call]},
+                                          {"content": ""}, {"content": ""}]
         with self.assertRaises(GenesisError) as caught:
             session.send("检查", "task-a")
         routed.assert_not_called()
         self.assertFalse(caught.exception.trace[0]["ok"])
+
+    @patch("rfq_agent.llm.genesis.dispatch", return_value={"revision": 1, "open_review_count": 2})
+    def test_final_answer_with_stray_tool_calls_is_still_used(self, routed):
+        """The live failure: tools are disabled, the model echoes tool_calls and prose."""
+        session = self.session()
+        session.client.chat.side_effect = [
+            {"tool_calls": [call()]}, {"tool_calls": [call()]},   # repeat read -> summarize
+            {"content": "有 2 项待复核，缺件状依据", "tool_calls": [call()]}]
+        result = session.send("这单有什么问题", "task-a")
+        self.assertEqual(result["reply"], "有 2 项待复核，缺件状依据")
+
+    @patch("rfq_agent.llm.genesis.dispatch", return_value={"revision": 1})
+    def test_empty_summary_is_retried_once_before_failing(self, routed):
+        session = self.session()
+        session.client.chat.side_effect = [{"tool_calls": [call()]}, {"content": ""},
+                                           {"content": "重试后的总结"}]
+        self.assertEqual(session.send("检查", "task-a")["reply"], "重试后的总结")
+        self.assertEqual(session.client.chat.call_args.args[1], [])
 
     def test_final_model_request_explicitly_disables_tools(self):
         client = Genesis({"GENESIS_BASE_URL": "https://example.test/v1", "GENESIS_MODEL": "test",
