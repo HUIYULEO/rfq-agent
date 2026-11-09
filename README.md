@@ -9,6 +9,10 @@
 python -m rfq_agent.web --port 8765     # 浏览器打开 http://127.0.0.1:8765/
 ```
 
+公网部署（给评委的链接）：`docker build -t rfq-agent . && docker run -p 8000:8000 rfq-agent`，
+或按 [README 部署文档](refer_doc/RFQ_DEPLOYMENT.md) 在 Render 用根目录 `render.yaml` 一键部署。
+服务认 `PORT` / `RFQ_HOST` 环境变量，健康检查 `GET /healthz`。
+
 首次启动收件箱里只有**客户 B** 一封（Excel 附件、21 行、19 行有价、2 项待确认）。
 其余素材在左侧「可导入素材」里，点一下才进来；也可以把自己的 `.eml` 拖进去——
 走的是同一个解析 + 定价 + 复核 + 导出流程。
@@ -138,7 +142,7 @@ tests/             回归测试
 tools/             开发与素材核对脚本
 refer_doc/         设计、评审与交付文档
 examples/          示例输入与预期结果
-data/              本地询价素材（不纳入 Git）
+data/              官方询价素材（随仓库发布，部署后才有案例可点）
 runtime/           本地数据库、任务与导出产物（不纳入 Git）
 ```
 

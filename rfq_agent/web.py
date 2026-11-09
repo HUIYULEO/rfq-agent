@@ -1,6 +1,7 @@
-"""Local demo server: stdlib only, so it runs on a judge machine with no network.
+"""Demo server: stdlib only, so it runs on a judge machine or a public host.
 
-    python -m rfq_agent.web --port 8765
+    python -m rfq_agent.web --port 8765                  # local, loopback only
+    RFQ_HOST=0.0.0.0 PORT=8000 python -m rfq_agent.web   # container / PaaS
 
 The agent's input is the material itself: any of the six official .eml files, or one
 the judge uploads. The page only shows what the pipeline produced — every number comes
@@ -12,7 +13,9 @@ from __future__ import annotations
 import argparse
 import json
 import mimetypes
+import os
 import re
+import signal
 import threading
 from collections import Counter
 from datetime import date
@@ -541,6 +544,18 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(page)
             return
+        if parsed.path in ("/healthz", "/health"):
+            # Platform probes hit this every few seconds: it must never touch the
+            # store lock, the model or the reference tables. It only reports the two
+            # things that actually break a deploy: missing materials, unwritable runtime.
+            runtime = ROOT / "runtime"
+            self._json({
+                "ok": True,
+                "service": "rfq-agent",
+                "materials": (ROOT / "data" / "询价信息素材").is_dir(),
+                "runtime_writable": os.access(runtime if runtime.exists() else ROOT, os.W_OK),
+            })
+            return
         if parsed.path == "/api/cases":
             self._json([{"key": item["case"].key, "label": item["case"].label,
                          "container": item["case"].container, "file": item["case"].path.name,
@@ -847,13 +862,41 @@ def _warm() -> None:
         pass
 
 
+def _default_port() -> int:
+    """A PaaS injects $PORT; local runs keep 8765."""
+    try:
+        return int(os.environ.get("PORT") or 8765)
+    except ValueError:
+        return 8765
+
+
 def main():
     parser = argparse.ArgumentParser(description="RFQ agent demo server")
-    parser.add_argument("--port", type=int, default=8765)
-    parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument("--port", type=int, default=_default_port(),
+                        help="listen port (default: $PORT, else 8765)")
+    parser.add_argument("--host", default=os.environ.get("RFQ_HOST") or "127.0.0.1",
+                        help="bind address (default: $RFQ_HOST, else 127.0.0.1)")
     args = parser.parse_args()
     server = ThreadingHTTPServer((args.host, args.port), Handler)
+    if not (ROOT / "data" / "询价信息素材").is_dir():
+        # The one misconfiguration that produces a blank demo: code shipped without
+        # the six official emails. Say it at boot instead of failing on a click.
+        print("WARNING: data/询价信息素材 is missing — the inbox will be empty. "
+              "Ship the data/ directory with the service.", flush=True)
     print(f"RFQ agent on http://{args.host}:{args.port}/  (Ctrl+C to stop)", flush=True)
+
+    def _stop(_signum, _frame):
+        # Containers are stopped with SIGTERM; serve_forever() only returns when
+        # shutdown() is called from another thread, never from the signal handler.
+        threading.Thread(target=server.shutdown, daemon=True).start()
+
+    for name in ("SIGTERM", "SIGINT"):
+        if hasattr(signal, name):
+            try:
+                signal.signal(getattr(signal, name), _stop)
+            except (ValueError, OSError):
+                pass
+
     threading.Thread(target=_warm, daemon=True).start()
     try:
         server.serve_forever()
