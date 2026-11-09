@@ -1,0 +1,13 @@
+From: MockBuyer-B <mock-b@customer.test>
+To: sales@supplier.test
+Subject: RFQ-MOCK-HARD =?utf-8?b?Ym9keS1vbmx577yI6aKE5pyf6aKE6KeI5aSx6LSl?=
+ =?utf-8?b?77yJ?=
+Date: Mon, 09 Nov 2026 16:32:20 +0000
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+MIME-Version: 1.0
+
+清单仅在正文：
+1. PN-0002 · Qty 15 EA
+2. PN-0004 · Qty 20 EA
+Requirements: CoC + 8130-3; quote in USD; deliver by 2026-12-15.

@@ -64,26 +64,40 @@ def _service() -> RFQService:
     return SERVICE
 
 
+UNRECOGNIZED_NOTICE = (
+    "代码未识别该询价格式，确认后将由模型抽取。"
+    "模型只抄录原文里的料号和数量并回指出处，不产生价格。"
+)
+
+
 def _understand(case: str):
     """Main path: the model reads the mail, code audits it, pricing still does the sums.
 
-    Falls back to the deterministic parser when the model is unconfigured, unreachable
-    or refuses the extraction — a dead model must never dead-end the demo. Which path
-    actually ran is written to the task trace, so "the agent read this" is checkable
-    rather than asserted.
+    When the parser already read the table, a missing or dead model falls back to
+    that reading — a dead model must not dead-end a format the code understands.
+    When the parser does not recognise the format, there is nothing to fall back
+    to: the model extracts, and if it is missing or fails the run still finishes
+    with an explicit degraded report instead of a 400.
     """
     path = case_by_key(ROOT, case).path
     config = load_config(ROOT)
-    if missing_keys(config):
-        rfq, _ = load_case(ROOT, case)
-        return rfq, {"source": "deterministic", "model": "",
-                     "reason": "模型未配置，使用确定性解析"}
+    baseline, baseline_error = perception._deterministic(path)
+    missing = missing_keys(config)
+    if baseline is not None and missing:
+        return baseline, {"source": "deterministic", "model": "",
+                          "reason": "模型未配置，使用确定性解析"}
+    if baseline is None and missing:
+        why = "模型未配置，无法抽取：" + "、".join(missing)
+        return perception.degraded(path, why=why, baseline_error=baseline_error, mode="degraded")
     try:
         return perception.run(config, path)
     except (PerceptionError, GenesisError) as exc:
-        rfq, _ = load_case(ROOT, case)
-        return rfq, {"source": "deterministic", "model": config.get("GENESIS_MODEL", ""),
-                     "reason": f"模型理解失败，回退确定性解析：{exc}"}
+        if baseline is not None:
+            return baseline, {"source": "deterministic", "model": config.get("GENESIS_MODEL", ""),
+                              "reason": f"模型理解失败，回退确定性解析：{exc}"}
+        return perception.degraded(
+            path, why=f"模型抽取失败：{exc}", baseline_error=baseline_error,
+            model=config.get("GENESIS_MODEL", ""), mode="failed")
 
 
 def _lines_view(rfq: dict) -> list[dict]:
@@ -353,11 +367,14 @@ def _report_page(task: dict, offset: int, limit: int) -> dict:
             "suggested_action": row.get("suggested_action") or "",
             "locator": locator.get("text") or "",
         })
-    return {"total": data["total"], "offset": data["offset"], "limit": limit,
-            "summary": data["summary"], "lines": lines,
-            "evaluation_status": data.get("evaluation_status"),
-            "commercial_disposition": data.get("commercial_disposition"),
-            "title": data.get("title")}
+    payload = {"total": data["total"], "offset": data["offset"], "limit": limit,
+               "summary": data["summary"], "lines": lines,
+               "evaluation_status": data.get("evaluation_status"),
+               "commercial_disposition": data.get("commercial_disposition"),
+               "title": data.get("title")}
+    if data.get("failure"):
+        payload["failure"] = data["failure"]
+    return payload
 
 
 def _view(task: dict) -> dict:
@@ -512,9 +529,13 @@ class Handler(BaseHTTPRequestHandler):
 
     def _run(self, case: str, autonomy: str):
         rfq, extraction = _understand(case)
-        state = _service().start_task(rfq.to_dict(), autonomy=autonomy)
-        if extraction:
-            state = _service().record_extraction(state["task_id"], extraction)
+        service = _service()
+        if getattr(rfq, "unparsed", False):
+            state = service.accept_unparsed(rfq.to_dict(), extraction or {})
+        else:
+            state = service.start_task(rfq.to_dict(), autonomy=autonomy)
+            if extraction:
+                state = service.record_extraction(state["task_id"], extraction)
         admit_case(ROOT, case)
         mark_stage(ROOT, case, "priced", state["task_id"])
         return state
@@ -747,6 +768,10 @@ class Handler(BaseHTTPRequestHandler):
                     token, _, rfq = stage_pending(ROOT, Path(name).name, payload)
                     view = _preview_view(rfq)
                     view["token"] = token
+                    view["recognized"] = not getattr(rfq, "unparsed", False)
+                    if not view["recognized"]:
+                        view["notice"] = UNRECOGNIZED_NOTICE
+                        view["baseline_error"] = getattr(rfq, "parse_note", "")
                     self._json(view)
                 except (ValueError, OSError) as exc:
                     self._error(exc)

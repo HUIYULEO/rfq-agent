@@ -532,6 +532,100 @@ def _deterministic(path: Path) -> tuple[RFQ | None, str]:
         return None, str(exc)
 
 
+def require_readable(path: Path):
+    """Accept a real email that still has something to read. Reject the rest.
+
+    ``email.message_from_bytes`` will parse almost any bytes, so a missing header
+    or a binary blob is rejected here with a message the upload UI can show.
+    A mail whose table the alias list does not know is still readable: that is
+    the case the model is asked to extract.
+    """
+    import email
+    from email import policy as mail_policy
+
+    raw = path.read_bytes()
+    if not raw.strip():
+        raise ValueError(f"{path.name}: 空文件")
+    header = raw.split(b"\r\n\r\n", 1)[0].split(b"\n\n", 1)[0][:4096]
+    if b"\x00" in header:
+        raise ValueError(f"{path.name}: 不是可读取的询价邮件（文件已损坏或不是邮件）")
+    message = email.message_from_bytes(raw, policy=mail_policy.default)
+    if not any(message.get(name) for name in
+               ("From", "Subject", "Date", "MIME-Version", "Content-Type")):
+        raise ValueError(f"{path.name}: 不是可读取的询价邮件（缺少邮件头）")
+    mail = read_eml(path)
+    try:
+        blocks = list_blocks(path)
+    except (ValueError, OSError) as exc:
+        raise ValueError(f"{path.name}: 不是可读取的询价邮件（{exc}）") from exc
+    if not _usable(blocks):
+        raise ValueError(f"{path.name}: 邮件里没有可读的内容，无法抽取")
+    return mail
+
+
+def unparsed_rfq(path: Path, mail=None, *, note: str = "") -> RFQ:
+    """Header-only RFQ for a mail the deterministic parser could not read."""
+    from rfq_agent.ingestion.ingest import _mail_date
+
+    mail = mail or read_eml(path)
+    customer = re.sub(r"<.*?>", "", mail.sender).strip() or "未标注客户"
+    match = re.search(r"RFQ[- ]?(\d{4,})", mail.subject or "")
+    number = f"RFQ-{match.group(1)}" if match else path.stem
+    rfq = RFQ(
+        rfq_number=number,
+        evaluation_date=_mail_date(mail.date) or dt.date.today().isoformat(),
+        lines=[],
+        source_files=[path.name] + [name for name, _ in mail.attachments],
+        customer=customer,
+        subject=mail.subject or "",
+        unparsed=True,
+    )
+    if note:
+        rfq.parse_note = note
+    return rfq
+
+
+def degraded(path: Path, *, why: str, baseline_error: str = "", model: str = "",
+             mode: str = "failed") -> tuple[RFQ, dict]:
+    """Parser missed the format, and the model is missing or failed.
+
+    This is not a silent fallback onto the parser: there is no parsed RFQ.
+    The report says so, and points at the source mail.
+    """
+    if mode not in {"failed", "degraded"}:
+        mode = "failed"
+    detail = why.strip()
+    if baseline_error and baseline_error not in detail:
+        detail = f"代码未识别该询价格式（{baseline_error}）。{detail}"
+    elif "未识别" not in detail:
+        detail = f"代码未识别该询价格式。{detail}"
+    blocks: list[dict] = []
+    try:
+        blocks = _blocks_report(list_blocks(path))
+    except (ValueError, OSError):
+        pass
+    report = {
+        "mode": mode,
+        "source": "none",
+        "reason": detail,
+        "model": model,
+        "document_type": "",
+        "document_confidence": 0,
+        "judgement": detail,
+        "blocks": blocks,
+        "lines_model": 0,
+        "lines_deterministic": 0,
+        "baseline_error": baseline_error,
+        "requirements_added": 0,
+        "unknown_columns": [],
+        "unparsed_rows": [],
+        "refused": [],
+        "best_guess": [],
+        "issues": [{"kind": "extraction_failed", "severity": "blocking", "detail": detail}],
+    }
+    return unparsed_rfq(path, note=baseline_error), report
+
+
 def _blocks_report(blocks: list[Block]) -> list[dict]:
     return [{"id": block.id, "kind": block.kind, "name": block.name,
              "lines": block.line_count, "note": block.note} for block in blocks]
