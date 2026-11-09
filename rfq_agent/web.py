@@ -775,7 +775,7 @@ class Handler(BaseHTTPRequestHandler):
                 result = session.send(body.get("message") or "", task_id=body.get("task_id"))
             except GenesisError as exc:
                 self._json({"session_id": session_id, "enabled": True,
-                            "error": str(exc), "trace": []}, 502)
+                            "error": str(exc), "trace": exc.trace}, 502)
                 return
             payload = {"session_id": session_id, "enabled": True}
             payload.update(result)

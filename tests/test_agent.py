@@ -91,7 +91,11 @@ class ToolTests(unittest.TestCase):
         result = dispatch(self.service, ROOT, "start_case", {"case_key": "B"})
         self.assertEqual(result["status"], "awaiting_review")
         self.assertEqual(result["summary"]["priced_lines"], 19)
-        self.assertEqual([item["id"] for item in result["review_items"]],
+        self.assertEqual(result["open_review_count"], 2)
+        self.assertNotIn("review_items", result)
+        self.assertNotIn("interruptions", result)
+        issues = dispatch(self.service, ROOT, "list_task_issues", {"task_id": result["task_id"]})
+        self.assertEqual([item["id"] for item in issues["items"] if item["source"] == "review"],
                          ["RI-0016", "RI-0019"])
         # the model must not receive 21 raw rows
         self.assertNotIn("results", result)
