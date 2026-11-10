@@ -292,6 +292,15 @@
   table.grid td.wrap{white-space:normal;min-width:220px;max-width:360px}
   .out{font-weight:650}
   .out.grounded{color:var(--ok)}
+  button.basis-link{border:0;background:transparent;padding:0;color:var(--ok);font:inherit;font-weight:650;text-decoration:underline;text-underline-offset:3px}
+  #basisDialog{width:min(680px,calc(100vw - 32px));max-height:calc(100dvh - 40px);overflow:auto;border:1px solid var(--line);border-radius:12px;padding:20px;color:var(--ink);background:var(--card)}
+  #basisDialog::backdrop{background:#0f172a66}
+  #basisDialog header{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+  #basisDialog h2{font-size:16px;margin:0;flex:1}
+  #basisDialog dl{display:grid;grid-template-columns:135px minmax(0,1fr);gap:7px 12px}
+  #basisDialog dt{color:var(--muted)}
+  #basisDialog dd{margin:0;white-space:normal;overflow-wrap:anywhere}
+  #basisDialog li{overflow-wrap:anywhere}
   .out.pending{color:var(--warn)}
   .out.blocked{color:var(--bad);font-weight:600}
   .tabs{display:flex;gap:6px;margin-bottom:10px}
@@ -387,6 +396,10 @@
     </div>
   </div>
 
+  <dialog id="basisDialog" aria-labelledby="basisTitle">
+    <header><h2 id="basisTitle">报价依据</h2><button class="btn" id="basisClose" type="button">关闭</button></header>
+    <div id="basisContent"></div>
+  </dialog>
   <button class="ask-launch" id="askOpen" type="button" aria-controls="askPanel"
           aria-expanded="false">提问 / 调用助手</button>
   <section class="ask-panel" id="askPanel" aria-label="提问助手" hidden>
@@ -868,7 +881,7 @@ async function paintInquiry(token) {
       <td><span class="pn">${esc(r.part_number)}</span></td>
       <td class="wrap">${esc(r.description)}</td>
       <td class="r num">${esc(r.quantity)} ${esc(r.unit || "")}</td>
-      <td class="out ${esc(r.kind)}">${esc(r.outcome)}</td>
+      <td class="out ${esc(r.kind)}">${r.kind === "grounded" ? `<button type="button" class="basis-link" data-basis="${rows.indexOf(r)}" aria-label="查看第 ${esc(r.line_number)} 行报价依据">${esc(r.outcome)}</button>` : esc(r.outcome)}</td>
       <td class="wrap">${esc(r.kind === "grounded"
         ? [SOURCE[r.source] || r.source || "", r.unit_price != null ? `单价 ${money(r.unit_price)}` : "",
            r.line_total != null ? `金额 ${money(r.line_total)}` : ""].filter(Boolean).join(" · ") || "有价格依据"
@@ -893,7 +906,35 @@ async function paintInquiry(token) {
   $("lineNext").disabled = page.offset + rows.length >= page.total;
   $("linePrev").onclick = () => { LINE_OFFSET = Math.max(0, page.offset - PAGE); render(); };
   $("lineNext").onclick = () => { LINE_OFFSET = page.offset + rows.length; render(); };
+  $("linebody").querySelectorAll("[data-basis]").forEach((button) => {
+    button.onclick = () => showPriceBasis(rows[Number(button.dataset.basis)]);
+  });
 }
+
+function showPriceBasis(row) {
+  const p = row.price_basis || {}, d = p.details || {};
+  const supplier = row.source === "supplier";
+  const value = (v) => v == null || v === "" ? "未记录" : String(v);
+  const fields = [
+    ["采用来源", SOURCE[row.source] || row.source],
+    [supplier ? "供应商" : "仓库", supplier ? d.supplier_name : d.warehouse],
+    [supplier ? "供应商报价记录 ID" : "来源记录 ID", p.source_id],
+    ["原始单位成本", p.unit_cost_original == null ? null : `${p.currency || "币种未记录"} ${p.unit_cost_original} / ${d.unit || row.unit || "单位未记录"}`],
+    ["折算汇率", p.exchange_rate], ["折算单位成本（CNY）", p.unit_cost_cny],
+    ["加价率", p.markup_rate == null ? null : `${Number(p.markup_rate) * 100}%`],
+    ["对客单价（CNY）", row.unit_price], ["对客行金额（CNY）", row.line_total],
+    ["件状 / 证书", `${value(d.condition)} / ${value(d.certificate)}`],
+    ["最小订购量（MOQ）", d.moq], ["可用数量", d.available_quantity],
+    ["交期（天）", d.lead_time_days], ["发货地", d.ships_from], ["报价有效期", d.valid_until]
+  ];
+  $("basisTitle").textContent = `第 ${row.line_number} 行 · ${row.part_number} · 报价依据`;
+  $("basisContent").innerHTML = `<p class="muted">以下为本任务采用的来源记录快照；原始单位成本与对客报价分别列示。</p>
+    <dl>${fields.map(([label, val]) => `<dt>${esc(label)}</dt><dd>${esc(value(val))}</dd>`).join("")}</dl>
+    <h3>采用依据</h3>${p.reasons?.length ? `<ul>${p.reasons.map((s) => `<li>${esc(s)}</li>`).join("")}</ul>` : `<p class="muted">该任务未保存详细采用依据。</p>`}
+    ${p.warnings?.length ? `<h3>注意事项</h3><ul>${p.warnings.map((s) => `<li>${esc(s)}</li>`).join("")}</ul>` : ""}`;
+  $("basisDialog").showModal();
+}
+$("basisClose").onclick = () => $("basisDialog").close();
 
 function reviewCard(item, passed) {
   const label = passed
