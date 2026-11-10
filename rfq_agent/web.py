@@ -35,6 +35,7 @@ from rfq_agent.llm.genesis import GenesisError, Session, load_config, missing_ke
 from rfq_agent.llm.perception import PerceptionError
 from rfq_agent.infrastructure.ledger import OperationalLedger
 from rfq_agent.domain.policy import active_policy
+from rfq_agent.domain.input_status import fallback_report, input_status
 from rfq_agent.domain.pricing import summarize
 from rfq_agent.application.service import RFQService
 from rfq_agent.infrastructure.storage import TaskStore
@@ -76,14 +77,12 @@ def _understand(case: str):
     config = load_config(ROOT)
     if missing_keys(config):
         rfq, _ = load_case(ROOT, case)
-        return rfq, {"source": "deterministic", "model": "",
-                     "reason": "模型未配置，使用确定性解析"}
+        return rfq, fallback_report("not_configured")
     try:
         return perception.run(config, path)
     except (PerceptionError, GenesisError) as exc:
         rfq, _ = load_case(ROOT, case)
-        return rfq, {"source": "deterministic", "model": config.get("GENESIS_MODEL", ""),
-                     "reason": f"模型理解失败，回退确定性解析：{exc}"}
+        return rfq, fallback_report(exc.code, config.get("GENESIS_MODEL", ""))
 
 
 def _lines_view(rfq: dict) -> list[dict]:
@@ -357,6 +356,7 @@ def _report_page(task: dict, offset: int, limit: int) -> dict:
             "summary": data["summary"], "lines": lines,
             "evaluation_status": data.get("evaluation_status"),
             "commercial_disposition": data.get("commercial_disposition"),
+            "input_status": data["input_status"],
             "title": data.get("title")}
 
 
@@ -411,6 +411,7 @@ def _view(task: dict) -> dict:
         "quote_allowed": quote_allowed,
         "agent_trace": (task.get("agent_trace") or [])[-30:],
         "extraction": task.get("extraction") or {},
+        "input_status": input_status(task.get("extraction")),
         "artifacts": artifacts,
         "fields": _field_health(lines),
         "quality": quality_findings,
