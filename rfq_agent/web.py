@@ -579,10 +579,16 @@ class Handler(BaseHTTPRequestHandler):
             # Platform probes hit this every few seconds: it must never touch the
             # store lock, the model or the reference tables. It only reports the two
             # things that actually break a deploy: missing materials, unwritable runtime.
+            # ``build`` answers "is the deployed instance running my latest commit?"
+            # without opening the platform dashboard: Render injects RENDER_GIT_COMMIT.
             runtime = ROOT / "runtime"
+            commit = (os.environ.get("RENDER_GIT_COMMIT")
+                      or os.environ.get("GIT_COMMIT")
+                      or os.environ.get("SOURCE_VERSION") or "")
             self._json({
                 "ok": True,
                 "service": "rfq-agent",
+                "build": commit[:7],
                 "materials": (ROOT / "data" / "询价信息素材").is_dir(),
                 "runtime_writable": os.access(runtime if runtime.exists() else ROOT, os.W_OK),
             })
