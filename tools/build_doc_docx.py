@@ -28,19 +28,64 @@ TARGET = ROOT / "docs" / "MatrixNEXT-RFQ-Agent-说明文档.docx"
 INK = RGBColor(0x16, 0x20, 0x2B)
 MUTED = RGBColor(0x5B, 0x6B, 0x7C)
 ACCENT = RGBColor(0x1A, 0x4F, 0xA0)
-# Default body font: PingFang SC (苹方), which is what the document is opened with on
-# macOS. Override with --font for a machine that has a different Chinese typeface;
-# nothing else in the file names a Chinese font, so no reader is left with a
-# substitution they did not choose. Code is set to Courier New (ships with Windows
-# and macOS).
-DEFAULT_FONT = "PingFang SC"
+# Body font: detected from the fonts installed on the machine that builds the file —
+# which is the machine that opens it — instead of a hard-coded name that may be
+# missing. Override with --font. Code uses Courier New (ships with Windows and macOS).
+PREFERRED_FONTS = ("Microsoft YaHei", "微软雅黑", "DengXian", "等线", "Noto Sans SC",
+                   "Source Han Sans SC", "SimSun", "宋体", "SimHei", "黑体")
 MONO_FONT = "Courier New"
 HEADER_FILL = "F2F5F9"
 CODE_FILL = "F7F8FA"
 
 
-def set_font(element, name: str) -> None:
-    """Set the same typeface for Latin, East Asian and complex scripts."""
+def installed_fonts() -> set[str]:
+    """Family names installed on this Windows machine (empty set elsewhere)."""
+    try:
+        import winreg
+    except ImportError:
+        return set()
+    found: set[str] = set()
+    try:
+        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,
+                            r"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts") as key:
+            index = 0
+            while True:
+                try:
+                    name, _value, _kind = winreg.EnumValue(key, index)
+                except OSError:
+                    break
+                index += 1
+                family = re.sub(r"\s*\((TrueType|OpenType)\)\s*$", "", name)
+                for part in family.split("&"):
+                    candidate = part.strip()
+                    if candidate:
+                        found.add(candidate)
+    except OSError:
+        return set()
+    return found
+
+
+def pick_font(preferred: str | None) -> str | None:
+    """The requested font, else the first preference installed here, else None."""
+    if preferred:
+        return preferred
+    available = installed_fonts()
+    if not available:
+        return None
+    lowered = {name.lower(): name for name in available}
+    for want in PREFERRED_FONTS:
+        hit = lowered.get(want.lower())
+        if hit:
+            return hit
+    return None
+
+
+def set_font(element, name: str | None) -> None:
+    """Set one typeface for Latin, East Asian and complex scripts.
+
+    ``None`` leaves the theme in charge — the safe fallback when no preferred
+    Chinese family is installed.
+    """
     r_pr = element.get_or_add_rPr()
     fonts = r_pr.find(qn("w:rFonts"))
     if fonts is None:
@@ -48,6 +93,11 @@ def set_font(element, name: str) -> None:
         r_pr.append(fonts)
     for attr in ("w:asciiTheme", "w:hAnsiTheme", "w:eastAsiaTheme", "w:cstheme"):
         fonts.attrib.pop(qn(attr), None)
+    if name is None:
+        for attr in ("w:ascii", "w:hAnsi", "w:eastAsia", "w:cs"):
+            fonts.attrib.pop(qn(attr), None)
+        fonts.set(qn("w:eastAsiaTheme"), "minorEastAsia")
+        return
     for attr in ("w:ascii", "w:hAnsi", "w:eastAsia", "w:cs"):
         fonts.set(qn(attr), name)
 
@@ -194,11 +244,13 @@ def main(argv: list[str] | None = None) -> None:
     import argparse
 
     parser = argparse.ArgumentParser(description="Render the submission document as DOCX.")
-    parser.add_argument("--font", default=DEFAULT_FONT,
-                        help=f"中文字体名（默认 {DEFAULT_FONT}；Windows 可用「微软雅黑」）")
+    parser.add_argument("--font", default=None,
+                        help="中文字体名；默认取本机已安装的字体（微软雅黑 / 等线 / 思源黑体 …），"
+                             "传 theme 则交给编辑器默认字体")
     parser.add_argument("--out", type=Path, default=TARGET, help="输出文件")
     args = parser.parse_args(argv)
     target: Path = args.out
+    font = None if (args.font or "").strip().lower() == "theme" else pick_font(args.font)
 
     lines = SOURCE.read_text(encoding="utf-8").splitlines()
     parsed = list(blocks(lines))
@@ -211,7 +263,7 @@ def main(argv: list[str] | None = None) -> None:
         setattr(section, attr, value)
 
     normal = document.styles["Normal"]
-    set_font(normal.element, args.font)
+    set_font(normal.element, font)
     normal.font.size = Pt(10.5)
     normal.font.color.rgb = INK
     normal.paragraph_format.line_spacing = 1.45
@@ -220,7 +272,7 @@ def main(argv: list[str] | None = None) -> None:
     for name, size, before, after in (("Heading 1", 17, 20, 8), ("Heading 2", 13.5, 14, 5),
                                       ("Heading 3", 11.5, 10, 4)):
         style = document.styles[name]
-        set_font(style.element, args.font)
+        set_font(style.element, font)
         style.font.size = Pt(size)
         style.font.bold = True
         style.font.color.rgb = INK
@@ -356,7 +408,7 @@ def main(argv: list[str] | None = None) -> None:
         document.save(alternate)
         print(f"{target.name} 被占用（可能在 Word / 飞书中打开），已写入 {alternate.name}")
         target = alternate
-    print(f"wrote {target.relative_to(ROOT)} ({target.stat().st_size:,} bytes), font={args.font}")
+    print(f"wrote {target.relative_to(ROOT)} ({target.stat().st_size:,} bytes), font={font or 'theme default'}")
 
 
 if __name__ == "__main__":
