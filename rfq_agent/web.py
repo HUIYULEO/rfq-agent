@@ -606,6 +606,15 @@ class Handler(BaseHTTPRequestHandler):
             # Official cases are immutable test inputs, not remembered task results.
             with LOCK:
                 reference_task_id = _reference_task_id()
+                # Say which step the remembered task reached: "有已有任务" read as
+                # "已完成" made judges expect a finished quote and find a desk that
+                # was still waiting for two human decisions.
+                reference_status = ""
+                if reference_task_id:
+                    try:
+                        reference_status = _service().get_task_result(reference_task_id).get("status", "")
+                    except ValueError:
+                        reference_status = ""
             fixtures = [case for case in discover(ROOT)
                         if len(case.key) == 1 and case.key in {"A", "B", "C", "D", "E", "F"}]
             self._json([{"key": case.key, "label": case.label,
@@ -613,7 +622,8 @@ class Handler(BaseHTTPRequestHandler):
                          "customer": case.customer, "subject": case.subject,
                          "received": case.received, "lines": case.lines,
                          "reference": case.key == "B",
-                         "task_id": reference_task_id if case.key == "B" else None}
+                         "task_id": reference_task_id if case.key == "B" else None,
+                         "task_status": reference_status if case.key == "B" else ""}
                         for case in fixtures])
             return
         if parsed.path == "/api/material":

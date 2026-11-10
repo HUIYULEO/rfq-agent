@@ -504,6 +504,19 @@ async function api(path, body) {
   return data;
 }
 
+function taskStateLabel(meta, style) {
+  // The demo material auto-creates B's task on first load, so "有已有任务" alone
+  // reads as "done". Name the step instead: the desk is usually still waiting for
+  // the two human decisions, and a judge should not expect a finished quote.
+  const status = meta.task_status || "";
+  const short = { draft_ready: "已有任务 · 草案就绪", active: "已有任务 · 已批准",
+                  awaiting_review: "已有任务 · 待预审" }[status];
+  const long = { draft_ready: "草案已生成，可下载",
+                 active: "已批准入库",
+                 awaiting_review: "已解析定价，仍有待确认项" }[status];
+  return style === "long" ? (long || "上次运行停在半途") : (short || "有已有任务");
+}
+
 function existingTaskId(meta) {
   const inbox = TASKS.find((t) => t.key === meta.key && t.task_id);
   return (inbox && inbox.task_id) || meta.task_id || "";
@@ -542,7 +555,7 @@ async function refresh() {
       <div class="r1"><span class="who">用例 ${esc(c.key)} · ${esc(c.customer)}</span><span class="cnt">${c.lines} 行</span></div>
       <div class="sub">${esc(c.subject || c.file)}</div>
       <div class="meta"><span class="tag">${esc(CONTAINER[c.container] || c.container)}</span>
-        <span class="tag ${hasTask ? "ok" : ""}">${hasTask ? "有已有任务" : "尚未运行"}</span></div>
+        <span class="tag ${hasTask ? "ok" : ""}">${hasTask ? taskStateLabel(c) : "尚未运行"}</span></div>
     </li>`;
   }).join("");
   $("list").querySelectorAll("li.item").forEach((li) => { li.onclick = () => askMaterial(li.dataset.key); });
@@ -557,7 +570,7 @@ function askMaterial(key) {
   const existing = existingTaskId(meta);
   $("chooseTitle").textContent = `演示素材 · 用例 ${meta.key}`;
   $("chooseBody").innerHTML = existing
-    ? `<p>这封素材已经有任务。请先选择：<b>打开已有任务</b>会回到上次的现场；<b>作为新任务运行</b>会新建一条并进入收件箱，不覆盖旧任务。</p>`
+    ? `<p>这封素材已经有任务（当前：<b>${esc(taskStateLabel(meta, "long"))}</b>）。请先选择：<b>打开已有任务</b>会回到上次的现场；<b>作为新任务运行</b>会新建一条并进入收件箱，不覆盖旧任务。</p>`
     : `<p>这封素材还没有任务。<b>作为新任务运行</b>会解析、定价，并停在需要人工决定的地方。不会读取其他案例以前的结果。</p>`;
   const openBtn = existing
     ? `<button class="btn" id="chooseOpen" type="button">打开已有任务</button>` : "";
