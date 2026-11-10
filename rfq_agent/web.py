@@ -48,6 +48,11 @@ FILE_PATTERN = re.compile(r"^(draft|quote-draft|analysis|quote)-r\d+\.(json|docx
 LOCK = threading.Lock()
 SERVICE: RFQService | None = None
 SESSIONS: dict[str, Session] = {}
+# One clean demo per browser. The page sends X-Rfq-Visitor from localStorage; the
+# first request from an id we have not seen resets the inbox, so a judge never
+# opens the case an earlier judge already answered. Read-only data (price tables,
+# snapshots) stays shared: it is the same reference material for everyone.
+VISITORS: set[str] = set()
 
 
 def _service() -> RFQService:
@@ -513,6 +518,32 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         print("%s - %s" % (self.address_string(), fmt % args), flush=True)
 
+    def _visitor(self) -> str:
+        """Give a first-time visitor a clean inbox; leave everyone else alone.
+
+        Task directories are never deleted here: resetting the inbox only drops the
+        pointer, so a judge who is mid-flow in another tab keeps the task the page
+        already holds.
+        """
+        headers = getattr(self, "headers", None)      # handler tests build no request
+        visitor = ((headers.get("X-Rfq-Visitor") if headers else "") or "").strip()
+        if not re.fullmatch(r"[A-Za-z0-9_-]{8,64}", visitor):
+            return ""                      # curl, platform probes: shared, no reset
+        if visitor in VISITORS:
+            return visitor
+        with LOCK:
+            if visitor in VISITORS:
+                return visitor
+            VISITORS.add(visitor)
+            try:
+                dirty = any(item["task_id"] or item["stage"] != "received" for item in inbox(ROOT))
+                if dirty:
+                    reset_inbox(ROOT)
+                    self.log_message("visitor %s: first visit, inbox reset", visitor[:8])
+            except (OSError, ValueError) as exc:
+                self.log_error("visitor reset failed: %s", exc)
+        return visitor
+
     # ---------- helpers ----------
 
     def _json(self, payload, status=200):
@@ -565,6 +596,7 @@ class Handler(BaseHTTPRequestHandler):
                 return
 
     def _do_GET(self):
+        self._visitor()
         parsed = urlparse(self.path)
         if parsed.path in ("/", "/index.html"):
             page = (STATIC / "index.html").read_bytes()
@@ -785,6 +817,7 @@ class Handler(BaseHTTPRequestHandler):
                 return
 
     def _do_POST(self):
+        self._visitor()
         parsed = urlparse(self.path)
         query = parse_qs(parsed.query)
 

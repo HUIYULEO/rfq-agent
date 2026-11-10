@@ -297,6 +297,12 @@ def clear_inbox(connection: sqlite3.Connection) -> None:
     """Empty the inbox and drop the seed flag, so the next read re-seeds the example."""
     with connection:
         connection.execute("DELETE FROM inbox")
+        # Run history would otherwise resurrect the tasks this reset is meant to
+        # forget: inbox() promotes the newest remembered run back into task_id, so
+        # "清空当前查看" (and a new visitor's reset) still showed 已有任务 / 已完成.
+        connection.execute("CREATE TABLE IF NOT EXISTS inbox_runs "
+                           "(path TEXT, task_id TEXT, PRIMARY KEY(path,task_id))")
+        connection.execute("DELETE FROM inbox_runs")
         connection.execute("DELETE FROM meta WHERE key = 'seeded'")
 
 

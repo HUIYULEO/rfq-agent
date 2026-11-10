@@ -489,10 +489,25 @@ function setUrl(taskId) {
   history.replaceState(null, "", url);
 }
 
+// Each browser (tab set) is its own visitor: the server hands a first-time visitor
+// a clean inbox, so one judge never opens the case another judge already answered.
+const VISITOR = (() => {
+  try {
+    let id = localStorage.getItem("rfqVisitor");
+    if (!id) {
+      id = (crypto && crypto.randomUUID) ? crypto.randomUUID()
+        : `v${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;
+      localStorage.setItem("rfqVisitor", id);
+    }
+    return id;
+  } catch (e) { return ""; }          // private mode without storage: stay anonymous
+})();
+
 async function api(path, body) {
-  const opt = body === undefined ? {} : {
-    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
-  };
+  const headers = { "X-Rfq-Visitor": VISITOR };
+  if (body !== undefined) headers["Content-Type"] = "application/json";
+  const opt = body === undefined ? { headers }
+    : { method: "POST", headers, body: JSON.stringify(body) };
   const res = await fetch(path, opt);
   const text = await res.text();
   let data; try { data = text ? JSON.parse(text) : {}; } catch { data = { error: text || `HTTP ${res.status}` }; }

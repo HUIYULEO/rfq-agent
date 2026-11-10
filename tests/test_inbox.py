@@ -128,6 +128,31 @@ class InboxTest(unittest.TestCase):
         self.assertIsNone(item["task_id"])
         self.assertEqual([case.key for case in available(self.root)], ["C"])
 
+    def test_reset_forgets_run_history_of_a_real_task(self):
+        """A reset must not resurrect a task through the history table.
+
+        inbox() promotes the newest remembered run back into task_id, so leaving
+        inbox_runs behind made a "cleared" desk show 已有任务 again - which is what
+        made a new judge open a case somebody else had already answered.
+        """
+        self.keys()                                     # seeds B
+        tid = "e" * 32
+        folder = self.root / "runtime" / tid
+        folder.mkdir(parents=True)
+        (folder / "desk.json").write_text(json.dumps(
+            {"revision": 1, "status": "awaiting_review",
+             "agent_trace": [{"action": "task_created", "at": "2026-11-10"}]}))
+        mark_stage(self.root, "B", "priced", tid)
+        item = next(row for row in inbox(self.root) if row["case"].key == "B")
+        self.assertEqual(item["task_id"], tid)
+        self.assertTrue(item["history"])
+
+        cases.reset_inbox(self.root)
+        item = next(row for row in inbox(self.root) if row["case"].key == "B")
+        self.assertIsNone(item["task_id"])
+        self.assertEqual(item["stage"], "received")
+        self.assertEqual(item["history"], [])
+
 
 if __name__ == "__main__":
     unittest.main()
