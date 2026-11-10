@@ -1,6 +1,7 @@
 """Inbox behaviour: the demo ships with one sample, the rest are admitted by the user."""
 
 import shutil
+import json
 import unittest
 from pathlib import Path
 
@@ -79,6 +80,26 @@ class InboxTest(unittest.TestCase):
     def test_unknown_case_is_rejected(self):
         with self.assertRaises(ValueError):
             admit_case(self.root, "Z")
+
+    def test_identical_uploaded_mail_groups_without_losing_tasks(self):
+        source = cases.case_by_key(self.root, 'B').path
+        target = self.root / cases.UPLOADS / 'copy.eml'
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source,target)
+        discover(self.root,refresh=True)
+        admit_case(self.root,'B'); admit_case(self.root,'UP-copy')
+        for key,tid,at in [('B','a'*32,'2026-11-01'),('UP-copy','b'*32,'2026-11-02')]:
+            folder=self.root/'runtime'/tid;folder.mkdir(parents=True)
+            (folder/'desk.json').write_text(json.dumps({'revision':2,'status':'awaiting_review','agent_trace':[{'action':'task_created','at':at}]}))
+            mark_stage(self.root,key,'priced',tid)
+        groups=inbox(self.root)
+        self.assertEqual(len(groups),1)
+        self.assertEqual(len(groups[0]['history']),2)
+        self.assertEqual(groups[0]['task_id'],'b'*32)
+        self.assertTrue(target.exists())
+        token,_,_=cases.stage_pending(self.root,'another.eml',source.read_bytes())
+        self.assertEqual(cases.confirm_pending(self.root,token),source)
+        self.assertFalse((self.root/cases.UPLOADS/'another.eml').exists())
 
     def test_reset_returns_to_the_first_run_state(self):
         """Between two judges the demo must be able to go back to the sample only."""

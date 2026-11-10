@@ -7,6 +7,7 @@ change, which is the point — the agent is driven by the material, not by a cas
 from __future__ import annotations
 
 import json
+import hashlib
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -160,6 +161,12 @@ def confirm_pending(root: Path, token: str) -> Path:
     staged = root / PENDING / f"{token}.eml"
     if not staged.exists():
         raise ValueError("预览已失效，请重新选择文件")
+    digest = hashlib.sha256(staged.read_bytes()).hexdigest()
+    for case in discover(root):
+        if hashlib.sha256(case.path.read_bytes()).hexdigest() == digest:
+            staged.unlink()
+            (root / PENDING / f"{token}.name").unlink(missing_ok=True)
+            return case.path
     name_file = root / PENDING / f"{token}.name"
     name = name_file.read_text(encoding="utf-8").strip() if name_file.exists() else "upload.eml"
     name = Path(name).name or "upload.eml"
@@ -259,13 +266,38 @@ def inbox(root: Path) -> list[dict]:
         items.append({"case": case, "stage": row["stage"], "task_id": row["task_id"],
                       "imported_at": row["imported_at"]})
     items.sort(key=lambda item: (len(item["case"].key) > 1, item["case"].key))
-    return items
+    connection.execute("CREATE TABLE IF NOT EXISTS inbox_runs (path TEXT, task_id TEXT, PRIMARY KEY(path,task_id))")
+    with connection:
+        for item in items:
+            if item["task_id"]:
+                connection.execute("INSERT OR IGNORE INTO inbox_runs VALUES (?,?)", (str(item["case"].path), item["task_id"]))
+    groups = {}
+    for item in items:
+        digest = hashlib.sha256(item["case"].path.read_bytes()).hexdigest()
+        group = groups.setdefault(digest, {**item, "history": []})
+        for record in connection.execute("SELECT task_id FROM inbox_runs WHERE path=?", (str(item["case"].path),)):
+            tid = record[0]
+            if any(h["task_id"] == tid for h in group["history"]):
+                continue
+            path = root / "runtime" / tid / "desk.json"
+            if not path.exists():
+                continue
+            task = json.loads(path.read_text(encoding="utf-8"))
+            at = next((e.get("at", "") for e in task.get("agent_trace", []) if e.get("action") == "task_created"), "")
+            group["history"].append({"task_id": tid, "created_at": at, "revision": task.get("revision"), "status": task.get("status")})
+    for group in groups.values():
+        group["history"].sort(key=lambda h: h["created_at"], reverse=True)
+        if group["history"]:
+            latest = group["history"][0]
+            group["task_id"] = latest["task_id"]
+            group["stage"] = "draft" if latest["status"] in {"exported", "active"} else "priced"
+    return list(groups.values())
 
 
 def available(root: Path) -> list[Case]:
     """Material that has not been admitted yet — what the user may still pull in."""
-    taken = {item["case"].path.resolve() for item in inbox(root)}
-    return [case for case in discover(root) if case.path.resolve() not in taken]
+    taken = {hashlib.sha256(item["case"].path.read_bytes()).hexdigest() for item in inbox(root)}
+    return [case for case in discover(root) if hashlib.sha256(case.path.read_bytes()).hexdigest() not in taken]
 
 
 def admit_case(root: Path, key: str) -> Case:
@@ -291,6 +323,11 @@ def reset_inbox(root: Path) -> None:
 def mark_stage(root: Path, key: str, stage: str, task_id: str | None = None) -> None:
     case = case_by_key(root, key)
     connection, _, _, _, _, set_stage = _inbox_db(root)
+    connection.execute("CREATE TABLE IF NOT EXISTS inbox_runs (path TEXT, task_id TEXT, PRIMARY KEY(path,task_id))")
+    with connection:
+        connection.execute("INSERT OR IGNORE INTO inbox_runs SELECT path,task_id FROM inbox WHERE path=? AND task_id IS NOT NULL", (str(case.path),))
+        if task_id:
+            connection.execute("INSERT OR IGNORE INTO inbox_runs VALUES (?,?)", (str(case.path),task_id))
     set_stage(connection, case.path, stage, task_id)
 
 

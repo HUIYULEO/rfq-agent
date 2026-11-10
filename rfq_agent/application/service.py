@@ -230,13 +230,68 @@ class RFQService:
         self._save(task)
         return task.to_dict()
 
-    def resolve_review(self, task_id: str, revision: int, item_id: str, option_id: str) -> dict:
+    def _review_context(self, task, item_id, amend=False):
+        if task.status == "active" or task.approval:
+            raise ValueError("已正式批准的报价不能修改预审决定，请建立新的报价版本")
+        item = next((i for i in task.review_items if i["id"] == item_id), None)
+        history = next((i for i in reversed(task.decision_log) if i.get("item_id") == item_id), None)
+        if amend:
+            item = (history or {}).get("item_snapshot") or item
+            if not item:
+                raise ValueError("旧记录缺少复核上下文，无法安全修改")
+            key = item.get("resolution_key") or item["target"].get("line_id") or "__task__"
+            if key not in task.resolutions:
+                raise ValueError("该复核项没有已生效的决定")
+            baseline = dict(task.resolutions)
+            baseline.pop(key, None)
+            candidates = self.provider.evaluate(task.rfq, baseline)
+            item = next((i for i in build_review_items(task.rfq, candidates, baseline)
+                         if i["id"] == item_id), None)
+            if not item:
+                raise ValueError("当前条件下该复核项已不适用，不能修改旧决定")
+        elif not item or item["status"] != "open":
+            raise ValueError("Review item already answered or unknown")
+        return item
+
+    def preview_review(self, task_id, revision, item_id, option_id, amend=False):
+        """Evaluate a proposed decision without persisting any state or event."""
+        from rfq_agent.domain.evaluation import validate
+        from rfq_agent.domain.business_rules import check_business
         task = self._current(task_id, revision)
-        item = next((entry for entry in task.review_items if entry["id"] == item_id), None)
-        if item is None:
-            raise ValueError("Unknown review item")
-        if item["status"] != "open":
-            raise ValueError("Review item already answered")
+        item = self._review_context(task, item_id, amend)
+        if option_id not in {o["id"] for o in item["options"]}:
+            raise ValueError("Option is not offered by this review item")
+        resolutions = dict(task.resolutions)
+        key = item.get("resolution_key") or item["target"].get("line_id") or "__task__"
+        resolutions[key] = option_id
+        results = self.provider.evaluate(task.rfq, resolutions)
+        reviews = build_review_items(task.rfq, results, resolutions)
+        _, business_issues = check_business(task.rfq, results)
+        issues = sorted(set(validate(task.rfq, results)) | set(business_issues))
+        line_id = item["target"].get("line_id")
+        def rows(values):
+            return [{"line_number": r.get("line_number"), "part_number": r.get("part_number"),
+                     "quantity": r.get("priced_quantity") or r.get("quantity"), "unit": r.get("unit"),
+                     "eligibility": r.get("eligibility"), "unit_price": r.get("unit_price"),
+                     "line_total": r.get("line_total"),
+                     "source_id": (r.get("decision") or {}).get("selected_source_id"),
+                     "condition": ((r.get("decision") or {}).get("basis") or {}).get("condition"),
+                     "reasons": (r.get("decision") or {}).get("decision_reasons", []),
+                     "remaining_evidence": (r.get("decision") or {}).get("review_evidence", [])}
+                    for r in values if line_id is None or r.get("line_id") == line_id]
+        return {"revision": revision, "item": item, "option_id": option_id,
+                "before": rows(task.results), "after": rows(results),
+                "before_summary": summarize(task.results), "after_summary": summarize(results),
+                "remaining_reviews": [i["question"] for i in reviews if i["status"] == "open"],
+                "evaluation_issues": issues,
+                "notice": "仅预览，尚未保存。转人工询价不会自动发送消息；接受某项例外不豁免其他规则。"}
+
+    def resolve_review(self, task_id: str, revision: int, item_id: str, option_id: str,
+                       note: str = "", amend: bool = False) -> dict:
+        task = self._current(task_id, revision)
+        item = self._review_context(task, item_id, amend)
+        if amend and not note.strip():
+            raise ValueError("修改决定必须填写原因")
         if option_id not in {option["id"] for option in item["options"]}:
             raise ValueError("Option is not offered by this review item")
 
@@ -251,6 +306,10 @@ class RFQService:
             interruption["resolved_at"] = self._now()
 
         key = item.get("resolution_key") or item["target"].get("line_id") or "__task__"
+        previous_option = task.resolutions.get(key)
+        if amend and previous_option == option_id:
+            raise ValueError("请选择与当前决定不同的处理方式")
+        preview = self.preview_review(task_id, revision, item_id, option_id, amend)
         task.resolutions[key] = option_id
         task.results = self.provider.evaluate(task.rfq, task.resolutions)
         task.revision += 1
@@ -260,6 +319,9 @@ class RFQService:
             "actor": "human", "item_id": item_id, "option": option_id,
             "revision": task.revision,
             "at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
+            "note": note.strip(), "previous_option": previous_option,
+            "item_snapshot": copy.deepcopy(item),
+            "effect": preview,
         })
         task.events.append({"action": "review_resolved", "revision": task.revision,
                             "item_id": item_id, "option": option_id, "status": task.status})

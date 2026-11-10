@@ -86,6 +86,22 @@ class ContextTests(unittest.TestCase):
 
 
 class LoopTests(unittest.TestCase):
+    def test_http_error_keeps_session_id_and_trace(self):
+        from rfq_agent import web
+        handler = object.__new__(web.Handler)
+        handler.path = '/api/chat'
+        handler._body = Mock(return_value={'session_id': 'existing', 'message': '检查'})
+        handler._json = Mock()
+        session = Mock(enabled=True)
+        trace = [{'tool': 'get_task_overview', 'ok': True, 'result': {'revision': 1}}]
+        session.send.side_effect = GenesisError('模型不可用', trace=trace)
+        with patch.dict(web.SESSIONS, {'existing': session}):
+            handler._do_POST()
+        payload, status = handler._json.call_args.args
+        self.assertEqual(status, 502)
+        self.assertEqual(payload['session_id'], 'existing')
+        self.assertEqual(payload['trace'], trace)
+
     def session(self):
         service = Mock()
         service.store.get_desk.return_value = {"revision": 1}

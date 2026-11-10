@@ -301,6 +301,10 @@
   #basisDialog dt{color:var(--muted)}
   #basisDialog dd{margin:0;white-space:normal;overflow-wrap:anywhere}
   #basisDialog li{overflow-wrap:anywhere}
+  #basisContent .table-scroll{overflow:auto;margin:12px 0}
+  #basisContent .table-scroll table{min-width:620px;background:white;border-collapse:collapse}
+  #basisContent .table-scroll td{border:1px solid var(--line);padding:6px;white-space:normal;overflow-wrap:anywhere}
+  .task-history{font-size:11px;margin-top:6px}.task-history select{width:100%;font:inherit}
   .out.pending{color:var(--warn)}
   .out.blocked{color:var(--bad);font-weight:600}
   .tabs{display:flex;gap:6px;margin-bottom:10px}
@@ -497,10 +501,14 @@ async function refresh() {
       <div class="sub">${esc(t.subject || t.file)}</div>
       <div class="meta"><span class="tag">${esc(CONTAINER[t.container] || t.container)}</span>
         <span class="tag ${cls}">${esc(STAGE[t.stage] || t.stage)}</span></div>
+      ${(t.history || []).length > 1 ? `<details class="task-history"><summary>历史任务 · ${t.history.length} 次</summary><select aria-label="选择历史任务" data-history="${esc(t.key)}"><option value="">选择要打开的任务</option>${t.history.map((h) => `<option value="${esc(h.task_id)}">${esc(h.created_at || h.task_id.slice(0,8))} · r${h.revision} · ${esc(h.status)}</option>`).join("")}</select></details>` : ""}
     </li>`;
   }).join("") : `<li class="pool-item"><div class="who muted">收件箱为空：运行下方素材，或导入询价邮件</div></li>`;
   $("tasks").querySelectorAll("li.item[data-task]").forEach((li) => {
-    if (li.dataset.task) li.onclick = () => openTask(li.dataset.task, li.dataset.key);
+    if (li.dataset.task) li.onclick = (e) => { if (!e.target.closest('.task-history')) openTask(li.dataset.task, li.dataset.key); };
+  });
+  $("tasks").querySelectorAll("[data-history]").forEach((select) => {
+    select.onchange = () => { if (select.value) openTask(select.value, select.dataset.history); };
   });
 
   $("list").innerHTML = CASES.map((c) => {
@@ -949,16 +957,19 @@ function showPriceBasis(row) {
 $("basisClose").onclick = () => $("basisDialog").close();
 
 function reviewCard(item, passed) {
+  passed = item.status !== "open";
   const label = passed
     ? ((item.options || []).find((o) => o.id === item.answer) || {}).label || item.answer || "已决定"
     : "";
   return `<div class="ask">
       <div class="h"><b>${esc(item.id)}</b><span>${esc((item.target && item.target.part_number) || "整案")}</span>
         <span>${esc((item.kinds || []).join(" · "))}</span></div>
-      <div class="q">${esc(item.question)}</div>
+      <div class="q">${passed ? "原复核问题：" : ""}${esc(item.question)}</div>
       ${item.locator ? `<div class="muted" style="font-size:10.5px;font-family:var(--mono)">定位：${esc(item.locator.text)}</div>` : ""}
-      ${passed ? `<div class="muted">已通过：${esc(label)}</div>` : `<div class="opts">${(item.options || []).map((o) =>
-        `<button type="button" data-item="${esc(item.id)}" data-opt="${esc(o.id)}">${esc(o.label)}</button>`).join("")}</div>`}
+      ${passed ? `<div class="muted">已处理：${esc(label)}</div>` : ""}
+      ${!passed || item.can_amend ? `<div class="opts">${(item.options || []).filter((o) => !passed || o.id !== item.answer).map((o) =>
+        `<button type="button" data-item="${esc(item.id)}" data-opt="${esc(o.id)}" data-amend="${passed}">${passed ? "修改为：" : "预览："}${esc(o.label)}</button>`).join("")}</div>` : ""}
+      ${item.history?.length ? `<details open><summary>审批记录（${item.history.length} 次）</summary>${item.history.map((h, i) => `<p><b>r${esc(h.revision)} · ${i === item.history.length - 1 ? "当前决定" : "已被后续决定替代"}</b><br>${esc(h.at)} · ${esc(h.actor)}<br>选择：${esc((h.item_snapshot?.options || item.options || []).find((o) => o.id === h.option)?.label || h.option)}${h.note ? `<br>备注：${esc(h.note)}` : ""}${h.effect ? `<br>处理后已报价小计：CNY ${esc(h.effect.after_summary.priced_subtotal_cny)}；剩余待确认 ${h.effect.remaining_reviews.length} 项` : ""}</p>`).join("")}</details>` : ""}
       ${(item.evidence || []).length ? `<details><summary>看依据（${item.evidence.length} 条）</summary><ul>${
         item.evidence.map((e) => `<li><code>${esc(e.rule)}</code> ${esc(e.detail)}</li>`).join("")}</ul></details>` : ""}
     </div>`;
@@ -968,12 +979,12 @@ async function paintReviews(token) {
   const openN = S.open_reviews || 0;
   const passedN = S.answered_reviews || 0;
   $("stages").innerHTML = `<div class="tabs" id="revtabs">
-      <button type="button" data-tab="open" class="${REVIEW_TAB === "open" ? "on" : ""}">待预审 ${openN}</button>
-      <button type="button" data-tab="passed" class="${REVIEW_TAB === "passed" ? "on" : ""}">已通过 ${passedN}</button>
+      <button type="button" data-tab="open" class="${REVIEW_TAB === "open" ? "on" : ""}">预审工作台 · 待处理 ${openN}</button>
+      <button type="button" data-tab="passed" class="${REVIEW_TAB === "passed" ? "on" : ""}">已处理与记录 ${passedN}</button>
     </div>
     <p class="panel-note">${REVIEW_TAB === "open"
-      ? "待预审项全部列在这里。已通过的决定在旁边，不挤在决定区里。"
-      : "这些项已经有决定，只供回看。"}</p>
+      ? "先预览处理后的数量、报价和剩余问题，再提交决定。已处理卡片保留在工作台。"
+      : "这里保留历次决定；修改必须填写原因并重新预览，旧记录不会覆盖。"}</p>
     <div id="revbody"><span class="spin"></span> 正在载入…</div>`;
   $("revtabs").querySelectorAll("button").forEach((b) => {
     b.onclick = () => { REVIEW_TAB = b.dataset.tab; render(); };
@@ -988,11 +999,11 @@ async function paintReviews(token) {
   $("revbody").appendChild(host);
   host.addEventListener("click", (event) => {
     const button = event.target.closest("button[data-item]");
-    if (button) resolve(button.dataset.item, button.dataset.opt);
+    if (button) previewReview(button.dataset.item, button.dataset.opt, button.dataset.amend === "true");
   });
   try {
     for (;;) {
-      const page = await api(`/api/reviews?id=${encodeURIComponent(S.task_id)}&bucket=${passed ? "passed" : "open"}&offset=${offset}&limit=80`);
+      const page = await api(`/api/reviews?id=${encodeURIComponent(S.task_id)}&bucket=${passed ? "passed" : "all"}&offset=${offset}&limit=80`);
       if (token !== PANEL_TOKEN || (REVIEW_TAB === "passed") !== passed) return;
       total = page.total;
       const items = page.items || [];
@@ -1008,7 +1019,7 @@ async function paintReviews(token) {
   }
   if (token !== PANEL_TOKEN) return;
   if (!total) {
-    host.innerHTML = `<div class="muted">${passed ? "还没有已通过的决定。" : "没有待预审项。"}</div>`;
+    host.innerHTML = `<div class="muted">${passed ? "还没有已处理的决定。" : "没有待预审项。"}</div>`;
   } else {
     const note = document.createElement("div");
     note.className = "muted";
@@ -1068,10 +1079,11 @@ async function paintReport(token) {
 function paintDraft() {
   const open = S.open_reviews || 0;
   const termItems = S.terms || [];
+  const actionable = termItems.filter((i) => i.check !== "general_request" && i.status !== "na");
   const ts = S.terms_summary || { total: 0, met: 0, todo: 0, manual: 0 };
   const termIcon = { met: "✓", todo: "!", manual: "?", na: "–" };
   const termBlock = termItems.length ? `<div class="terms">
-      <div class="h">客户要求核对 <span>${ts.met}/${ts.total} 已满足${ts.todo ? ` · ${ts.todo} 项待补齐` : ""}${
+      <div class="h">客户要求核对 <span>${actionable.length ? `${ts.met}/${actionable.length} 项具体条件已满足` : "没有需单独核对的具体条件"}${ts.todo ? ` · ${ts.todo} 项待补齐` : ""}${
         ts.manual ? ` · ${ts.manual} 项需人工确认` : ""}</span></div>
       ${termItems.map((i) => `<div class="term ${i.status}">
         <span class="ic">${termIcon[i.status] || "·"}</span>
@@ -1092,12 +1104,54 @@ function paintDraft() {
       : "当前商业处置不会生成报价单。分析报告仍可在第 5 步导出，下载也列在下面。"}</p>`}
     <div class="k" style="font-size:10.5px;color:var(--faint);margin-bottom:4px">下载</div>
     ${fileLinks(draftFiles())}
+    <div class="opts">${(S.artifacts || []).filter((name) => /^quote-draft-r\d+\.docx$/.test(name)).map((name) => `<button class="btn primary" type="button" data-draft-preview="${esc(name)}">预览 ${esc(name)}</button>`).join("")}</div>
     ${termBlock}
     ${regen ? `<div style="margin-top:8px">${regen}</div>` : ""}
     ${approved ? `<div class="ana"><div class="stamp">${esc(S.approval.label)}：${esc(S.approval.approved_by)} · ${esc(S.approval.approved_at)} · ${esc(S.approval.quote_id || "")}（已写入历史报价表）</div></div>` : ""}
-    <p class="muted" style="margin-top:8px">产物是待复核草案：未计税费运费，不预留库存。</p>`;
+    <p class="panel-note" style="margin-top:12px">下一步：${open ? "先到「人工预审」处理待办，再生成报价草案。" : !S.quote_allowed ? "当前不能生成报价草案，请到「询价分析」或「分析报告」查看仍未满足的条件。" : (S.artifacts || []).some((n) => /^quote-draft-/.test(n)) ? "点击「预览」核对料号、数量、件状、价格及条款；确认后下载 Word 草案。" : "点击页面上方的生成按钮，生成草案后即可预览和下载。"}</p>
+    <p class="muted">对外发送前，请确认税费、运费和供货数量；当前价格未包含税费运费，也未锁定库存。生成或下载草案不等于正式批准报价。</p>`;
+  $("stages").querySelectorAll("[data-draft-preview]").forEach((b) => b.onclick = async () => {
+    const taskId = S.task_id;
+    b.disabled=true;
+    try {
+      const p=await api(`/api/draft-preview?id=${encodeURIComponent(taskId)}&file=${encodeURIComponent(b.dataset.draftPreview)}`);
+      if (S.task_id !== taskId) return;
+      $("basisTitle").textContent=`草案内容预览 · ${p.file}`;
+      $("basisContent").innerHTML=`<p class="muted">读取已生成的 Word 文件。此处展示正文和表格，精确分页、合并单元格版式及页眉页脚请下载 Word 核对。</p>${p.html}`;
+      $("basisDialog").showModal();
+    } catch(e) { notify(e.message,true); } finally { b.disabled=false; }
+  });
   const regenBtn = $("regen");
   if (regenBtn) regenBtn.onclick = doExport;
+}
+
+async function previewReview(itemId, optionId, amend) {
+  const taskId = S.task_id, rev = S.revision;
+  try {
+    const p = await api("/api/review-preview", {task_id:taskId, revision:rev, item_id:itemId, option_id:optionId, amend});
+    const status = {priced:"可定价", needs_review:"仍未报价 / 需处理", no_bid:"不报价"};
+    const rows = (items) => items.map((r) => `<tr><td>${esc(r.line_number)} · ${esc(r.part_number)}</td><td>${esc(r.quantity)} ${esc(r.unit)}</td><td>${esc(r.condition || "—")}</td><td>${esc(r.source_id || "—")}</td><td>${esc(r.unit_price ?? "—")}</td><td>${esc(r.line_total ?? "—")}</td><td>${esc(status[r.eligibility] || r.eligibility)}</td></tr>`).join("");
+    const table = (items) => `<div style="overflow:auto"><table><thead><tr><th>行 / 料号</th><th>数量</th><th>件状</th><th>来源记录</th><th>单价 CNY</th><th>金额 CNY</th><th>结果</th></tr></thead><tbody>${rows(items)}</tbody></table></div>`;
+    $("basisTitle").textContent = amend ? "修改决定 · 结果预览" : "提交决定前 · 结果预览";
+    $("basisContent").innerHTML = `<p><b>${esc(p.item.options.find((o) => o.id === optionId)?.label || optionId)}</b></p><p>${esc(p.notice)}</p>
+      <h3>处理前</h3>${table(p.before)}<h3>处理后</h3>${table(p.after)}
+      <p>整单已报价小计：CNY ${esc(p.before_summary.priced_subtotal_cny)} → CNY ${esc(p.after_summary.priced_subtotal_cny)}</p>
+      <h3>仍需关注</h3><ul>${[...p.remaining_reviews,...p.evaluation_issues,...p.after.flatMap((r) => (r.remaining_evidence || []).map((e) => e.detail))].map((s) => `<li>${esc(s)}</li>`).join("") || "<li>没有剩余待确认或评估问题；此操作不代表正式批准报价。</li>"}</ul>
+      <label for="reviewNote">${amend ? "修改原因（必填）" : "审批备注（选填）"}</label><textarea id="reviewNote" rows="3" style="width:100%;margin:8px 0" maxlength="2000"></textarea>
+      <p id="reviewError" role="alert" style="color:var(--bad)"></p><button class="btn primary" id="confirmReview" type="button">确认并保存${amend ? "修改" : "决定"}</button>`;
+    $("basisDialog").showModal();
+    $("confirmReview").onclick = async () => {
+      const note = $("reviewNote").value.trim();
+      if (amend && !note) { $("reviewError").textContent = "请填写修改原因。"; return; }
+      const button = $("confirmReview"); button.disabled = true;
+      try {
+        const result = await api("/api/resolve", {task_id:taskId, revision:rev,item_id:itemId,option_id:optionId,note,amend});
+        $("basisDialog").close();
+        if (S.task_id === taskId) { S=result; render(); refresh(); }
+        notify(`决定已保存为 r${result.revision}，可在已处理记录中回看。`);
+      } catch(e) { $("reviewError").textContent=e.message; button.disabled=false; }
+    };
+  } catch(e) { notify(e.message,true); }
 }
 
 async function resolve(itemId, optionId) {
@@ -1289,6 +1343,7 @@ async function confirmUpload(token) {
   $("pvOk").disabled = true;
   try {
     const data = await api("/api/upload", { token });
+    if (data.duplicate) notify("已存在内容相同的邮件，打开已有任务；未新建重复任务。");
     CONFIRMED += 1;
     if (data.task_id) LAST_TASK = data.task_id;
   } catch (e) {

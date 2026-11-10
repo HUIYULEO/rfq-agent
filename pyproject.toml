@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "matrixnext-rfq-agent"
-version = "0.1.0"
+version = "1.0.0"
 description = "MatrixNEXT RFQ agent scaffold"
 requires-python = ">=3.11"
 dependencies = []
