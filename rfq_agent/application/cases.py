@@ -291,7 +291,20 @@ def inbox(root: Path) -> list[dict]:
             latest = group["history"][0]
             group["task_id"] = latest["task_id"]
             group["stage"] = "draft" if latest["status"] in {"exported", "active"} else "priced"
+        elif group["task_id"] and not _task_exists(root, group["task_id"]):
+            # The row still remembers a task whose files are gone: the container was
+            # recycled (a free PaaS keeps no disk) or the directory was cleaned up by
+            # hand. Reporting that id makes the desk offer "打开已有任务" and then fail
+            # with an empty screen, so forget it and go back to "not run yet".
+            group["task_id"] = None
+            group["stage"] = "received"
     return list(groups.values())
+
+
+def _task_exists(root: Path, task_id: str) -> bool:
+    """A task is real only while its snapshot is on this instance's disk."""
+    directory = root / "runtime" / task_id
+    return (directory / "task.json").exists() or (directory / "desk.json").exists()
 
 
 def available(root: Path) -> list[Case]:

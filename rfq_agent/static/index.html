@@ -462,13 +462,13 @@ const STEP_HELP = [
   "预审完成且符合报价条件后，可生成并下载待复核的 Word 报价草案。"
 ];
 
-function notify(message, error = false) {
+function notify(message, error = false, ms = 5000) {
   const notice = $("notice");
   notice.textContent = message;
   notice.className = "notice" + (error ? " error" : "");
   notice.hidden = false;
   clearTimeout(noticeTimer);
-  noticeTimer = setTimeout(() => { notice.hidden = true; }, 5000);
+  noticeTimer = setTimeout(() => { notice.hidden = true; }, ms);
 }
 
 function setAskOpen(open) {
@@ -573,7 +573,18 @@ function askMaterial(key) {
 async function openTask(taskId, caseKey) {
   let state;
   try { state = await api(`/api/task?id=${encodeURIComponent(taskId)}`); }
-  catch (e) { notify(`任务加载失败：${e.message}`, true); return; }
+  catch (e) {
+    // A recycled instance keeps no disk, so a task opened from the address bar or
+    // from a stale list entry is simply gone. Drop the dead link and say why,
+    // instead of leaving an empty desk that looks like "已完成但没有数据".
+    if ((e.data && e.data.error === "Task not found") || /not found/i.test(e.message)) {
+      S = null; CASEKEY = null; setUrl(""); render();
+      notify("这个任务已经不在了：部署实例重启会清空演示数据。请重新运行案例 B，或在左侧选择其他素材。", true, 15000);
+      refresh().catch(() => {});
+      return;
+    }
+    notify(`任务加载失败：${e.message}`, true); return;
+  }
   S = state;
   CASEKEY = caseKey || null;
   EXTRACT_OFFSET = 0; LINE_OFFSET = 0; REPORT_OFFSET = 0; REVIEW_TAB = "open";

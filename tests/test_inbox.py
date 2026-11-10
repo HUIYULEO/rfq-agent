@@ -72,10 +72,26 @@ class InboxTest(unittest.TestCase):
         item = next(row for row in inbox(self.root) if row["case"].key == "C")
         self.assertEqual(item["stage"], "received")
         self.assertIsNone(item["task_id"])
-        mark_stage(self.root, "C", "priced", "task-123")
+        # A stage only means something while the task it names is on disk.
+        folder = self.root / "runtime" / ("c" * 32)
+        folder.mkdir(parents=True)
+        (folder / "task.json").write_text(json.dumps({"revision": 1, "status": "analyzed"}))
+        mark_stage(self.root, "C", "priced", "c" * 32)
         item = next(row for row in inbox(self.root) if row["case"].key == "C")
         self.assertEqual(item["stage"], "priced")
-        self.assertEqual(item["task_id"], "task-123")
+        self.assertEqual(item["task_id"], "c" * 32)
+
+    def test_task_lost_with_the_container_is_not_advertised(self):
+        """After a free-tier restart the row survives only in memory of a dead task.
+
+        Reporting that id is what made the desk say "已有任务" and then open blank.
+        """
+        admit_case(self.root, "C")
+        mark_stage(self.root, "C", "priced", "d" * 32)      # no directory on disk
+        item = next(row for row in inbox(self.root) if row["case"].key == "C")
+        self.assertIsNone(item["task_id"])
+        self.assertEqual(item["stage"], "received")
+        self.assertEqual(item["history"], [])
 
     def test_unknown_case_is_rejected(self):
         with self.assertRaises(ValueError):
