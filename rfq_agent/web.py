@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import hashlib
 import mimetypes
 import os
 import re
@@ -166,6 +167,8 @@ def _open_review_index(task: dict) -> tuple[set, bool, int, int]:
                 open_lines.add(line_id)
         elif item.get("status") == "answered":
             answered += 1
+    answered = len({i.get("item_id") for i in task.get("decision_log", []) if i.get("item_id")} |
+                   {i["id"] for i in task.get("review_items", []) if i.get("status") == "answered"})
     return open_lines, task_open, open_count, answered
 
 
@@ -342,9 +345,22 @@ def _extraction_page(task: dict, offset: int, limit: int) -> dict:
 
 
 def _review_page(task: dict, bucket: str, offset: int, limit: int) -> dict:
-    items = task.get("review_items") or []
+    items = {i["id"]: dict(i) for i in task.get("review_items") or []}
+    for log in task.get("decision_log", []):
+        item_id = log.get("item_id")
+        snapshot = log.get("item_snapshot") or items.get(item_id)
+        if not snapshot:
+            gate = next((g for g in task.get("interruptions", []) if g.get("review_item_id") == item_id), None)
+            snapshot = {"id": item_id, "target": {}, "kinds": [], **(gate or {} )}
+            snapshot["id"] = item_id
+        item = items.setdefault(item_id, dict(snapshot))
+        item.update(status="answered", answer=log.get("option"), options=snapshot.get("options", []))
+        item.setdefault("history", []).append(log)
+        item["can_amend"] = bool(snapshot.get("target")) and not task.get("approval") and task.get("status") != "active"
+    items = list(items.values())
     passed = bucket == "passed"
-    chosen = [item for item in items if (item.get("status") != "open") == passed]
+    chosen = items if bucket == "all" else [item for item in items if (item.get("status") != "open") == passed]
+    chosen.sort(key=lambda i: ((i.get("target") or {}).get("line_number") or 0, i.get("id") or ""))
     return {"bucket": "passed" if passed else "open", "total": len(chosen),
             "offset": offset, "limit": limit, "items": chosen[offset:offset + limit]}
 
@@ -576,7 +592,7 @@ class Handler(BaseHTTPRequestHandler):
                          "customer": item["case"].customer, "subject": item["case"].subject,
                          "received": item["case"].received, "lines": item["case"].lines,
                          "stage": item["stage"], "task_id": item["task_id"],
-                         "imported_at": item["imported_at"]}
+                         "imported_at": item["imported_at"], "history": item.get("history", [])}
                         for item in inbox(ROOT)])
             return
         if parsed.path == "/api/fixtures":
@@ -698,7 +714,7 @@ class Handler(BaseHTTPRequestHandler):
             except ValueError as exc:
                 self._error(exc, 404)
             return
-        if parsed.path == "/api/download":
+        if parsed.path in {"/api/download", "/api/draft-preview"}:
             query = parse_qs(parsed.query)
             task_id = (query.get("id") or [""])[0]
             name = (query.get("file") or [""])[0]
@@ -716,6 +732,13 @@ class Handler(BaseHTTPRequestHandler):
                     path = service.store.directory(task_id) / name
                 if not path.exists():
                     self._error("file not found", 404)
+                    return
+                if parsed.path == "/api/draft-preview":
+                    if not re.fullmatch(r"quote-draft-r\d+\.docx", name):
+                        self._error("请选择已生成的 quote-draft Word 草案", 400)
+                        return
+                    from rfq_agent.reporting.docx_preview import render
+                    self._json({"file": name, "html": render(path), "revision": task["revision"]})
                     return
                 payload = path.read_bytes()
             except ValueError as exc:
@@ -801,6 +824,12 @@ class Handler(BaseHTTPRequestHandler):
             with LOCK:
                 if parsed.path == "/api/upload":
                     saved = confirm_pending(ROOT, str(body.get("token") or ""))
+                    digest = hashlib.sha256(saved.read_bytes()).hexdigest()
+                    existing = next((i for i in inbox(ROOT) if i.get("task_id") and
+                        hashlib.sha256(i["case"].path.read_bytes()).hexdigest() == digest), None)
+                    if existing:
+                        self._json({"task_id": existing["task_id"], "duplicate": True})
+                        return
                     uploaded = next((case for case in discover(ROOT) if case.path == saved), None)
                     if uploaded is None:
                         raise ValueError("上传的邮件里没有可识别的询价表")
@@ -829,10 +858,13 @@ class Handler(BaseHTTPRequestHandler):
                 elif parsed.path == "/api/reset":
                     reset_inbox(ROOT)
                     payload = {"ok": True}
+                elif parsed.path == "/api/review-preview":
+                    payload = _service().preview_review(body["task_id"], int(body["revision"]),
+                        body["item_id"], body["option_id"], bool(body.get("amend")))
                 elif parsed.path == "/api/resolve":
                     state = _service().resolve_review(
                         body["task_id"], int(body["revision"]),
-                        body["item_id"], body["option_id"])
+                        body["item_id"], body["option_id"], body.get("note") or "", bool(body.get("amend")))
                     payload = _view(_load_desk(state["task_id"]))
                 elif parsed.path == "/api/export":
                     result = _service().export_quote_draft(body["task_id"], int(body["revision"]))

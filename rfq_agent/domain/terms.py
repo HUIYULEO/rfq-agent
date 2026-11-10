@@ -10,6 +10,7 @@ Requirements we cannot judge get ``manual`` instead of a fabricated verdict.
 """
 
 from types import SimpleNamespace
+import re
 
 MET = "met"          # the draft satisfies it, verifiable from data
 TODO = "todo"        # the draft is missing something and it can be named
@@ -148,8 +149,12 @@ def check(rfq, results):
     items = []
     for number, item in enumerate(raw or [], start=1):
         rule = _rule_for(item.text)
-        if rule is None:
-            verdict = {"status": MANUAL, "detail": "未识别为可自动核对的要求，请人工确认"}
+        general = re.fullmatch(r"(?:请协助报价|请报价|请协助对下列配件报价)[，,。.!！\s]*(?:(?:详见附件|见附件|紧急|感谢|谢谢)[，,。.!！\s]*)*", item.text.strip())
+        if general:
+            rule = "general_request"
+            verdict = {"status": NA, "detail": "一般询价说明，已作为邮件背景保留；无需单独审批。具体报价条件以行项目和附件为准。"}
+        elif rule is None:
+            verdict = {"status": MANUAL, "detail": "请对照原邮件确认这句话是否包含件状、交期、证书或其他承诺；如有，需核实草案是否覆盖，系统暂不能自动判断。"}
         else:
             verdict = CHECKS[rule](results)
         items.append({
@@ -158,7 +163,7 @@ def check(rfq, results):
             "source": item.source,
             "check": rule or "unmatched",
             "status": verdict["status"],
-            "label": LABELS[verdict["status"]],
+            "label": "一般说明" if general else LABELS[verdict["status"]],
             "detail": verdict["detail"],
         })
     return items

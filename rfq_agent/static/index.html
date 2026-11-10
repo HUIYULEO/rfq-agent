@@ -68,8 +68,16 @@
   /* work */
   .work{min-width:0;min-height:0;display:flex;flex-direction:column;overflow:hidden;position:relative}
   #docwrap:not([hidden]){display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden}
-  .empty{margin:auto;max-width:380px;text-align:center;color:var(--muted)}
-  .empty h2{font-size:15px;font-weight:650;color:var(--ink);margin:0 0 6px}
+  .empty{box-sizing:border-box;width:min(450px,calc(100% - 28px));max-height:calc(100% - 28px);
+         overflow:auto;margin:auto;padding:clamp(14px,3vw,24px);background:var(--card);
+         border:1px solid var(--line);border-radius:8px;color:var(--muted)}
+  .empty h2{font-size:17px;font-weight:650;color:var(--ink);margin:0 0 6px}
+  .empty p{margin:0}
+  .empty ol{margin:14px 0;padding-left:22px}
+  .empty li+li{margin-top:6px}
+  .empty li::marker{color:var(--accent);font-weight:650}
+  .empty li strong{color:var(--ink2)}
+  .empty .btn:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
   .dochead{flex-shrink:0;padding:15px 22px 0;background:var(--card);border-bottom:1px solid var(--line)}
   .doc-head{display:flex;align-items:flex-start;gap:14px}
   .doc-head h1{margin:0;font-size:17px;font-weight:650;letter-spacing:-.2px}
@@ -78,6 +86,8 @@
   .pill{padding:2px 9px;border-radius:999px;font-size:11px;font-weight:650;background:var(--line2);color:var(--ink2)}
   .pill.awaiting_review{background:var(--warn-soft);color:var(--warn)}
   .pill.draft_ready,.pill.exported{background:var(--ok-soft);color:var(--ok)}
+  .step-intro{margin:8px 0 0;color:var(--muted);font-size:12px}
+  .step-intro strong{color:var(--ink2);margin-right:8px}
   .doc-actions{display:flex;gap:8px;padding:12px 0 14px;align-items:center}
   .doc-actions .note{font-size:11px;color:var(--faint);margin-left:4px}
 
@@ -301,6 +311,10 @@
   #basisDialog dt{color:var(--muted)}
   #basisDialog dd{margin:0;white-space:normal;overflow-wrap:anywhere}
   #basisDialog li{overflow-wrap:anywhere}
+  #basisContent .table-scroll{overflow:auto;margin:12px 0}
+  #basisContent .table-scroll table{min-width:620px;background:white;border-collapse:collapse}
+  #basisContent .table-scroll td{border:1px solid var(--line);padding:6px;white-space:normal;overflow-wrap:anywhere}
+  .task-history{font-size:11px;margin-top:6px}.task-history select{width:100%;font:inherit}
   .out.pending{color:var(--warn)}
   .out.blocked{color:var(--bad);font-weight:600}
   .tabs{display:flex;gap:6px;margin-bottom:10px}
@@ -354,11 +368,16 @@
   </aside>
 
   <section class="work">
-    <div class="empty" id="empty">
-      <h2>从收件箱选一个任务，或从演示素材开始</h2>
-      <div>点「演示素材」会先确认：打开已有任务，或作为新任务运行。<br />
-        收件箱里是已经处理过的任务，随时点回现场。</div>
-    </div>
+    <section class="empty" id="empty" aria-labelledby="quickstart-title">
+      <h2 id="quickstart-title">快速上手</h2>
+      <p>从「收件箱」继续已有任务，从「演示素材」选择样例，或通过「导入询价邮件」上传自己的 .eml 文件。</p>
+      <ol>
+        <li><strong>核对明细</strong>。在「结构提取」核对料号、数量和原文位置。</li>
+        <li><strong>处理待预审项</strong>。在「人工预审」点「看依据」，再选择处理方式。</li>
+        <li><strong>下载结果</strong>。在「分析报告」导出并下载 Word 报告。满足报价条件后，可在「报价草案」生成并下载草案。</li>
+      </ol>
+      <button class="btn primary lg" id="quickstart-demo" type="button" disabled>用案例 B 体验</button>
+    </section>
 
     <div id="docwrap" hidden>
       <div class="dochead">
@@ -370,6 +389,7 @@
           <div class="right"><span class="pill" id="status">—</span></div>
         </div>
         <nav class="stepper" id="stepper" aria-label="报价步骤"></nav>
+        <p class="step-intro" id="step-intro" aria-live="polite"><strong id="step-title"></strong><span id="step-help"></span></p>
         <div class="doc-actions">
           <button class="btn primary" id="primary" type="button">运行新任务</button>
           <button class="btn quiet" id="rerun" type="button" hidden>再次运行</button>
@@ -433,6 +453,14 @@ let STEP = 1, EXTRACT_OFFSET = 0, LINE_OFFSET = 0, REPORT_OFFSET = 0, REVIEW_TAB
 let noticeTimer = null;
 const PAGE = 40;
 const STEPS = ["输入采集", "结构提取", "询价分析", "人工预审", "分析报告", "报价草案"];
+const STEP_HELP = [
+  "确认这单来自哪封邮件，查看邮件原件、附件和客户要求。",
+  "核对提取出的料号、数量、单位和件状。发现疑点时，对照原始值和来源位置。",
+  "查看哪些行有价格依据、哪些待确认或无法报价。点「有依据」可查看采用的价格来源。",
+  "展开「看依据」，逐项决定如何处理，例如是否接受供应商的最低订购量。",
+  "查看每行的处理结果、原因和建议动作。即使整单无法报价，也可以导出 Word 报告。",
+  "预审完成且符合报价条件后，可生成并下载待复核的 Word 报价草案。"
+];
 
 function notify(message, error = false) {
   const notice = $("notice");
@@ -486,6 +514,7 @@ async function refresh() {
   const [tasks, fixtures] = await Promise.all([api("/api/cases"), api("/api/fixtures")]);
   TASKS = tasks;
   CASES = fixtures;
+  $("quickstart-demo").disabled = !fixtures.some((fixture) => fixture.key === "B");
   $("count").textContent = tasks.length;
   $("poolcount").textContent = fixtures.length;
 
@@ -497,10 +526,14 @@ async function refresh() {
       <div class="sub">${esc(t.subject || t.file)}</div>
       <div class="meta"><span class="tag">${esc(CONTAINER[t.container] || t.container)}</span>
         <span class="tag ${cls}">${esc(STAGE[t.stage] || t.stage)}</span></div>
+      ${(t.history || []).length > 1 ? `<details class="task-history"><summary>历史任务 · ${t.history.length} 次</summary><select aria-label="选择历史任务" data-history="${esc(t.key)}"><option value="">选择要打开的任务</option>${t.history.map((h) => `<option value="${esc(h.task_id)}">${esc(h.created_at || h.task_id.slice(0,8))} · r${h.revision} · ${esc(h.status)}</option>`).join("")}</select></details>` : ""}
     </li>`;
   }).join("") : `<li class="pool-item"><div class="who muted">收件箱为空：运行下方素材，或导入询价邮件</div></li>`;
   $("tasks").querySelectorAll("li.item[data-task]").forEach((li) => {
-    if (li.dataset.task) li.onclick = () => openTask(li.dataset.task, li.dataset.key);
+    if (li.dataset.task) li.onclick = (e) => { if (!e.target.closest('.task-history')) openTask(li.dataset.task, li.dataset.key); };
+  });
+  $("tasks").querySelectorAll("[data-history]").forEach((select) => {
+    select.onchange = () => { if (select.value) openTask(select.value, select.dataset.history); };
   });
 
   $("list").innerHTML = CASES.map((c) => {
@@ -649,6 +682,8 @@ function paintChrome() {
   $("stepper").querySelectorAll("button[data-step]").forEach((b) => {
     b.onclick = () => go(Number(b.dataset.step));
   });
+  $("step-title").textContent = STEPS[STEP - 1];
+  $("step-help").textContent = STEP_HELP[STEP - 1];
 
   if (!S) {
     showPrimary("运行新任务", start);
@@ -679,10 +714,10 @@ function paintChrome() {
     $("stepnote").textContent = CASEKEY ? "需要重跑时用「再次运行」，会新建任务" : "输入已采集";
   } else if (STEP === 2) {
     showPrimary("查看询价分析", () => go(3));
-    $("stepnote").textContent = "结构已提取，价格决定不在这一步";
+    $("stepnote").textContent = "";
   } else if (STEP === 3) {
     showPrimary(open ? "进入人工预审" : "查看分析报告", () => go(open ? 4 : 5));
-    $("stepnote").textContent = "只读定位，不在这一步做决定";
+    $("stepnote").textContent = "";
   } else if (STEP === 4) {
     if (open) {
       $("primary").hidden = true;
@@ -694,7 +729,7 @@ function paintChrome() {
   } else if (STEP === 5) {
     const again = (S.artifacts || []).some((file) => file.startsWith("analysis"));
     showPrimary(again ? "重新导出分析报告" : "导出分析报告", doExport);
-    $("stepnote").textContent = "成功或失败都会生成询价分析报告";
+    $("stepnote").textContent = "";
   } else if (open) {
     showPrimary("去完成人工预审", () => go(4));
     $("stepnote").textContent = "报价草案可查看；生成前要先完成人工预审";
@@ -866,7 +901,6 @@ async function paintInquiry(token) {
       <div><div class="k">阻断</div><div class="v big" style="color:var(--bad)">${esc(q.blocked ?? 0)}</div></div>
       <div><div class="k">已报价小计</div><div class="v big">${sub}</div></div>
     </div>
-    <p class="panel-note">本步只读：每行给出邮件 / 附件 / 表-行-列 / 原文，以及有依据、待预审或阻断原因。决定在「人工预审」。</p>
     <div id="linebody"><span class="spin"></span> 正在载入本页…</div>`;
   let page;
   try { page = await api(`/api/lines?id=${encodeURIComponent(S.task_id)}&offset=${LINE_OFFSET}&limit=${PAGE}`); }
@@ -937,16 +971,19 @@ function showPriceBasis(row) {
 $("basisClose").onclick = () => $("basisDialog").close();
 
 function reviewCard(item, passed) {
+  passed = item.status !== "open";
   const label = passed
     ? ((item.options || []).find((o) => o.id === item.answer) || {}).label || item.answer || "已决定"
     : "";
   return `<div class="ask">
       <div class="h"><b>${esc(item.id)}</b><span>${esc((item.target && item.target.part_number) || "整案")}</span>
         <span>${esc((item.kinds || []).join(" · "))}</span></div>
-      <div class="q">${esc(item.question)}</div>
+      <div class="q">${passed ? "原复核问题：" : ""}${esc(item.question)}</div>
       ${item.locator ? `<div class="muted" style="font-size:10.5px;font-family:var(--mono)">定位：${esc(item.locator.text)}</div>` : ""}
-      ${passed ? `<div class="muted">已通过：${esc(label)}</div>` : `<div class="opts">${(item.options || []).map((o) =>
-        `<button type="button" data-item="${esc(item.id)}" data-opt="${esc(o.id)}">${esc(o.label)}</button>`).join("")}</div>`}
+      ${passed ? `<div class="muted">已处理：${esc(label)}</div>` : ""}
+      ${!passed || item.can_amend ? `<div class="opts">${(item.options || []).filter((o) => !passed || o.id !== item.answer).map((o) =>
+        `<button type="button" data-item="${esc(item.id)}" data-opt="${esc(o.id)}" data-amend="${passed}">${passed ? "修改为：" : "预览："}${esc(o.label)}</button>`).join("")}</div>` : ""}
+      ${item.history?.length ? `<details open><summary>审批记录（${item.history.length} 次）</summary>${item.history.map((h, i) => `<p><b>r${esc(h.revision)} · ${i === item.history.length - 1 ? "当前决定" : "已被后续决定替代"}</b><br>${esc(h.at)} · ${esc(h.actor)}<br>选择：${esc((h.item_snapshot?.options || item.options || []).find((o) => o.id === h.option)?.label || h.option)}${h.note ? `<br>备注：${esc(h.note)}` : ""}${h.effect ? `<br>处理后已报价小计：CNY ${esc(h.effect.after_summary.priced_subtotal_cny)}；剩余待确认 ${h.effect.remaining_reviews.length} 项` : ""}</p>`).join("")}</details>` : ""}
       ${(item.evidence || []).length ? `<details><summary>看依据（${item.evidence.length} 条）</summary><ul>${
         item.evidence.map((e) => `<li><code>${esc(e.rule)}</code> ${esc(e.detail)}</li>`).join("")}</ul></details>` : ""}
     </div>`;
@@ -956,12 +993,12 @@ async function paintReviews(token) {
   const openN = S.open_reviews || 0;
   const passedN = S.answered_reviews || 0;
   $("stages").innerHTML = `<div class="tabs" id="revtabs">
-      <button type="button" data-tab="open" class="${REVIEW_TAB === "open" ? "on" : ""}">待预审 ${openN}</button>
-      <button type="button" data-tab="passed" class="${REVIEW_TAB === "passed" ? "on" : ""}">已通过 ${passedN}</button>
+      <button type="button" data-tab="open" class="${REVIEW_TAB === "open" ? "on" : ""}">预审工作台 · 待处理 ${openN}</button>
+      <button type="button" data-tab="passed" class="${REVIEW_TAB === "passed" ? "on" : ""}">已处理与记录 ${passedN}</button>
     </div>
     <p class="panel-note">${REVIEW_TAB === "open"
-      ? "待预审项全部列在这里。已通过的决定在旁边，不挤在决定区里。"
-      : "这些项已经有决定，只供回看。"}</p>
+      ? "先预览处理后的数量、报价和剩余问题，再提交决定。已处理卡片保留在工作台。"
+      : "这里保留历次决定；修改必须填写原因并重新预览，旧记录不会覆盖。"}</p>
     <div id="revbody"><span class="spin"></span> 正在载入…</div>`;
   $("revtabs").querySelectorAll("button").forEach((b) => {
     b.onclick = () => { REVIEW_TAB = b.dataset.tab; render(); };
@@ -976,11 +1013,11 @@ async function paintReviews(token) {
   $("revbody").appendChild(host);
   host.addEventListener("click", (event) => {
     const button = event.target.closest("button[data-item]");
-    if (button) resolve(button.dataset.item, button.dataset.opt);
+    if (button) previewReview(button.dataset.item, button.dataset.opt, button.dataset.amend === "true");
   });
   try {
     for (;;) {
-      const page = await api(`/api/reviews?id=${encodeURIComponent(S.task_id)}&bucket=${passed ? "passed" : "open"}&offset=${offset}&limit=80`);
+      const page = await api(`/api/reviews?id=${encodeURIComponent(S.task_id)}&bucket=${passed ? "passed" : "all"}&offset=${offset}&limit=80`);
       if (token !== PANEL_TOKEN || (REVIEW_TAB === "passed") !== passed) return;
       total = page.total;
       const items = page.items || [];
@@ -996,7 +1033,7 @@ async function paintReviews(token) {
   }
   if (token !== PANEL_TOKEN) return;
   if (!total) {
-    host.innerHTML = `<div class="muted">${passed ? "还没有已通过的决定。" : "没有待预审项。"}</div>`;
+    host.innerHTML = `<div class="muted">${passed ? "还没有已处理的决定。" : "没有待预审项。"}</div>`;
   } else {
     const note = document.createElement("div");
     note.className = "muted";
@@ -1006,8 +1043,7 @@ async function paintReviews(token) {
 }
 
 async function paintReport(token) {
-  $("stages").innerHTML = `<p class="panel-note">询价分析报告对成功和失败的单子都在。表格可横向滚动，导出文件在本页，不藏在别的阶段里。</p>
-    <div id="reportTop"></div><div id="reportBody"><span class="spin"></span> 正在载入本页…</div>
+  $("stages").innerHTML = `<div id="reportTop"></div><div id="reportBody"><span class="spin"></span> 正在载入本页…</div>
     <div style="margin-top:12px"><div class="k" style="font-size:10.5px;color:var(--faint)">下载</div>${fileLinks(analysisFiles())}</div>`;
   let page;
   try {
@@ -1056,10 +1092,11 @@ async function paintReport(token) {
 function paintDraft() {
   const open = S.open_reviews || 0;
   const termItems = S.terms || [];
+  const actionable = termItems.filter((i) => i.check !== "general_request" && i.status !== "na");
   const ts = S.terms_summary || { total: 0, met: 0, todo: 0, manual: 0 };
   const termIcon = { met: "✓", todo: "!", manual: "?", na: "–" };
   const termBlock = termItems.length ? `<div class="terms">
-      <div class="h">客户要求核对 <span>${ts.met}/${ts.total} 已满足${ts.todo ? ` · ${ts.todo} 项待补齐` : ""}${
+      <div class="h">客户要求核对 <span>${actionable.length ? `${ts.met}/${actionable.length} 项具体条件已满足` : "没有需单独核对的具体条件"}${ts.todo ? ` · ${ts.todo} 项待补齐` : ""}${
         ts.manual ? ` · ${ts.manual} 项需人工确认` : ""}</span></div>
       ${termItems.map((i) => `<div class="term ${i.status}">
         <span class="ic">${termIcon[i.status] || "·"}</span>
@@ -1080,12 +1117,54 @@ function paintDraft() {
       : "当前商业处置不会生成报价单。分析报告仍可在第 5 步导出，下载也列在下面。"}</p>`}
     <div class="k" style="font-size:10.5px;color:var(--faint);margin-bottom:4px">下载</div>
     ${fileLinks(draftFiles())}
+    <div class="opts">${(S.artifacts || []).filter((name) => /^quote-draft-r\d+\.docx$/.test(name)).map((name) => `<button class="btn primary" type="button" data-draft-preview="${esc(name)}">预览 ${esc(name)}</button>`).join("")}</div>
     ${termBlock}
     ${regen ? `<div style="margin-top:8px">${regen}</div>` : ""}
     ${approved ? `<div class="ana"><div class="stamp">${esc(S.approval.label)}：${esc(S.approval.approved_by)} · ${esc(S.approval.approved_at)} · ${esc(S.approval.quote_id || "")}（已写入历史报价表）</div></div>` : ""}
-    <p class="muted" style="margin-top:8px">产物是待复核草案：未计税费运费，不预留库存。</p>`;
+    <p class="panel-note" style="margin-top:12px">下一步：${open ? "先到「人工预审」处理待办，再生成报价草案。" : !S.quote_allowed ? "当前不能生成报价草案，请到「询价分析」或「分析报告」查看仍未满足的条件。" : (S.artifacts || []).some((n) => /^quote-draft-/.test(n)) ? "点击「预览」核对料号、数量、件状、价格及条款；确认后下载 Word 草案。" : "点击页面上方的生成按钮，生成草案后即可预览和下载。"}</p>
+    <p class="muted">对外发送前，请确认税费、运费和供货数量；当前价格未包含税费运费，也未锁定库存。生成或下载草案不等于正式批准报价。</p>`;
+  $("stages").querySelectorAll("[data-draft-preview]").forEach((b) => b.onclick = async () => {
+    const taskId = S.task_id;
+    b.disabled=true;
+    try {
+      const p=await api(`/api/draft-preview?id=${encodeURIComponent(taskId)}&file=${encodeURIComponent(b.dataset.draftPreview)}`);
+      if (S.task_id !== taskId) return;
+      $("basisTitle").textContent=`草案内容预览 · ${p.file}`;
+      $("basisContent").innerHTML=`<p class="muted">读取已生成的 Word 文件。此处展示正文和表格，精确分页、合并单元格版式及页眉页脚请下载 Word 核对。</p>${p.html}`;
+      $("basisDialog").showModal();
+    } catch(e) { notify(e.message,true); } finally { b.disabled=false; }
+  });
   const regenBtn = $("regen");
   if (regenBtn) regenBtn.onclick = doExport;
+}
+
+async function previewReview(itemId, optionId, amend) {
+  const taskId = S.task_id, rev = S.revision;
+  try {
+    const p = await api("/api/review-preview", {task_id:taskId, revision:rev, item_id:itemId, option_id:optionId, amend});
+    const status = {priced:"可定价", needs_review:"仍未报价 / 需处理", no_bid:"不报价"};
+    const rows = (items) => items.map((r) => `<tr><td>${esc(r.line_number)} · ${esc(r.part_number)}</td><td>${esc(r.quantity)} ${esc(r.unit)}</td><td>${esc(r.condition || "—")}</td><td>${esc(r.source_id || "—")}</td><td>${esc(r.unit_price ?? "—")}</td><td>${esc(r.line_total ?? "—")}</td><td>${esc(status[r.eligibility] || r.eligibility)}</td></tr>`).join("");
+    const table = (items) => `<div style="overflow:auto"><table><thead><tr><th>行 / 料号</th><th>数量</th><th>件状</th><th>来源记录</th><th>单价 CNY</th><th>金额 CNY</th><th>结果</th></tr></thead><tbody>${rows(items)}</tbody></table></div>`;
+    $("basisTitle").textContent = amend ? "修改决定 · 结果预览" : "提交决定前 · 结果预览";
+    $("basisContent").innerHTML = `<p><b>${esc(p.item.options.find((o) => o.id === optionId)?.label || optionId)}</b></p><p>${esc(p.notice)}</p>
+      <h3>处理前</h3>${table(p.before)}<h3>处理后</h3>${table(p.after)}
+      <p>整单已报价小计：CNY ${esc(p.before_summary.priced_subtotal_cny)} → CNY ${esc(p.after_summary.priced_subtotal_cny)}</p>
+      <h3>仍需关注</h3><ul>${[...p.remaining_reviews,...p.evaluation_issues,...p.after.flatMap((r) => (r.remaining_evidence || []).map((e) => e.detail))].map((s) => `<li>${esc(s)}</li>`).join("") || "<li>没有剩余待确认或评估问题；此操作不代表正式批准报价。</li>"}</ul>
+      <label for="reviewNote">${amend ? "修改原因（必填）" : "审批备注（选填）"}</label><textarea id="reviewNote" rows="3" style="width:100%;margin:8px 0" maxlength="2000"></textarea>
+      <p id="reviewError" role="alert" style="color:var(--bad)"></p><button class="btn primary" id="confirmReview" type="button">确认并保存${amend ? "修改" : "决定"}</button>`;
+    $("basisDialog").showModal();
+    $("confirmReview").onclick = async () => {
+      const note = $("reviewNote").value.trim();
+      if (amend && !note) { $("reviewError").textContent = "请填写修改原因。"; return; }
+      const button = $("confirmReview"); button.disabled = true;
+      try {
+        const result = await api("/api/resolve", {task_id:taskId, revision:rev,item_id:itemId,option_id:optionId,note,amend});
+        $("basisDialog").close();
+        if (S.task_id === taskId) { S=result; render(); refresh(); }
+        notify(`决定已保存为 r${result.revision}，可在已处理记录中回看。`);
+      } catch(e) { $("reviewError").textContent=e.message; button.disabled=false; }
+    };
+  } catch(e) { notify(e.message,true); }
 }
 
 async function resolve(itemId, optionId) {
@@ -1277,6 +1356,7 @@ async function confirmUpload(token) {
   $("pvOk").disabled = true;
   try {
     const data = await api("/api/upload", { token });
+    if (data.duplicate) notify("已存在内容相同的邮件，打开已有任务；未新建重复任务。");
     CONFIRMED += 1;
     if (data.task_id) LAST_TASK = data.task_id;
   } catch (e) {
@@ -1289,6 +1369,7 @@ async function confirmUpload(token) {
 
 /* ---------- entries: click, sidebar zone, full-page drag ---------- */
 $("drop").onclick = () => $("file").click();
+$("quickstart-demo").onclick = () => askMaterial("B");
 $("reset").onclick = resetDemo;
 $("file").onchange = (e) => { if (e.target.files.length) uploadFiles(e.target.files); e.target.value = ""; };
 
