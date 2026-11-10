@@ -10,6 +10,7 @@ import json
 from uuid import uuid4
 
 from rfq_agent.domain.models import RFQ, Task, positive_decimal
+from rfq_agent.domain.input_status import input_status
 from rfq_agent.infrastructure.ledger import AGENT_TRACE, ARTIFACT, HUMAN_DECISION, OperationalLedger
 from rfq_agent.domain.policy import POLICY_VERSION, AUTONOMY_PRESETS, DEFAULT_POLICY
 from rfq_agent.domain.pricing import build_review_items, summarize
@@ -98,14 +99,17 @@ class RFQService:
         return task.to_dict()
 
     def record_extraction(self, task_id: str, report: dict) -> dict:
-        """Persist how the input was understood, before anything was priced.
+        """Persist how the input was understood, independently of pricing.
 
         The report is the perception layer's audit trail (which blocks were read, what
         the model refused, which rows look misread). It is evidence, never a price
         input, so it lives on the trace and not in the results.
         """
         task = self.store.get(task_id)
+        status = input_status(report)
         self._trace(task, "input_understood",
+                    model_ran=status["model_ran"], degraded=status["degraded"],
+                    fallback_code=status["fallback_code"], label=status["label"],
                     source=report.get("source", ""),
                     model=report.get("model", ""),
                     document_type=report.get("document_type", ""),
@@ -113,7 +117,7 @@ class RFQService:
                     lines_deterministic=report.get("lines_deterministic", 0),
                     refused=len(report.get("refused") or []),
                     best_guess=len(report.get("best_guess") or []),
-                    reason=report.get("reason", ""),
+                    reason=status["reason"],
                     outcome="continue")
         task.extraction = report
         self._save(task)

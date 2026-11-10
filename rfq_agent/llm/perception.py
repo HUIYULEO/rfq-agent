@@ -75,6 +75,10 @@ EXTRACT_PROMPT = """你是询价邮件解析器。判断这封邮件是什么，
 class PerceptionError(RuntimeError):
     """Nothing usable came out of the mail."""
 
+    def __init__(self, message: str, code: str = "validation_failed"):
+        super().__init__(message)
+        self.code = code
+
 
 @dataclass
 class Block:
@@ -229,14 +233,17 @@ def _chat_json(config: dict, system: str, payload: str, timeout: int) -> dict:
     client = Genesis(config, timeout=timeout)
     message = client.chat([{"role": "system", "content": system},
                            {"role": "user", "content": payload}])
-    content = (message.get("content") or "").strip()
+    content = message.get("content") or ""
+    if not isinstance(content, str):
+        raise PerceptionError("模型文本格式无效", "invalid_response")
+    content = content.strip()
     start, end = content.find("{"), content.rfind("}")
     if start == -1 or end <= start:
-        raise PerceptionError("模型没有返回 JSON")
+        raise PerceptionError("模型没有返回 JSON", "invalid_json")
     try:
         return json.loads(content[start:end + 1])
     except json.JSONDecodeError as exc:
-        raise PerceptionError(f"模型返回的 JSON 解析失败：{exc}") from exc
+        raise PerceptionError("模型返回的 JSON 解析失败", "invalid_json") from exc
 
 
 def extract(config: dict, blocks: list[Block], timeout: int = 180) -> dict:
@@ -607,6 +614,8 @@ def _run_audit(config: dict, blocks: list[Block], baseline: RFQ) -> tuple[RFQ, d
 
     report = {
         "mode": "audit",
+        "model_ran": True,
+        "degraded": False,
         "source": "agent+deterministic",
         "reason": "确定性解析成功；模型负责判断文档类型、条款与可疑行",
         "model": config.get("GENESIS_MODEL", ""),
@@ -634,6 +643,8 @@ def _run_extract(config: dict, path: Path, blocks: list[Block],
     check = validate(extraction, blocks)
     report = {
         "mode": "extract",
+        "model_ran": True,
+        "degraded": False,
         "model": config.get("GENESIS_MODEL", ""),
         "document_type": check.document_type,
         "document_confidence": check.document_confidence,

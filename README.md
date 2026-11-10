@@ -229,9 +229,18 @@ quote_header / quote_line   已批准的报价历史
 | `/api/analysis`、`/api/draft-preview`、`/api/history` | 分析报告、草案预览、执行历史 |
 | `/api/agent`、`/api/data` | 模型配置状态、数据快照状态 |
 
-写接口（`POST`）：`/api/preview`、`/api/upload`、`/api/import`、`/api/run`、`/api/resolve`、`/api/export`、`/api/activate`、`/api/feedback`、`/api/chat`、`/api/reset`。
+写接口（`POST`）：`/api/preview`、`/api/upload`、`/api/import`、`/api/run`、`/api/review-preview`、`/api/resolve`、`/api/export`、`/api/activate`、`/api/feedback`、`/api/chat`、`/api/reset`。
 
 `/api/activate` 要求 `approved_by` 为具名的人，且任务已无阻塞项、评估完成；不满足时失败关闭并说明原因。
+
+### 模型状态与降级
+
+主流程会记录输入理解的实际状态：模型审查/抽取成功、仅规则解析（降级），或状态未记录。
+未配置、超时及无效响应的降级原因显示在输入采集、询价分析和分析报告中，也写入导出的
+JSON/DOCX；执行轨迹不再将规则解析标成“模型读邮件”。旧任务缺少记录时不会推断模型成功。
+字段含义、验证方式与后续范围见 [模型状态说明](refer_doc/RFQ_MODEL_STATUS.md)。
+
+模型层实现见 `rfq_agent/llm/genesis.py`（OpenAI 兼容客户端 + 工具循环，纯标准库），配置见上一节。
 
 ## 测试
 
@@ -297,3 +306,5 @@ runtime/           本地数据库、任务与导出产物（不纳入 Git）
 - [业界对标](refer_doc/RFQ_INDUSTRY_BENCHMARK.md) · [架构评估](refer_doc/RFQ_ARCHITECTURE_ASSESSMENT_2026-11-03.md)
 - [需求清单](refer_doc/RFQ_REQUIREMENTS_BACKLOG.md) · [开发计划](refer_doc/RFQ_DEVELOPMENT_PLAN.md)
 - [部署说明](refer_doc/RFQ_DEPLOYMENT.md) · [文档索引](refer_doc/README.md)
+
+API 参考：https://docs.langchain.com/oss/python/deepagents/quickstart
