@@ -99,31 +99,31 @@ footer.doc-foot{margin-top:64px; padding-top:20px; border-top:1px solid var(--li
 <li class="lvl3"><a href="#sec-11">2.5 关键设计决策</a></li>
 <li class="lvl3"><a href="#sec-12">2.6 智能体角色</a></li>
 <li class="lvl3"><a href="#sec-13">2.7 方案的可迁移性</a></li>
-<li class="lvl2"><a href="#sec-14">3 技术栈</a></li>
-<li class="lvl3"><a href="#sec-15">3.1 分层与选型</a></li>
-<li class="lvl3"><a href="#sec-16">3.2 选型取舍</a></li>
-<li class="lvl3"><a href="#sec-17">3.3 验证数据与性能</a></li>
-<li class="lvl2"><a href="#sec-18">4 创新点</a></li>
-<li class="lvl2"><a href="#sec-19">5 使用说明</a></li>
-<li class="lvl3"><a href="#sec-20">5.1 访问方式</a></li>
-<li class="lvl3"><a href="#sec-21">5.2 操作步骤（约 2 分钟）</a></li>
-<li class="lvl3"><a href="#sec-22">5.3 各步操作要点</a></li>
-<li class="lvl3"><a href="#sec-23">5.4 验证样本与结果</a></li>
-<li class="lvl3"><a href="#sec-24">5.5 命令行</a></li>
-<li class="lvl3"><a href="#sec-25">5.6 部署与配置</a></li>
-<li class="lvl2"><a href="#sec-26">6 数据合规说明</a></li>
-<li class="lvl3"><a href="#sec-27">6.1 数据来源与范围</a></li>
-<li class="lvl3"><a href="#sec-28">6.2 数据流向</a></li>
-<li class="lvl3"><a href="#sec-29">6.3 用户上传文件</a></li>
-<li class="lvl3"><a href="#sec-30">6.4 模型调用</a></li>
-<li class="lvl3"><a href="#sec-31">6.5 凭据与日志</a></li>
-<li class="lvl3"><a href="#sec-32">6.6 输出定位与责任边界</a></li>
-<li class="lvl3"><a href="#sec-33">6.7 保留期限与销毁</a></li>
-<li class="lvl3"><a href="#sec-34">6.8 第三方组件</a></li>
-<li class="lvl2"><a href="#sec-35">7 已知限制与人工确认边界</a></li>
-<li class="lvl3"><a href="#sec-36">7.1 已知限制</a></li>
-<li class="lvl3"><a href="#sec-37">7.2 人工确认边界</a></li>
-<li class="lvl2"><a href="#sec-38">附录 术语表</a></li></ol>
+<li class="lvl2"><a href="#sec-14">3 创新点</a></li>
+<li class="lvl2"><a href="#sec-15">4 使用说明</a></li>
+<li class="lvl3"><a href="#sec-16">4.1 访问方式</a></li>
+<li class="lvl3"><a href="#sec-17">4.2 操作步骤（约 2 分钟）</a></li>
+<li class="lvl3"><a href="#sec-18">4.3 各步操作要点</a></li>
+<li class="lvl3"><a href="#sec-19">4.4 验证样本与结果</a></li>
+<li class="lvl2"><a href="#sec-20">5 数据合规说明</a></li>
+<li class="lvl3"><a href="#sec-21">5.1 数据来源与范围</a></li>
+<li class="lvl3"><a href="#sec-22">5.2 数据流向</a></li>
+<li class="lvl3"><a href="#sec-23">5.3 用户上传文件</a></li>
+<li class="lvl3"><a href="#sec-24">5.4 模型调用</a></li>
+<li class="lvl3"><a href="#sec-25">5.5 凭据与日志</a></li>
+<li class="lvl3"><a href="#sec-26">5.6 输出定位与责任边界</a></li>
+<li class="lvl3"><a href="#sec-27">5.7 保留期限与销毁</a></li>
+<li class="lvl3"><a href="#sec-28">5.8 第三方组件</a></li>
+<li class="lvl2"><a href="#sec-29">6 已知限制与人工确认边界</a></li>
+<li class="lvl3"><a href="#sec-30">6.1 已知限制</a></li>
+<li class="lvl3"><a href="#sec-31">6.2 人工确认边界</a></li>
+<li class="lvl2"><a href="#sec-32">附录 A 技术实现</a></li>
+<li class="lvl3"><a href="#sec-33">A.1 技术栈与分层</a></li>
+<li class="lvl3"><a href="#sec-34">A.2 选型取舍</a></li>
+<li class="lvl3"><a href="#sec-35">A.3 数据规模与性能</a></li>
+<li class="lvl3"><a href="#sec-36">A.4 命令行与产物</a></li>
+<li class="lvl3"><a href="#sec-37">A.5 部署与配置</a></li>
+<li class="lvl2"><a href="#sec-38">附录 B 术语表</a></li></ol>
 </nav>
 <main>
   <header class="doc-head">
@@ -138,6 +138,7 @@ footer.doc-foot{margin-top:64px; padding-top:20px; border-top:1px solid var(--li
 <p>MatrixNEXT RFQ Agent 是面向询价处理（RFQ）的智能体实现：接收客户发来的询价邮件（正文表格、Excel 附件或 PDF 表单），输出两份交付物——一份按客户模板填写的报价草案，一份逐行说明报价依据的询价分析报告。</p>
 <p>航空备件是这套方案的落地场景：件号、件状、适航证书、交期与客户模板共同构成报价单的必要条件，任一缺失即被客户退回。方案主干（统一行项目、确定性定价、人工闸门、模板输出）与行业无关，行业差异集中在四处可替换的端点（见 2.7）。</p>
 <p>系统将可验证的解析与计算交给确定性引擎，将不可让渡的商业判断交回具名的人。报价单上的每一个数字都能回溯到原始文件的单元格；没有价格依据的行不给估值，而是转人工询价并写明原因。</p>
+<p>技术选型、性能数据与部署方式见附录 A。</p>
 <hr />
 <h2 id="sec-2">1 问题定义</h2>
 <h3 id="sec-3">1.1 业务场景</h3>
@@ -149,7 +150,7 @@ footer.doc-foot{margin-top:64px; padding-top:20px; border-top:1px solid var(--li
 <li><strong>价格依据检索</strong>：内部物料成本表提供成本，价格资源表提供供应商报价。缺少依据时不能估算。</li>
 <li><strong>按客户模板出单</strong>：金额、大写、有效期与每行的件状、证书、交期必须齐全，缺项即被客户退回。</li>
 </ol>
-<p>单封询价的行数从数行到上百行不等，本方案的验证数据集覆盖 6 封邮件、300 行、四种载体（见 3.1）。</p>
+<p>单封询价的行数从数行到上百行不等，本方案的验证数据集覆盖 6 封邮件、300 行、四种载体（见附录 A.3）。</p>
 <h3 id="sec-4">1.2 关键痛点</h3>
 <table>
 <thead>
@@ -289,7 +290,7 @@ footer.doc-foot{margin-top:64px; padding-top:20px; border-top:1px solid var(--li
 </table>
 <h3 id="sec-11">2.5 关键设计决策</h3>
 <ol>
-<li><strong>价格只有一个来源。</strong> 全部金额由 <code>domain/pricing.py</code> 的纯函数计算，模型仅参与理解与工具选择，不参与任何算术。对话助手获取的也是引擎结果，且载荷按页压缩，不传递完整行数据。</li>
+<li><strong>价格只有一个来源。</strong> 全部金额由确定性定价模块计算，模型仅参与理解与工具选择，不参与任何算术。对话助手获取的也是引擎结果，且载荷按页压缩，不传递完整行数据。</li>
 <li><strong>复核项按目标寻址。</strong> 复核项编号由目标推导（<code>RI-0016</code> 指第 16 行，<code>RI-TASK</code> 指整案），作答后不重新编号，决策日志始终指向同一对象；修改一个答案只重算受影响的行。</li>
 <li><strong>空结果不可被填充。</strong> 无价格依据时返回空值，小计显示 <code>—</code>；122 行均无依据的单据只生成一个任务级问题，而不是 122 个重复询问。</li>
 </ol>
@@ -335,8 +336,310 @@ footer.doc-foot{margin-top:64px; padding-top:20px; border-top:1px solid var(--li
 </table>
 <p>数据模型、复核项机制、修订与审计记录、导出流程不需要按行业重写；这也是本项目以航空备件为场景、但可迁移到其他报价型询价业务的原因。</p>
 <hr />
-<h2 id="sec-14">3 技术栈</h2>
-<h3 id="sec-15">3.1 分层与选型</h3>
+<h2 id="sec-14">3 创新点</h2>
+<ol>
+<li>
+<p><strong>载体无关的解析，证据落到单元格。</strong>
+正文表格、制表符、xlsx 与 pdf 归一到同一套列名，因此只需维护一份 <code>row → Line</code> 映射，新增载体不影响下游。每行携带 <code>evidence{file, container, sheet, row, column, raw}</code>，第 ② 步显示原件位置与原始值，第 ③ 步显示邮件、附件、表、行、列与原值，可用原始文件逐格核对。</p>
+</li>
+<li>
+<p><strong>模型负责阅读，代码负责校验与计算。</strong>
+模型只产出结构化结果，每个字段携带 <code>value / raw / anchor / confidence</code>。代码随后验证字段真实性：料号与数量必须能在其声称的行中原样找到（允许空格与连字符差异），数量必须可解析为正小数；置信度 ≥ 0.95 直接采用，0.70–0.95 采用并标记待确认，&lt; 0.70 拒收。无法识别的列与行分别记入 <code>unknown_columns</code> 与 <code>unparsed_rows</code>，不静默丢弃。模型调用失败时回退确定性解析，并写入任务轨迹。</p>
+</li>
+<li>
+<p><strong>复核项按目标寻址，修改一个答案只重算一行。</strong>
+复核项编号与目标绑定，作答后不重新编号；决策日志始终指向同一行或整案，revision 递增且其余行已确定的价格不受影响。</p>
+</li>
+<li>
+<p><strong>每单必出询价分析报告，包括无法报价的单。</strong>
+转询价与不报价同样是工作成果。系统为每个任务生成 <code>analysis-r&lt;rev&gt;.docx</code>，包含逐行状态、原因、建议动作（向供应商询价、与客户确认计量单位、要求 FAA 8130-3 等）、定位信息与五条规则的核查统计。文档标题固定为「询价分析报告」。</p>
+</li>
+<li>
+<p><strong>合规门内置在定价路径中。</strong>
+客户「询价产品要求」逐行参与定价：<code>CERT REQUIRED</code> 类要求只接受 EASA Form 1 / FAA 8130-3，PMA 与 CoC 判 <code>cert_mismatch</code>；库存记录不含证书时判 <code>cert_unverified</code>；<code>SPECIAL REQUIREMENT</code> 内容未说明则单列待确认项；单位按原文比较，不一致进入复核且不做换算；件号先精确匹配，再按大小写、空格、横杠归一或 MPN、手册件号匹配，非精确匹配必须人工确认；PMA 件即使价格最低，也需人工确认后采用。</p>
+</li>
+<li>
+<p><strong>空结果即结论。</strong>
+无价格依据时返回空值、界面显示 <code>—</code>、仅提出一个任务级问题。系统不以估算价格填充缺失依据，这是报价结果可被信任的前提。</p>
+</li>
+</ol>
+<hr />
+<h2 id="sec-15">4 使用说明</h2>
+<h3 id="sec-16">4.1 访问方式</h3>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>可运行智能体</td>
+<td>https://rfq-agent-xk2m.onrender.com/</td>
+</tr>
+<tr>
+<td>访问控制</td>
+<td>公开访问，无需登录、邀请码或 API Key，无访问密码</td>
+</tr>
+<tr>
+<td>运行环境</td>
+<td>建议 Chrome / Edge 最新版本，1600 × 1000 以上分辨率</td>
+</tr>
+</tbody>
+</table>
+<p>服务运行于 Render（新加坡区，Docker 部署），健康检查端点 <code>GET /healthz</code>。免费实例空闲 15 分钟后休眠，首次访问需等待 20–30 秒冷启动，页面不会报错。</p>
+<h3 id="sec-17">4.2 操作步骤（约 2 分钟）</h3>
+<ol>
+<li>打开链接，左侧「收件箱」已预置一个 21 行的 Excel 附件样本。</li>
+<li>点击页面上方的「运行新任务」，系统完成解析与定价后停在「④ 人工预审」，状态显示「待确认 2」。</li>
+<li>在「④ 人工预审」为两个待确认项各选择一项处理方式。</li>
+<li>进入「⑥ 报价草案」，点击「生成报价草案」并下载 DOCX。</li>
+</ol>
+<p>如需查看其他载体：左侧素材库列出其余样本，选择后会询问「打开已有任务」或「作为新任务运行」；也可将任意 <code>.eml</code> 拖入虚线区域，系统先给出导入预览，确认后才创建任务。</p>
+<h3 id="sec-18">4.3 各步操作要点</h3>
+<table>
+<thead>
+<tr>
+<th>步骤</th>
+<th>操作</th>
+<th>判定标准</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>① 输入采集</td>
+<td>核对客户、询价号、载体与原件链接；展开「客户随附要求」阅读原文</td>
+<td>询价号与原件一致，条款条数与邮件一致</td>
+</tr>
+<tr>
+<td>② 结构提取</td>
+<td>查看字段覆盖比例与带标记的行，必要时展开原始值与原件位置</td>
+<td>料号、数量、单位覆盖率应为 100%；异常行有明确标记</td>
+</tr>
+<tr>
+<td>③ 询价分析</td>
+<td>逐行查看结果与定位，可横向滚动查看完整溯源信息</td>
+<td>有依据的行给出单价与金额，无依据的行给出原因</td>
+</tr>
+<tr>
+<td>④ 人工预审</td>
+<td>对每个待预审项选择一个动作；无法判断时选择转人工询价</td>
+<td>待预审项清零后才能继续</td>
+</tr>
+<tr>
+<td>⑤ 分析报告</td>
+<td>导出分析报告，核对统计数字与建议动作</td>
+<td>报告包含逐行原因与定位</td>
+</tr>
+<tr>
+<td>⑥ 报价草案</td>
+<td>生成并下载报价草案，核对客户要求核对表</td>
+<td>草案标注待复核，未计税费运费</td>
+</tr>
+</tbody>
+</table>
+<h3 id="sec-19">4.4 验证样本与结果</h3>
+<p>验证数据集覆盖四种载体与两类价格覆盖情况（有依据 / 无依据）。两份 PDF 样本特征一致，合并为一行展示：</p>
+<table>
+<thead>
+<tr>
+<th>样本</th>
+<th>载体</th>
+<th>行数</th>
+<th>有价格依据</th>
+<th>待预审</th>
+<th>观察到的数据特征</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>正文 HTML 表格</td>
+<td>122</td>
+<td>109</td>
+<td>22 项</td>
+<td>9 组同询价号重复料号（共 9 行重复）、5 个料号跨询价号出现、EA 116 行 / IN 6 行、34 行缺优先级</td>
+</tr>
+<tr>
+<td>2</td>
+<td>正文表格（制表符）</td>
+<td>122</td>
+<td>0</td>
+<td>1 项（任务级）</td>
+<td>EA 115 行 / FT 7 行、30 行缺优先级；料号前缀不在参考表覆盖范围</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Excel 附件</td>
+<td>21</td>
+<td>19</td>
+<td>2 项</td>
+<td>1 个料号跨询价号出现（独立询价行，不按重复处理）、EA 20 行 / IN 1 行、6 行缺优先级</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Excel 附件</td>
+<td>21</td>
+<td>0</td>
+<td>1 项（任务级）</td>
+<td>EA 20 行 / FT 1 行、5 行缺优先级；料号前缀不在参考表覆盖范围</td>
+</tr>
+<tr>
+<td>5</td>
+<td>PDF 表单</td>
+<td>7</td>
+<td>0</td>
+<td>1 项（任务级）</td>
+<td>件状与截止日期整列为空（记为该载体不含此列）、单位 <code>Each</code>、7 条客户要求；料号不在覆盖范围</td>
+</tr>
+</tbody>
+</table>
+<p>样本 1 的 22 项待预审分别来自件状不符、MOQ 超量、库存不足、PMA 选型、价格状态异常与 <code>SPECIAL REQUIREMENT</code> 六类规则，每一项独立作答，互不影响——这验证的是多规则并行时的闸门粒度，而不是某个特定样本。</p>
+<p>样本 2、4、5 的 0 行有价属于数据覆盖事实而非解析失败：价格资源表覆盖 <code>PN-*</code> 料号与标准件（<code>NAS</code>、<code>MS</code>、<code>AN</code> 等），而这些样本的料号前缀为 <code>AP-*</code>、<code>GSK-*</code>、<code>CPL-*</code>。系统的处理方式是说明原因、生成一个任务级问题并显示空小计，而不是逐行弹出上百个对话框。</p>
+<hr />
+<h2 id="sec-20">5 数据合规说明</h2>
+<h3 id="sec-21">5.1 数据来源与范围</h3>
+<ul>
+<li>仅使用赛事提供的演示与脱敏数据：<code>data/询价信息素材/</code>（6 封 <code>.eml</code>、2 个 PDF、2 个 xlsx）、<code>价格资源表_演示数据.xlsx</code>（342 行）、<code>内部物料成本表_演示数据.xlsx</code>（163 行）、<code>报价单样例.docx</code>。</li>
+<li>客户名称形如「客户A」「客户B」「Buyer C」，邮件域名为 <code>customer.test</code> / <code>supplier.test</code>；数据中不含真实客户、供应商、价格或个人信息。</li>
+<li>不使用来源不明的第三方数据，不抓取公开网页，不做竞品数据采集。</li>
+</ul>
+<h3 id="sec-22">5.2 数据流向</h3>
+<table>
+<thead>
+<tr>
+<th>数据</th>
+<th>存放位置</th>
+<th>是否发送至外部服务</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>询价邮件与附件</td>
+<td><code>runtime/uploads/</code>、<code>runtime/&lt;task_id&gt;/</code>、SQLite</td>
+<td>仅可读文本块发送至模型接口用于理解（见 5.4）</td>
+</tr>
+<tr>
+<td>价格资源表、内部成本表</td>
+<td><code>runtime/rfq.db</code>（只读快照，按文件哈希增量更新）</td>
+<td>否，价格计算全部在本地完成</td>
+</tr>
+<tr>
+<td>任务、决策日志、历史报价</td>
+<td><code>runtime/</code>、SQLite</td>
+<td>否；对话助手仅接收任务摘要</td>
+</tr>
+<tr>
+<td>导出文档</td>
+<td><code>runtime/&lt;task_id&gt;/</code></td>
+<td>否，由用户自行下载</td>
+</tr>
+</tbody>
+</table>
+<h3 id="sec-23">5.3 用户上传文件</h3>
+<ul>
+<li>仅接受 <code>.eml</code> 格式。预览阶段文件存放在 <code>runtime/uploads/.pending/</code>，不进入素材扫描，也不创建任务；未确认的预览文件在服务重启时清理。</li>
+<li>用户确认导入后，文件存放于 <code>runtime/uploads/</code>，解析结果写入本机 SQLite。</li>
+<li>文件不转发第三方、不进入共享库、不做跨实例同步或云端备份；删除 <code>runtime/uploads/</code> 与对应任务目录即可清除。</li>
+</ul>
+<h3 id="sec-24">5.4 模型调用</h3>
+<ul>
+<li><strong>用途</strong>：判断邮件是否为询价单、抽取正文报价条款、标记可疑行；对话助手用于工具选择。</li>
+<li><strong>发送范围</strong>：该封邮件的可读内容块（正文文本、表格单元格、PDF 文本行），单块不超过 400 行，单次请求分页 50 行。</li>
+<li><strong>不发送</strong>：价格资源表、内部物料成本表、历史报价、其他任务数据、任何凭据或个人信息。</li>
+<li><strong>服务方</strong>：赛事提供的 Genesis 网关（OpenAI 兼容接口）。数据仅用于本次推理，不用于模型训练；请求体不在服务端留档，任务记录中只保存所用模型名称与解析结论。</li>
+<li>未配置访问令牌时该层整体禁用，产品功能不受影响。</li>
+</ul>
+<h3 id="sec-25">5.5 凭据与日志</h3>
+<ul>
+<li>访问令牌仅存在于服务端环境变量；<code>.env</code> 已纳入 <code>.gitignore</code>，仓库不含令牌；前端页面、导出文档与运行日志均不展示。</li>
+<li>页面仅显示文件名，不显示服务器绝对路径；访问日志只记录请求路径与状态码，不记录请求体。</li>
+<li>演示实例不设账号体系，任何持链接者可试用，但数据全部为演示数据，不构成真实信息泄露。</li>
+</ul>
+<h3 id="sec-26">5.6 输出定位与责任边界</h3>
+<ul>
+<li>报价草案备注声明「本报价为待复核草案，须经人工确认后方可对外发送」，并注明税费、运费、包装费口径与库存可售状态待企业确认、演示价格基准日与策略版本。</li>
+<li>询价分析报告首页声明「本文件是询价分析记录，不构成对外报价，不得对外发送」。</li>
+<li>系统不代发邮件、不自动下单、不对外承诺价格。</li>
+<li>最终价格、件状放宽、超额采购、无依据转运维、PMA 件采用，五项决策必须由具名人员确认（见 6.2）。</li>
+</ul>
+<h3 id="sec-27">5.7 保留期限与销毁</h3>
+<ul>
+<li>演示数据与任务记录仅保留在服务实例本地，评审期内有效；评审结束后可整体销毁实例或删除 <code>runtime/</code> 目录。</li>
+<li>数据不向任何第三方归档、出售或交换。</li>
+</ul>
+<h3 id="sec-28">5.8 第三方组件</h3>
+<ul>
+<li><code>openpyxl</code>（MIT）、<code>python-docx</code>（MIT）、<code>lxml</code>（BSD）：均在本机运行，不联网。</li>
+<li>不含统计、埋点、广告或分析 SDK；系统唯一的出站请求为配置的模型接口。</li>
+</ul>
+<hr />
+<h2 id="sec-29">6 已知限制与人工确认边界</h2>
+<h3 id="sec-30">6.1 已知限制</h3>
+<table>
+<thead>
+<tr>
+<th>限制</th>
+<th>说明</th>
+<th>影响与应对</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>实例休眠与临时磁盘</td>
+<td>Render 免费实例空闲 15 分钟休眠；磁盘为临时存储，重启后进行中的任务清空</td>
+<td>首次访问需 20–30 秒冷启动；重启后重新运行任务即可，收件箱回到初始状态</td>
+</tr>
+<tr>
+<td>PDF 解析范围</td>
+<td>仅支持样本数据集所用的 Helvetica 字体、显式 <code>Tm</code> 定位、无压缩流表单</td>
+<td>其他构造的 PDF 明确报错，不做猜测；通用场景需引入 pypdf 或版式识别</td>
+</tr>
+<tr>
+<td>价格覆盖</td>
+<td>342 行价格表仅覆盖 <code>PN-*</code> 与标准件</td>
+<td>样本 2、4、5 为 0 行有价，属数据事实</td>
+</tr>
+<tr>
+<td>条款回灌</td>
+<td>已核对草案是否满足客户要求，未将条款回灌定价策略（例如&quot;有效期 30 天&quot;不改变报价有效期计算）</td>
+<td>需人工按条款确认</td>
+</tr>
+<tr>
+<td>并发能力</td>
+<td>单进程 SQLite，写入串行</td>
+<td>适用于演示与单用户操作，不适合并发压测</td>
+</tr>
+<tr>
+<td>出口管制判定</td>
+<td>仅提示，不自动判定</td>
+<td>需人工确认</td>
+</tr>
+<tr>
+<td>模型依赖</td>
+<td>单次理解耗时 5–13 s，网关负载高时可能超时</td>
+<td>模型为可选增强层，主流程不依赖；超时自动回退确定性解析</td>
+</tr>
+<tr>
+<td>上传格式</td>
+<td>仅支持 <code>.eml</code></td>
+<td>其他格式需先转换，或使用内置演示素材</td>
+</tr>
+</tbody>
+</table>
+<h3 id="sec-31">6.2 人工确认边界</h3>
+<p>以下五项决策系统不代为执行，必须由具名人员确认：</p>
+<ol>
+<li>接受替代件状（客户要求 FN，现货为 SV 或 OH）；</li>
+<li>按供应商 MOQ 超额采购；</li>
+<li>无价格依据时转人工询价或放弃报价；</li>
+<li>对外发送前的最终价格与报价有效期；</li>
+<li>采用 PMA 件（即使其为最低价）。</li>
+</ol>
+<hr />
+<h2 id="sec-32">附录 A 技术实现</h2>
+<h3 id="sec-33">A.1 技术栈与分层</h3>
 <p>系统按职责分层，业务逻辑不依赖任何 Web 框架：</p>
 <table>
 <thead>
@@ -400,7 +703,7 @@ footer.doc-foot{margin-top:64px; padding-top:20px; border-top:1px solid var(--li
 </tbody>
 </table>
 <p>依赖支持三种获取方式：本地 <code>.deps/</code> 缓存、<code>pip install -e &quot;.[documents]&quot;</code>、系统已安装，均由 <code>infrastructure/deps.py</code> 统一处理。</p>
-<h3 id="sec-16">3.2 选型取舍</h3>
+<h3 id="sec-34">A.2 选型取舍</h3>
 <table>
 <thead>
 <tr>
@@ -412,7 +715,7 @@ footer.doc-foot{margin-top:64px; padding-top:20px; border-top:1px solid var(--li
 <tbody>
 <tr>
 <td>传输层使用标准库而非 Web 框架</td>
-<td>零框架依赖、单文件可审、容器直接启动，评委环境无需安装</td>
+<td>零框架依赖、单文件可审、容器直接启动，无需安装</td>
 <td>缺少中间件生态（鉴权、限流、OpenAPI 文档）；应用层无框架依赖，接入 ASGI（FastAPI / Starlette）只需新增一个适配入口，业务代码不动</td>
 </tr>
 <tr>
@@ -432,12 +735,12 @@ footer.doc-foot{margin-top:64px; padding-top:20px; border-top:1px solid var(--li
 </tr>
 <tr>
 <td>单文件前端</td>
-<td>无构建链、评审可直接读源码</td>
+<td>无构建链、可直接读源码</td>
 <td>缺少组件化与状态管理；页面规模增长后需拆分构建</td>
 </tr>
 </tbody>
 </table>
-<h3 id="sec-17">3.3 验证数据与性能</h3>
+<h3 id="sec-35">A.3 数据规模与性能</h3>
 <table>
 <thead>
 <tr>
@@ -460,7 +763,7 @@ footer.doc-foot{margin-top:64px; padding-top:20px; border-top:1px solid var(--li
 </tr>
 <tr>
 <td>有价格依据的行</td>
-<td>128 行（其余样本的料号不在参考表覆盖范围内，见 5.4）</td>
+<td>128 行（其余样本的料号不在参考表覆盖范围内，见 4.4）</td>
 </tr>
 <tr>
 <td>测试用例</td>
@@ -520,169 +823,7 @@ footer.doc-foot{margin-top:64px; padding-top:20px; border-top:1px solid var(--li
 </tbody>
 </table>
 <p>模型耗时随网关负载波动；主流程不依赖模型，模型不可用时自动回退确定性解析。</p>
-<hr />
-<h2 id="sec-18">4 创新点</h2>
-<ol>
-<li>
-<p><strong>载体无关的解析，证据落到单元格。</strong>
-正文表格、制表符、xlsx 与 pdf 归一到同一套列名，因此只需维护一份 <code>row → Line</code> 映射，新增载体不影响下游。每行携带 <code>evidence{file, container, sheet, row, column, raw}</code>，第 ② 步显示原件位置与原始值，第 ③ 步显示邮件、附件、表、行、列与原值，可用原始文件逐格核对。</p>
-</li>
-<li>
-<p><strong>模型负责阅读，代码负责校验与计算。</strong>
-模型只产出结构化结果，每个字段携带 <code>value / raw / anchor / confidence</code>。代码随后验证字段真实性：料号与数量必须能在其声称的行中原样找到（允许空格与连字符差异），数量必须可解析为正小数；置信度 ≥ 0.95 直接采用，0.70–0.95 采用并标记待确认，&lt; 0.70 拒收。无法识别的列与行分别记入 <code>unknown_columns</code> 与 <code>unparsed_rows</code>，不静默丢弃。模型调用失败时回退确定性解析，并写入任务轨迹。</p>
-</li>
-<li>
-<p><strong>复核项按目标寻址，修改一个答案只重算一行。</strong>
-复核项编号与目标绑定，作答后不重新编号；决策日志始终指向同一行或整案，revision 递增且其余行已确定的价格不受影响。</p>
-</li>
-<li>
-<p><strong>每单必出询价分析报告，包括无法报价的单。</strong>
-转询价与不报价同样是工作成果。系统为每个任务生成 <code>analysis-r&lt;rev&gt;.docx</code>，包含逐行状态、原因、建议动作（向供应商询价、与客户确认计量单位、要求 FAA 8130-3 等）、定位信息与五条规则的核查统计。文档标题固定为「询价分析报告」。</p>
-</li>
-<li>
-<p><strong>合规门内置在定价路径中。</strong>
-客户「询价产品要求」逐行参与定价：<code>CERT REQUIRED</code> 类要求只接受 EASA Form 1 / FAA 8130-3，PMA 与 CoC 判 <code>cert_mismatch</code>；库存记录不含证书时判 <code>cert_unverified</code>；<code>SPECIAL REQUIREMENT</code> 内容未说明则单列待确认项；单位按原文比较，不一致进入复核且不做换算；件号先精确匹配，再按大小写、空格、横杠归一或 MPN、手册件号匹配，非精确匹配必须人工确认；PMA 件即使价格最低，也需人工确认后采用。</p>
-</li>
-<li>
-<p><strong>空结果即结论。</strong>
-无价格依据时返回空值、界面显示 <code>—</code>、仅提出一个任务级问题。系统不以估算价格填充缺失依据，这是报价结果可被信任的前提。</p>
-</li>
-</ol>
-<hr />
-<h2 id="sec-19">5 使用说明</h2>
-<h3 id="sec-20">5.1 访问方式</h3>
-<table>
-<thead>
-<tr>
-<th>项目</th>
-<th>说明</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>可运行智能体</td>
-<td>https://rfq-agent-xk2m.onrender.com/</td>
-</tr>
-<tr>
-<td>访问控制</td>
-<td>公开访问，无需登录、邀请码或 API Key，无访问密码</td>
-</tr>
-<tr>
-<td>运行环境</td>
-<td>建议 Chrome / Edge 最新版本，1600 × 1000 以上分辨率</td>
-</tr>
-</tbody>
-</table>
-<p>服务运行于 Render（新加坡区，Docker 部署），健康检查端点 <code>GET /healthz</code>。免费实例空闲 15 分钟后休眠，首次访问需等待 20–30 秒冷启动，页面不会报错。</p>
-<h3 id="sec-21">5.2 操作步骤（约 2 分钟）</h3>
-<ol>
-<li>打开链接，左侧「收件箱」已预置一个 21 行的 Excel 附件样本。</li>
-<li>点击页面上方的「运行新任务」，系统完成解析与定价后停在「④ 人工预审」，状态显示「待确认 2」。</li>
-<li>在「④ 人工预审」为两个待确认项各选择一项处理方式。</li>
-<li>进入「⑥ 报价草案」，点击「生成报价草案」并下载 DOCX。</li>
-</ol>
-<p>如需查看其他载体：左侧素材库列出其余样本，选择后会询问「打开已有任务」或「作为新任务运行」；也可将任意 <code>.eml</code> 拖入虚线区域，系统先给出导入预览，确认后才创建任务。</p>
-<h3 id="sec-22">5.3 各步操作要点</h3>
-<table>
-<thead>
-<tr>
-<th>步骤</th>
-<th>操作</th>
-<th>判定标准</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>① 输入采集</td>
-<td>核对客户、询价号、载体与原件链接；展开「客户随附要求」阅读原文</td>
-<td>询价号与原件一致，条款条数与邮件一致</td>
-</tr>
-<tr>
-<td>② 结构提取</td>
-<td>查看字段覆盖比例与带标记的行，必要时展开原始值与原件位置</td>
-<td>料号、数量、单位覆盖率应为 100%；异常行有明确标记</td>
-</tr>
-<tr>
-<td>③ 询价分析</td>
-<td>逐行查看结果与定位，可横向滚动查看完整溯源信息</td>
-<td>有依据的行给出单价与金额，无依据的行给出原因</td>
-</tr>
-<tr>
-<td>④ 人工预审</td>
-<td>对每个待预审项选择一个动作；无法判断时选择转人工询价</td>
-<td>待预审项清零后才能继续</td>
-</tr>
-<tr>
-<td>⑤ 分析报告</td>
-<td>导出分析报告，核对统计数字与建议动作</td>
-<td>报告包含逐行原因与定位</td>
-</tr>
-<tr>
-<td>⑥ 报价草案</td>
-<td>生成并下载报价草案，核对客户要求核对表</td>
-<td>草案标注待复核，未计税费运费</td>
-</tr>
-</tbody>
-</table>
-<h3 id="sec-23">5.4 验证样本与结果</h3>
-<p>验证数据集覆盖四种载体与两类价格覆盖情况（有依据 / 无依据）。两份 PDF 样本特征一致，合并为一列展示：</p>
-<table>
-<thead>
-<tr>
-<th>样本</th>
-<th>载体</th>
-<th>行数</th>
-<th>有价格依据</th>
-<th>待预审</th>
-<th>观察到的数据特征</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1</td>
-<td>正文 HTML 表格</td>
-<td>122</td>
-<td>109</td>
-<td>22 项</td>
-<td>9 组同询价号重复料号（共 9 行重复）、5 个料号跨询价号出现、EA 116 行 / IN 6 行、34 行缺优先级</td>
-</tr>
-<tr>
-<td>2</td>
-<td>正文表格（制表符）</td>
-<td>122</td>
-<td>0</td>
-<td>1 项（任务级）</td>
-<td>EA 115 行 / FT 7 行、30 行缺优先级；料号前缀不在参考表覆盖范围</td>
-</tr>
-<tr>
-<td>3</td>
-<td>Excel 附件</td>
-<td>21</td>
-<td>19</td>
-<td>2 项</td>
-<td>1 个料号跨询价号出现（独立询价行，不按重复处理）、EA 20 行 / IN 1 行、6 行缺优先级</td>
-</tr>
-<tr>
-<td>4</td>
-<td>Excel 附件</td>
-<td>21</td>
-<td>0</td>
-<td>1 项（任务级）</td>
-<td>EA 20 行 / FT 1 行、5 行缺优先级；料号前缀不在参考表覆盖范围</td>
-</tr>
-<tr>
-<td>5</td>
-<td>PDF 表单</td>
-<td>7</td>
-<td>0</td>
-<td>1 项（任务级）</td>
-<td>件状与截止日期整列为空（记为该载体不含此列）、单位 <code>Each</code>、7 条客户要求；料号不在覆盖范围</td>
-</tr>
-</tbody>
-</table>
-<p>样本 1 的 22 项待预审分别来自件状不符、MOQ 超量、库存不足、PMA 选型、价格状态异常与 <code>SPECIAL REQUIREMENT</code> 六类规则，每一项独立作答，互不影响——这验证的是多规则并行时的闸门粒度，而不是某个特定样本。</p>
-<p>样本 2、4、5 的 0 行有价属于数据覆盖事实而非解析失败：价格资源表覆盖 <code>PN-*</code> 料号与标准件（<code>NAS</code>、<code>MS</code>、<code>AN</code> 等），而这些样本的料号前缀为 <code>AP-*</code>、<code>GSK-*</code>、<code>CPL-*</code>。系统的处理方式是说明原因、生成一个任务级问题并显示空小计，而不是逐行弹出上百个对话框。</p>
-<h3 id="sec-24">5.5 命令行</h3>
+<h3 id="sec-36">A.4 命令行与产物</h3>
 <pre><code class="language-powershell">python -m rfq_agent.web --port 8765                                    # 启动 Web 服务
 python -m rfq_agent.cli case --case B                                  # 运行指定样本（A–F）
 python -m rfq_agent.cli case --case B --resolve RI-0016=quote_with_moq --export
@@ -717,7 +858,7 @@ python -m rfq_agent.checkenv                                           # 环境�
 </tr>
 </tbody>
 </table>
-<h3 id="sec-25">5.6 部署与配置</h3>
+<h3 id="sec-37">A.5 部署与配置</h3>
 <pre><code class="language-powershell">docker build -t rfq-agent .
 docker run -d -p 8000:8000 -e RFQ_DEMO_APPROVAL=1 rfq-agent
 </code></pre>
@@ -755,147 +896,7 @@ docker run -d -p 8000:8000 -e RFQ_DEMO_APPROVAL=1 rfq-agent
 </table>
 <p>存储为单进程 SQLite，不可启用多 worker；服务无状态依赖，只需 <code>data/</code> 目录（随仓库发布）与可写的 <code>runtime/</code>。</p>
 <hr />
-<h2 id="sec-26">6 数据合规说明</h2>
-<h3 id="sec-27">6.1 数据来源与范围</h3>
-<ul>
-<li>仅使用赛事提供的演示与脱敏数据：<code>data/询价信息素材/</code>（6 封 <code>.eml</code>、2 个 PDF、2 个 xlsx）、<code>价格资源表_演示数据.xlsx</code>（342 行）、<code>内部物料成本表_演示数据.xlsx</code>（163 行）、<code>报价单样例.docx</code>。</li>
-<li>客户名称形如「客户A」「客户B」「Buyer C」，邮件域名为 <code>customer.test</code> / <code>supplier.test</code>；数据中不含真实客户、供应商、价格或个人信息。</li>
-<li>不使用来源不明的第三方数据，不抓取公开网页，不做竞品数据采集。</li>
-</ul>
-<h3 id="sec-28">6.2 数据流向</h3>
-<table>
-<thead>
-<tr>
-<th>数据</th>
-<th>存放位置</th>
-<th>是否发送至外部服务</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>询价邮件与附件</td>
-<td><code>runtime/uploads/</code>、<code>runtime/&lt;task_id&gt;/</code>、SQLite</td>
-<td>仅可读文本块发送至模型接口用于理解（见 6.4）</td>
-</tr>
-<tr>
-<td>价格资源表、内部成本表</td>
-<td><code>runtime/rfq.db</code>（只读快照，按文件哈希增量更新）</td>
-<td>否，价格计算全部在本地完成</td>
-</tr>
-<tr>
-<td>任务、决策日志、历史报价</td>
-<td><code>runtime/</code>、SQLite</td>
-<td>否；对话助手仅接收任务摘要</td>
-</tr>
-<tr>
-<td>导出文档</td>
-<td><code>runtime/&lt;task_id&gt;/</code></td>
-<td>否，由用户自行下载</td>
-</tr>
-</tbody>
-</table>
-<h3 id="sec-29">6.3 用户上传文件</h3>
-<ul>
-<li>仅接受 <code>.eml</code> 格式。预览阶段文件存放在 <code>runtime/uploads/.pending/</code>，不进入素材扫描，也不创建任务；未确认的预览文件在服务重启时清理。</li>
-<li>用户确认导入后，文件存放于 <code>runtime/uploads/</code>，解析结果写入本机 SQLite。</li>
-<li>文件不转发第三方、不进入共享库、不做跨实例同步或云端备份；删除 <code>runtime/uploads/</code> 与对应任务目录即可清除。</li>
-</ul>
-<h3 id="sec-30">6.4 模型调用</h3>
-<ul>
-<li><strong>用途</strong>：判断邮件是否为询价单、抽取正文报价条款、标记可疑行；对话助手用于工具选择。</li>
-<li><strong>发送范围</strong>：该封邮件的可读内容块（正文文本、表格单元格、PDF 文本行），单块不超过 400 行，单次请求分页 50 行。</li>
-<li><strong>不发送</strong>：价格资源表、内部物料成本表、历史报价、其他任务数据、任何凭据或个人信息。</li>
-<li><strong>服务方</strong>：赛事提供的 Genesis 网关（OpenAI 兼容接口）。数据仅用于本次推理，不用于模型训练；请求体不在服务端留档，任务记录中只保存所用模型名称与解析结论。</li>
-<li>未配置访问令牌时该层整体禁用，产品功能不受影响。</li>
-</ul>
-<h3 id="sec-31">6.5 凭据与日志</h3>
-<ul>
-<li>访问令牌仅存在于服务端环境变量；<code>.env</code> 已纳入 <code>.gitignore</code>，仓库不含令牌；前端页面、导出文档与运行日志均不展示。</li>
-<li>页面仅显示文件名，不显示服务器绝对路径；访问日志只记录请求路径与状态码，不记录请求体。</li>
-<li>演示实例不设账号体系，任何持链接者可试用，但数据全部为演示数据，不构成真实信息泄露。</li>
-</ul>
-<h3 id="sec-32">6.6 输出定位与责任边界</h3>
-<ul>
-<li>报价草案备注声明「本报价为待复核草案，须经人工确认后方可对外发送」，并注明税费、运费、包装费口径与库存可售状态待企业确认、演示价格基准日与策略版本。</li>
-<li>询价分析报告首页声明「本文件是询价分析记录，不构成对外报价，不得对外发送」。</li>
-<li>系统不代发邮件、不自动下单、不对外承诺价格。</li>
-<li>最终价格、件状放宽、超额采购、无依据转运维、PMA 件采用，五项决策必须由具名人员确认（见 7.2）。</li>
-</ul>
-<h3 id="sec-33">6.7 保留期限与销毁</h3>
-<ul>
-<li>演示数据与任务记录仅保留在服务实例本地，评审期内有效；评审结束后可整体销毁实例或删除 <code>runtime/</code> 目录。</li>
-<li>数据不向任何第三方归档、出售或交换。</li>
-</ul>
-<h3 id="sec-34">6.8 第三方组件</h3>
-<ul>
-<li><code>openpyxl</code>（MIT）、<code>python-docx</code>（MIT）、<code>lxml</code>（BSD）：均在本机运行，不联网。</li>
-<li>不含统计、埋点、广告或分析 SDK；系统唯一的出站请求为配置的模型接口。</li>
-</ul>
-<hr />
-<h2 id="sec-35">7 已知限制与人工确认边界</h2>
-<h3 id="sec-36">7.1 已知限制</h3>
-<table>
-<thead>
-<tr>
-<th>限制</th>
-<th>说明</th>
-<th>影响与应对</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>实例休眠与临时磁盘</td>
-<td>Render 免费实例空闲 15 分钟休眠；磁盘为临时存储，重启后进行中的任务清空</td>
-<td>首次访问需 20–30 秒冷启动；重启后重新运行任务即可，收件箱回到初始状态</td>
-</tr>
-<tr>
-<td>PDF 解析范围</td>
-<td>仅支持样本数据集所用的 Helvetica 字体、显式 <code>Tm</code> 定位、无压缩流表单</td>
-<td>其他构造的 PDF 明确报错，不做猜测；通用场景需引入 pypdf 或版式识别</td>
-</tr>
-<tr>
-<td>价格覆盖</td>
-<td>342 行价格表仅覆盖 <code>PN-*</code> 与标准件</td>
-<td>样本 2、4、5 为 0 行有价，属数据事实</td>
-</tr>
-<tr>
-<td>条款回灌</td>
-<td>已核对草案是否满足客户要求，未将条款回灌定价策略（例如&quot;有效期 30 天&quot;不改变报价有效期计算）</td>
-<td>需人工按条款确认</td>
-</tr>
-<tr>
-<td>并发能力</td>
-<td>单进程 SQLite，写入串行</td>
-<td>适用于演示与单用户操作，不适合并发压测</td>
-</tr>
-<tr>
-<td>出口管制判定</td>
-<td>仅提示，不自动判定</td>
-<td>需人工确认</td>
-</tr>
-<tr>
-<td>模型依赖</td>
-<td>单次理解耗时 5–13 s，网关负载高时可能超时</td>
-<td>模型为可选增强层，主流程不依赖；超时自动回退确定性解析</td>
-</tr>
-<tr>
-<td>上传格式</td>
-<td>仅支持 <code>.eml</code></td>
-<td>其他格式需先转换，或使用内置演示素材</td>
-</tr>
-</tbody>
-</table>
-<h3 id="sec-37">7.2 人工确认边界</h3>
-<p>以下五项决策系统不代为执行，必须由具名人员确认：</p>
-<ol>
-<li>接受替代件状（客户要求 FN，现货为 SV 或 OH）；</li>
-<li>按供应商 MOQ 超额采购；</li>
-<li>无价格依据时转人工询价或放弃报价；</li>
-<li>对外发送前的最终价格与报价有效期；</li>
-<li>采用 PMA 件（即使其为最低价）。</li>
-</ol>
-<hr />
-<h2 id="sec-38">附录 术语表</h2>
+<h2 id="sec-38">附录 B 术语表</h2>
 <table>
 <thead>
 <tr>
