@@ -66,10 +66,11 @@
   .side-foot button:hover{color:var(--ink2);text-decoration:underline}
 
   /* work */
-  .work{min-width:0;display:flex;flex-direction:column;overflow:hidden;position:relative}
+  .work{min-width:0;min-height:0;display:flex;flex-direction:column;overflow:hidden;position:relative}
+  #docwrap:not([hidden]){display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden}
   .empty{margin:auto;max-width:380px;text-align:center;color:var(--muted)}
   .empty h2{font-size:15px;font-weight:650;color:var(--ink);margin:0 0 6px}
-  .dochead{padding:15px 22px 0;background:var(--card);border-bottom:1px solid var(--line)}
+  .dochead{flex-shrink:0;padding:15px 22px 0;background:var(--card);border-bottom:1px solid var(--line)}
   .doc-head{display:flex;align-items:flex-start;gap:14px}
   .doc-head h1{margin:0;font-size:17px;font-weight:650;letter-spacing:-.2px}
   .doc-head .sub{margin-top:2px;font-size:11.5px;color:var(--muted)}
@@ -89,7 +90,7 @@
   .btn:disabled{opacity:.45;cursor:default}
   .btn.lg{padding:8px 16px;font-size:12.5px}
 
-  .stages{flex:1;overflow:auto;padding:16px 22px 26px}
+  .stages{flex:1;min-height:0;overflow:auto;padding:16px 22px 80px;scroll-padding-bottom:80px}
   .stage{display:grid;grid-template-columns:26px minmax(0,1fr);gap:12px;margin-bottom:12px}
   .stage .no{width:26px;height:26px;border-radius:50%;background:var(--line2);color:var(--faint);
              display:grid;place-items:center;font-size:11.5px;font-weight:650;border:1px solid var(--line);margin-top:11px}
@@ -235,7 +236,7 @@
   .notice.error{border-color:var(--warn-line);color:var(--bad)}
   .notice[hidden]{display:none}
   @media(max-width:760px){.shell{grid-template-columns:190px minmax(0,1fr)}
-    .topmeta{gap:8px}.dochead{padding:12px 14px 0}.stages{padding:12px 14px 20px}}
+    .topmeta{gap:8px}.dochead{padding:12px 14px 0}.stages{padding:12px 14px 80px}}
   @media(max-width:520px){.shell{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr)}
     .side{max-height:220px;border-right:0;border-bottom:1px solid var(--line)}
     .side .divider,.side .pool,.side .side-foot,.side .current-head{display:none}
@@ -307,13 +308,18 @@
   .source-files{margin:14px 0;padding:11px 13px;border:1px solid var(--line);border-radius:8px;background:#fafcff}
   .source-files .h{font-weight:650;font-size:12px;margin-bottom:6px}
   .source-files a{display:inline-block;margin:3px 12px 3px 0;font-size:12px}
-  .extract-issue{color:var(--ink2);font-weight:600;white-space:normal;min-width:170px;max-width:300px}
+  table.grid.extraction-grid{table-layout:fixed;width:100%;min-width:1800px}
+  table.grid.extraction-grid td{white-space:normal;overflow-wrap:anywhere;min-width:0;max-width:none}
+  .extract-issue{color:var(--ink2);font-weight:600}
   .extract-issue .warn{display:block;padding:7px 9px;border:1px solid #f0d18c;border-radius:6px;background:#fff1c9;color:#8b4b00}
   .extract-issue .warn+ .warn{margin-top:5px}
   .extract-issue .info{color:var(--muted)}
   .extract-issue small{display:block;font-weight:400;color:var(--muted);margin-top:2px}
   .extract-flag{background:#fff8e8}
-  .raw-values{white-space:normal;min-width:250px;max-width:420px;color:var(--ink2)}
+  .raw-values{color:var(--ink2);columns:2;column-gap:16px;line-height:1.4}
+  .raw-values>div{break-inside:avoid}
+  .raw-values>div+div,.source-location>div+div{margin-top:2px}
+  .source-location{line-height:1.4}
 </style>
 </head>
 <body>
@@ -449,7 +455,11 @@ async function api(path, body) {
   const res = await fetch(path, opt);
   const text = await res.text();
   let data; try { data = text ? JSON.parse(text) : {}; } catch { data = { error: text || `HTTP ${res.status}` }; }
-  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  if (!res.ok) {
+    const error = new Error(data.error || `HTTP ${res.status}`);
+    error.data = data;
+    throw error;
+  }
   return data;
 }
 
@@ -816,21 +826,24 @@ async function paintStructure(token) {
   const rows = page.lines || [];
   const issueCell = (items) => items.length ? items.map((issue) => `<div class="${issue.severity === "warn" ? "warn" : "info"}">${esc(issue.title)}<small>${esc(issue.detail)}</small></div>`).join("") : "—";
   const body = rows.map((r) => {
-    const raw = Object.entries(r.raw || {}).filter(([, value]) => value !== "").map(([key, value]) => `${key}: ${value}`).join(" · ");
+    const raw = Object.entries(r.raw || {}).filter(([, value]) => value !== "").map(([key, value]) => `<div>${esc(key)}: ${esc(value)}</div>`).join("");
     const location = [r.citation.email, r.citation.attachment, r.citation.sheet,
-      r.citation.row != null ? `第 ${r.citation.row} 行` : ""].filter(Boolean).join(" / ");
+      r.citation.row != null ? `第 ${r.citation.row} 行` : ""].filter(Boolean).map((part) => `<div>${esc(part)}</div>`).join("");
     return `<tr class="${r.issues.some((issue) => issue.severity === "warn") ? "extract-flag" : ""}">
       <td class="r num">${esc(r.line_number ?? "—")}</td><td>${esc(r.inquiry_no || "—")}</td><td><span class="pn">${esc(r.part_number)}</span></td>
       <td class="wrap">${esc(r.description || "—")}</td><td class="r num">${esc(r.quantity)} ${esc(r.unit)}</td>
       <td>${esc((r.condition || []).join(" / ") || "未声明")}</td><td>${esc(r.priority || "未声明")}</td>
       <td>${esc(r.due_at || "—")}</td><td class="extract-issue">${issueCell(r.issues)}</td>
-      <td class="raw-values">${esc(raw || "原值未保存")}</td><td class="wrap">${esc(location || "—")}</td></tr>`;
+      <td class="raw-values">${raw || "原值未保存"}</td><td class="source-location">${location || "—"}</td></tr>`;
   }).join("");
   const unlocated = (page.unlocated_issues || []).map((issue) => `<tr class="${issue.severity === "warn" ? "extract-flag" : ""}"><td>—</td><td colspan="7">单据级 / 未定位到行</td>
     <td class="extract-issue">${issueCell([issue])}</td><td colspan="2">—</td></tr>`).join("");
   const from = page.total ? page.offset + 1 : 0;
   const to = page.offset + rows.length;
-  $("extractBody").innerHTML = `<div class="hscroll"><table class="grid"><thead><tr>
+  $("extractBody").innerHTML = `<div class="hscroll" tabindex="0" role="region" aria-label="结构提取明细，可横向及纵向滚动"><table class="grid extraction-grid">
+    <colgroup><col style="width:44px"><col style="width:104px"><col style="width:110px"><col style="width:220px">
+      <col style="width:90px"><col style="width:66px"><col style="width:76px"><col style="width:166px">
+      <col style="width:280px"><col style="width:360px"><col style="width:284px"></colgroup><thead><tr>
     <th class="r">#</th><th>询价单号</th><th>料号</th><th>描述</th><th class="r">数量 / 单位</th><th>件状</th>
     <th>优先级</th><th>报价截止</th><th>评审标记</th><th>原始值</th><th>原件位置</th>
     </tr></thead><tbody>${body || `<tr><td colspan="11">没有提取行</td></tr>`}${unlocated}</tbody></table></div>
@@ -1095,7 +1108,7 @@ function chatSay(kind, who, text) {
 
 async function send() {
   const box = $("chat"), text = box.value.trim();
-  if (!text) return;
+  if (!text || $("send").disabled) return;
   box.value = ""; chatSay("me", "我", text);
   $("send").disabled = true;
   const pending = chatSay("tool", "调用中", "…");
@@ -1103,9 +1116,7 @@ async function send() {
     const r = await api("/api/chat", { session_id: SID, message: text, task_id: S ? S.task_id : null });
     SID = r.session_id || SID;
     pending.remove();
-    if (r.trace && r.trace.length) {
-      chatSay("tool", "工具", r.trace.map((t) => `${t.tool}${t.ok ? "" : "(失败)"}`).join(" → "));
-    }
+    showChatTrace(r.trace);
     if (r.error) chatSay("sys", "错误", r.error);
     if (r.reply) chatSay("agent", "助手", r.reply);
     if (r.state) {
@@ -1115,8 +1126,20 @@ async function send() {
       render();
       refresh();
     }
-  } catch (e) { pending.remove(); chatSay("sys", "错误", e.message); }
+  } catch (e) {
+    pending.remove();
+    SID = e.data?.session_id || SID;
+    showChatTrace(e.data?.trace);
+    chatSay("sys", "错误", e.message);
+  }
   finally { $("send").disabled = false; box.focus(); }
+}
+
+function showChatTrace(trace) {
+  if (!trace?.length) return;
+  const labels = {get_task_overview: "任务概况", get_task: "任务概况", list_task_issues: "问题列表",
+    get_review_item: "复核详情", explain_line: "行项目依据", get_lines: "行项目", get_history: "执行历史"};
+  chatSay("tool", "查询记录", trace.map((t) => `${labels[t.tool] || t.tool}${t.cached ? "（复用）" : ""}${t.ok ? "" : "（失败）"}`).join(" → "));
 }
 
 /* ---------- upload: preview → confirm → inbox ---------- */

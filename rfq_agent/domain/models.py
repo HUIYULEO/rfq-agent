@@ -138,7 +138,12 @@ class Task:
         payload.setdefault("business_checks", [])
         payload.setdefault("approval", {})
         payload.setdefault("extraction", {})
-        return cls(**payload)
+        # A runtime/ directory can outlive a schema change (an older snapshot may
+        # carry fields this build no longer has, e.g. the removed ``triage``).
+        # Keep what this Task knows and drop the rest, the way RFQ.from_dict does,
+        # so a stale file is still readable instead of 500-ing every request.
+        known = set(cls.__dataclass_fields__)
+        return cls(**{key: value for key, value in payload.items() if key in known})
 
     def open_reviews(self) -> list[dict]:
         return [item for item in self.review_items

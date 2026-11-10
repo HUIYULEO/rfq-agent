@@ -1,0 +1,7 @@
+# Materials are parsed byte-for-byte by ingestion: keep the emails stable across
+# checkouts, and never let line-ending conversion touch the binary attachments.
+*.eml   text eol=lf
+*.xlsx  binary
+*.pdf   binary
+*.docx  binary
+Dockerfile text eol=lf

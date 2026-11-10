@@ -1,0 +1,27 @@
+# Render Blueprint: one free Docker web service for the judge-facing link.
+# Docs: refer_doc/RFQ_DEPLOYMENT.md. The service reads $PORT from Render and binds
+# 0.0.0.0 through the Dockerfile's RFQ_HOST.
+services:
+  - type: web
+    name: rfq-agent
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: RFQ_HOST
+        value: 0.0.0.0
+      # Shows the "human approves -> history written -> final document" loop.
+      # Everything it produces is stamped 演示批准; the default policy stays closed.
+      - key: RFQ_DEMO_APPROVAL
+        value: "1"
+      - key: GENESIS_BASE_URL
+        value: https://token.moi.matrixorigin.cn/v1
+      - key: GENESIS_MODEL
+        value: deepseek-v4.1-flash
+      # Never committed: Render asks for it when the blueprint is created.
+      # Leave it empty and the chat layer degrades; the six-step flow still works.
+      - key: GENESIS_ACCESS_TOKEN
+        sync: false
