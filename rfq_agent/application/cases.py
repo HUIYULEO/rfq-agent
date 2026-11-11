@@ -39,6 +39,24 @@ def _mail_files(root: Path) -> list[Path]:
     return files
 
 
+def _readable(path: Path) -> bool:
+    """Deferred import: perception pulls in the model client, which cases must not."""
+    from rfq_agent.llm import perception
+
+    return perception.readable(path)[0]
+
+
+def _sender(raw: str) -> str:
+    """'Mock Buyer <a@b>' -> 'Mock Buyer'; a bare address stays as it is."""
+    return re.sub(r"<.*?>", "", raw or "").strip() or "未标注客户"
+
+
+def _received(raw: str) -> str:
+    from rfq_agent.ingestion.ingest import _mail_date
+
+    return _mail_date(raw) or ""
+
+
 @dataclass
 class Case:
     key: str          # "A".."F", from the buyer address
@@ -90,14 +108,36 @@ def discover(root: Path, *, refresh: bool = False) -> list[Case]:
             continue
         try:
             mail = read_eml(path)
+        except (ValueError, OSError):
+            continue                     # not a readable mail: nothing to offer
+        try:
             rfq = ingest_eml(path)
         except (ValueError, OSError):
+            rfq = None
+        if rfq is None and not _readable(path):
+            # The parser rejected the format *and* there is nothing to extract from.
             continue
         match = BUYER.search(mail.sender)
         if uploads in path.resolve().parents:
             key = f"UP-{path.stem}"          # never collides with an official case letter
         else:
             key = match.group(1).upper() if match else path.stem
+        if rfq is None:
+            # Readable but unrecognised: keep it so the user sees it in the inbox and
+            # the model gets a chance, instead of the mail vanishing on upload.
+            case = Case(key=key, path=path, container="unrecognized",
+                        label=f"{_sender(mail.sender)} · 未识别格式",
+                        customer=_sender(mail.sender), subject=mail.subject,
+                        received=_received(mail.date), lines=0)
+            cases.append(case)
+            if connection is not None:
+                try:
+                    from rfq_agent.infrastructure.db import remember_mail
+
+                    remember_mail(connection, path, mtime, case)
+                except OSError:
+                    pass
+            continue
         container = rfq.lines[0].evidence.get("container", "") if rfq.lines else ""
         case = Case(key=key, path=path, container=container,
                     label=f"{rfq.customer} · {len(rfq.lines)} 行",
@@ -132,11 +172,16 @@ def save_upload(root: Path, name: str, payload: bytes) -> Path:
 PENDING = Path("runtime") / "uploads" / ".pending"
 
 
-def stage_pending(root: Path, name: str, payload: bytes) -> tuple[str, Path, "RFQ"]:
+def stage_pending(root: Path, name: str, payload: bytes) -> tuple[str, Path, "RFQ | None"]:
     """Park an upload for preview: parse it, but admit nothing yet.
 
     The file lives outside the discover() scan path; only confirm_pending() turns it
     into a case. A cancelled preview leaves nothing but a temp file swept at boot.
+
+    An unreadable *format* is not a rejected upload: if the mail has content the
+    model can read, the preview is kept and ``rfq`` comes back as ``None`` so the
+    caller can offer extraction instead of a dead end. Only a file with nothing in
+    it is refused outright.
     """
     if not name.lower().endswith(".eml"):
         raise ValueError("目前只接受 .eml 询价邮件")
@@ -148,8 +193,10 @@ def stage_pending(root: Path, name: str, payload: bytes) -> tuple[str, Path, "RF
     try:
         rfq = ingest_eml(staged)
     except (ValueError, OSError):
-        staged.unlink(missing_ok=True)
-        raise
+        if not _readable(staged):
+            staged.unlink(missing_ok=True)
+            raise
+        rfq = None
     (target / f"{token}.name").write_text(Path(name).name, encoding="utf-8")
     return token, staged, rfq
 

@@ -539,6 +539,31 @@ def _deterministic(path: Path) -> tuple[RFQ | None, str]:
         return None, str(exc)
 
 
+def deterministic(path: Path) -> tuple[RFQ | None, str]:
+    """The parser's verdict without raising: ``(rfq, why_not)``.
+
+    Callers need to tell "the parser read it" from "the parser read nothing *and*
+    the mail has no content to extract from". Keeping this public avoids each of
+    them re-implementing the try/except around ``ingest_eml``.
+    """
+    return _deterministic(path)
+
+
+def readable(path: Path) -> tuple[bool, list[Block]]:
+    """Is there anything in this mail for the model to read?
+
+    A parser failure is not the same as an unreadable mail. When the parser rejects
+    an unfamiliar layout, the blocks are still there and model extraction can use
+    them; when the file is empty or corrupt, nothing can. This is the gate that
+    separates the two, so an unrecognised *format* never gets treated as a bad file.
+    """
+    try:
+        blocks = list_blocks(path)
+    except (ValueError, OSError):
+        return False, []
+    return bool(_usable(blocks)), blocks
+
+
 def _blocks_report(blocks: list[Block]) -> list[dict]:
     return [{"id": block.id, "kind": block.kind, "name": block.name,
              "lines": block.line_count, "note": block.note} for block in blocks]
