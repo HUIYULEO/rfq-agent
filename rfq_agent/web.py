@@ -72,23 +72,49 @@ def _service() -> RFQService:
 
 
 def _understand(case: str):
-    """Main path: the model reads the mail, code audits it, pricing still does the sums.
+    """Main path: the model reads the mail, code audits it, pricing still does the sums."""
+    return _understand_path(case_by_key(ROOT, case).path, load_config(ROOT))
+
+
+def _understand_path(path: Path, config: dict):
+    """Same, for one mail — the seam tests drive without a server or an inbox.
 
     Falls back to the deterministic parser when the model is unconfigured, unreachable
     or refuses the extraction — a dead model must never dead-end the demo. Which path
     actually ran is written to the task trace, so "the agent read this" is checkable
     rather than asserted.
+
+    A mail the parser cannot read is *not* the end of the road any more: as long as it
+    has content, extraction gets a turn. Only a file with nothing in it is refused, and
+    it is refused with the parser's own reason.
     """
-    path = case_by_key(ROOT, case).path
-    config = load_config(ROOT)
-    if missing_keys(config):
-        rfq, _ = load_case(ROOT, case)
-        return rfq, fallback_report("not_configured")
-    try:
-        return perception.run(config, path)
-    except (PerceptionError, GenesisError) as exc:
-        rfq, _ = load_case(ROOT, case)
-        return rfq, fallback_report(exc.code, config.get("GENESIS_MODEL", ""))
+    if not missing_keys(config):
+        try:
+            return perception.run(config, path)
+        except (PerceptionError, GenesisError) as exc:
+            baseline, reason = perception.deterministic(path)
+            if baseline is not None:
+                return baseline, fallback_report(exc.code, config.get("GENESIS_MODEL", ""))
+            return _refuse_unparsed(path, reason, config, exc)
+    baseline, reason = perception.deterministic(path)
+    if baseline is not None:
+        return baseline, fallback_report("not_configured")
+    return _refuse_unparsed(path, reason, config, None)
+
+
+def _refuse_unparsed(path: Path, reason: str, config: dict, exc: Exception | None):
+    """Say exactly why an inquiry could not be read — and never fake a task for it."""
+    readable, _ = perception.readable(path)
+    if not readable:
+        raise ValueError(reason)         # nothing there at all: the parser is right
+    missing = missing_keys(config)
+    if missing or exc is None:
+        raise ValueError(
+            f"代码没识别出这份询价的行项目（{reason}）。这封邮件需要模型抽取，"
+            f"但模型未配置：缺少 {'、'.join(missing) or '模型密钥'}。配置后重新导入即可。")
+    raise ValueError(
+        f"代码没识别出这份询价的行项目（{reason}）。模型抽取也没有通过校验：{exc}。"
+        "邮件已保留，可修正后重新导入。")
 
 
 def _lines_view(rfq: dict) -> list[dict]:
@@ -111,6 +137,17 @@ def _lines_view(rfq: dict) -> list[dict]:
     return lines
 
 
+def _upload_reason(exc: Exception) -> str:
+    """Strip the staging token from a parser message.
+
+    ``ingest_eml`` prefixes its reason with the file it parsed, which for an upload is
+    a 32-hex staging name the user has never seen. The page already shows their own
+    filename, so the token only ever looked like a crash.
+    """
+    text = re.sub(r"^\s*[0-9a-f]{32}\.eml:\s*", "", str(exc), flags=re.I).strip()
+    return text or "无法读取这封邮件"
+
+
 def _preview_view(rfq) -> dict:
     """What an upload will become, shown before the user commits to it."""
     data = rfq.to_dict() if hasattr(rfq, "to_dict") else rfq
@@ -118,6 +155,7 @@ def _preview_view(rfq) -> dict:
     container = ((data.get("lines") or [{}])[0].get("evidence") or {}).get("container", "")
     findings = quality.inspect(data)
     return {
+        "recognized": True,
         "customer": data.get("customer", ""),
         "subject": data.get("subject", ""),
         "rfq_number": data.get("rfq_number", ""),
@@ -134,6 +172,36 @@ def _preview_view(rfq) -> dict:
                     "description": line["description"], "quantity": line["quantity"],
                     "unit": line["unit"]}
                    for line in lines[:5]],
+    }
+
+
+def _unrecognized_view(root: Path, name: str, staged: Path) -> dict:
+    """The parser did not recognise this layout. Report it as a choice, not a failed upload.
+
+    Nothing here claims the mail is unreadable: the blocks below are what the model
+    will actually be given, so the user can see there is something to extract before
+    committing. Pricing stays with the rule engine either way.
+    """
+    readable, blocks = perception.readable(staged)
+    config = load_config(root)
+    missing = missing_keys(config)
+    if not readable:
+        # Nothing to extract from after all; the caller renders this as a plain refusal.
+        return {"recognized": False, "readable": False, "file": name,
+                "reason": "这封邮件里没有可读的正文或附件。",
+                "blocks": [], "model_ready": False, "model_note": ""}
+    return {
+        "recognized": False,
+        "readable": True,
+        "file": name,
+        "reason": "代码未识别该询价格式：正文和附件里没有它能认出的表头。",
+        "blocks": [{"kind": block.kind, "name": block.name, "lines": block.line_count}
+                   for block in blocks if block.kind != "attachment-other"],
+        "model_ready": not missing,
+        "model_note": ("确认后由模型从上面的内容里抽取料号和数量，每个值都要在原文里找得到；"
+                       "报价数字仍由规则引擎计算。"
+                       if not missing else
+                       f"模型未配置（缺少 {'、'.join(missing)}），无法抽取；配置后重新导入。"),
     }
 
 
@@ -831,12 +899,15 @@ class Handler(BaseHTTPRequestHandler):
             payload = self.rfile.read(length)
             with LOCK:
                 try:
-                    token, _, rfq = stage_pending(ROOT, Path(name).name, payload)
-                    view = _preview_view(rfq)
+                    token, staged, rfq = stage_pending(ROOT, Path(name).name, payload)
+                    # An unrecognised format is previewed, not rejected: 200 with the
+                    # model's turn spelled out. Only the empty-file case is a real 400.
+                    view = (_preview_view(rfq) if rfq is not None
+                            else _unrecognized_view(ROOT, Path(name).name, staged))
                     view["token"] = token
                     self._json(view)
                 except (ValueError, OSError) as exc:
-                    self._error(exc)
+                    self._error(_upload_reason(exc))
             return
 
         try:

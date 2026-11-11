@@ -209,6 +209,9 @@
   table.sample td{padding:4px 6px;border-bottom:1px solid var(--line2)}
   .pverr{border:1px solid var(--warn-line);background:var(--bad-soft);color:var(--bad);
          border-radius:8px;padding:10px 12px;font-size:12px}
+  /* An unrecognised format is a fork in the road, not a failure: amber, not red. */
+  .pvnote{border:1px solid var(--warn-line);background:var(--warn-soft);color:var(--warn);
+          border-radius:8px;padding:10px 12px;font-size:12px}
 
   /* Optional question entry, outside the workbench layout. */
   .ask-launch{position:fixed;right:18px;bottom:16px;z-index:10;display:flex;align-items:center;gap:8px;
@@ -443,7 +446,11 @@ const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) =>
 const money = (v) => (v === null || v === undefined || v === "")
   ? "—" : Number(v).toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const CONTAINER = { "body-html": "正文表格", "body-text": "正文表格", "attachment-xlsx": "Excel 附件",
-                    "attachment-pdf": "PDF 附件" };
+                    "attachment-pdf": "PDF 附件", "unrecognized": "未识别格式" };
+/* What the model will actually be given, in the user's words rather than block ids. */
+const BLOCK_KIND = { "body-text": "邮件正文", "body-html": "正文里的表格", "attachment-xlsx": "Excel 附件",
+                     "attachment-pdf": "PDF 附件", "attachment-docx": "Word 附件",
+                     "attachment-text": "文本附件" };
 const RULE_LABEL = { pn_match: "件号匹配", certificate: "证书/适航", uom: "计量单位", condition: "件状", quote_due: "报价截止" };
 const SOURCE = { internal: "内部库存", supplier: "供应商报价", manual: "转人工" };
 const STAGE = { received: "待处理", parsed: "已解析", priced: "待确认", draft: "已出草案" };
@@ -1381,6 +1388,7 @@ function previewBody(p) {
 }
 
 function showPreview(file, p) {
+  if (p.recognized === false) return showUnrecognized(file, p);
   openVeil(previewBody(p),
     `<button class="btn l" id="pvCancelAll">全部取消</button>
      <button class="btn" id="pvSkip">不要这封</button>
@@ -1389,6 +1397,33 @@ function showPreview(file, p) {
   $("pvCancelAll").onclick = () => { if (!PV_BUSY) { QUEUE = []; QINDEX = 0; previewCurrent(); } };
   $("pvSkip").onclick = () => { if (!PV_BUSY) advanceQueue(); };
   $("pvOk").onclick = () => confirmUpload(p.token);
+}
+
+/* The code did not recognise this layout, but the mail is readable: offer the model
+   instead of a dead end. Nothing is claimed as parsed until extraction actually runs. */
+function unrecognizedBody(p) {
+  const blocks = (p.blocks || []).map((b) =>
+    `<li>${esc(BLOCK_KIND[b.kind] || b.kind)} · ${esc(b.name)}<em>${b.lines} 行</em></li>`).join("");
+  return `<div class="pvnote">${esc(p.reason)}</div>
+    <div class="muted" style="margin-top:8px">这不是错误，只是格式不在代码的识别范围内。以下内容可以交给模型读：</div>
+    ${blocks ? `<div class="reqs"><div class="h">模型将读取的内容（${(p.blocks || []).length} 处）</div>
+      <ol>${blocks}</ol></div>` : ""}
+    <div class="findings">
+      <div class="finding ${p.model_ready ? "" : "warn"}"><span class="dot2"></span>
+        <span class="t">下一步</span><span class="d">${esc(p.model_note || "")}</span></div>
+    </div>`;
+}
+
+function showUnrecognized(file, p) {
+  const ready = !!p.model_ready;
+  openVeil(unrecognizedBody(p),
+    `<button class="btn l" id="pvCancelAll">全部取消</button>
+     <button class="btn" id="pvSkip">不要这封</button>
+     <button class="btn primary" id="pvOk"${ready ? "" : " disabled"}>确认并由模型抽取</button>`,
+    file.name, `第 ${QINDEX + 1} / ${QUEUE.length} 个文件 · 未识别格式`);
+  $("pvCancelAll").onclick = () => { if (!PV_BUSY) { QUEUE = []; QINDEX = 0; previewCurrent(); } };
+  $("pvSkip").onclick = () => { if (!PV_BUSY) advanceQueue(); };
+  if (ready) $("pvOk").onclick = () => confirmUpload(p.token);
 }
 
 function showPreviewError(file, message) {

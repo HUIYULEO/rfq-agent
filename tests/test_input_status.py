@@ -72,7 +72,7 @@ class InputStatusTests(unittest.TestCase):
         rfq = RFQ.from_dict(self.data)
         with mock.patch.object(web, "case_by_key", return_value=SimpleNamespace(path=Path("mail.eml"))), \
              mock.patch.object(web, "load_config", return_value={}), \
-             mock.patch.object(web, "load_case", return_value=(rfq, None)), \
+             mock.patch.object(perception, "deterministic", return_value=(rfq, "")), \
              mock.patch.object(perception, "run") as run:
             actual, report = web._understand("B")
         run.assert_not_called()
@@ -89,7 +89,7 @@ class InputStatusTests(unittest.TestCase):
             with self.subTest(code=error.code), \
                  mock.patch.object(web, "case_by_key", return_value=SimpleNamespace(path=Path("mail.eml"))), \
                  mock.patch.object(web, "load_config", return_value=CONFIG), \
-                 mock.patch.object(web, "load_case", return_value=(rfq, None)), \
+                 mock.patch.object(perception, "deterministic", return_value=(rfq, "")), \
                  mock.patch.object(perception, "run", side_effect=error):
                 actual, report = web._understand("B")
                 self.assertIs(actual, rfq)
@@ -98,10 +98,13 @@ class InputStatusTests(unittest.TestCase):
                 self.assertNotIn("test-secret", json.dumps(report))
 
     def test_both_paths_fail_without_creating_empty_rfq(self):
+        # Neither the parser nor the model read anything: refuse, and never hand a
+        # zero-line RFQ to pricing (that is what the old silent 400 hid).
         with mock.patch.object(web, "case_by_key", return_value=SimpleNamespace(path=Path("mail.eml"))), \
              mock.patch.object(web, "load_config", return_value=CONFIG), \
              mock.patch.object(perception, "run", side_effect=GenesisError("offline")), \
-             mock.patch.object(web, "load_case", side_effect=ValueError("unreadable")):
+             mock.patch.object(perception, "deterministic", return_value=(None, "unreadable")), \
+             mock.patch.object(perception, "readable", return_value=(False, [])):
             with self.assertRaisesRegex(ValueError, "unreadable"):
                 web._understand("B")
 
